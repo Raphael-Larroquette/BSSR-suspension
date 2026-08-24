@@ -1,0 +1,57 @@
+type: double_wishbone
+scope: axle
+name: "Aurora Front Axle Recreated"
+version: "0.1.0" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
+units: millimeters
+
+vehicle_config:
+  cg_position: {x: 1127.778, y: 39.844, z: 320}
+  wheelbase: 2240.00
+
+axle_config:
+  axle_position: front
+  steering:
+    type: rack
+  actuation:
+    type: direct #should add more types to this
+    mount: lower_wishbone #should add more mounting locations
+  spring:
+    type: coilover
+  anti_roll:
+    type: none
+  heave_link:
+    type: none
+  wheel: #wheel data for Enlighten tires is encoded in the TyreSize: 95/80R16
+    offset: 23.737 #This is the distance from the centerline of the wheel to the wheel mounting face of the hub. You must measure along the axle’s axis, it is not just the difference between points.
+    tire:
+      aspect_ratio: 0.8  #this is the Sidewall height  / section width (for enlighten its 76mm / 95mm)
+      section_width: 95
+      rim_diameter: 16 #this value is in inches!
+
+# A missing right block means reflect the complete left corner through Y = 0.
+hardpoints:
+  left:
+  # Lower wishbone.
+    lower_wishbone_inboard_front: {x: 46.487, y: 249.79, z: 185}
+    lower_wishbone_inboard_rear: {x: -108.513, y: 249.49, z: 185}
+    lower_wishbone_outboard: {x: 16.487, y: 422.38, z: 185}
+
+  # Upper wishbone.
+    upper_wishbone_inboard_front: {x: 22.127, y: 235.389, z: 514.82}
+    upper_wishbone_inboard_rear: {x: -107.873, y: 235.389, z: 514.82}
+    upper_wishbone_outboard: {x: -42.873, y: 363.02, z: 521.647}
+
+  # Track rod.
+    trackrod_inboard: {x: -150, y: 228.97, z: 531.106} #This is the steering inner RodEnd
+    trackrod_outboard: {x: -129.718, y: 354.863, z: 538.251} #This is the steering outer RodEnd
+
+  # Axle.
+    axle_inboard: {x: 0, y: 405.893, z: 278.5} #this is the point where the axle axis meets the wheel centerline
+    axle_outboard: {x: 0, y: 455, z: 278.5} #this is the point of the axle axis within the upright? (seems non-critical)
+
+  # Outboard coilover.
+    strut_bottom: {x: 16.487, y: 335.273, z: 209.701}
+    strut_top: {x: 16.487, y: 240.576, z: 433.285}
+
+
+#not mentioning the right side defaults it to a mirror of the left.
