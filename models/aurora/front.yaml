@@ -46,12 +46,12 @@ hardpoints:
     trackrod_outboard: {x: -129.718, y: 354.863, z: 538.251} #This is the steering outer RodEnd
 
   # Axle.
-    axle_inboard: {x: 0, y: 405.893, z: 278.5} #this is the point where the axle axis meets the wheel centerline
-    axle_outboard: {x: 0, y: 455, z: 278.5} #this is the point of the axle axis within the upright? (seems non-critical)
+    axle_inboard: {x: 0, y: 405.893, z: 278.5} #this is the point of the axle axis within the upright? (It is non critical and must simply be about 100-200mm from the axle_outboard along the correct direction (the axles axis))
+    axle_outboard: {x: 0, y: 455, z: 278.5} #this is the point where the axle axis meets the hub mounting face
 
   # Outboard coilover.
-    strut_bottom: {x: 16.487, y: 335.273, z: 209.701}
-    strut_top: {x: 16.487, y: 240.576, z: 433.285}
+    strut_bottom: {x: 16.487, y: 335.273, z: 209.701} #this is the bottom mount out the spring & damper onto the LCA
+    strut_top: {x: 16.487, y: 240.576, z: 433.285} #this is the top mount out the spring & damper
 
 
 #not mentioning the right side defaults it to a mirror of the left.
