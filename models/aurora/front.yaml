@@ -1,7 +1,7 @@
 type: double_wishbone
 scope: axle
 name: "Aurora Front Axle Recreated"
-version: "0.1.0" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
+version: "0.1.2" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
 units: millimeters
 
 vehicle_config:

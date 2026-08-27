@@ -6,7 +6,12 @@ readme = "README.md"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
-dependencies = ["numpy>=2.2.0", "pydantic>=2.0", "scipy>=1.14.1"]
+dependencies = [
+    "numpy>=2.2.0",
+    "pandas>=3.0.5",
+    "pydantic>=2.0",
+    "scipy>=1.14.1",
+]
 
 [project.scripts]
 kinematics = "kinematics.cli.bootstrap:main"
