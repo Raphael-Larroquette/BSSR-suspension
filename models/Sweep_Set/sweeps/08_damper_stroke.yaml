@@ -1,0 +1,28 @@
+# 08 - DRIVEN BY DAMPER LENGTH, NOT WHEEL TRAVEL
+# Uses the `element_length` target type. Instead of commanding the wheel and
+# reading the damper, this commands the damper and reads the wheel — which is
+# how you sweep to real bump-stop / droop-stop limits set by damper hardware.
+# Both sides driven together, so this is a heave sweep in damper coordinates.
+# Gives: wheel travel per unit damper travel (the inverse motion ratio) and
+#        the usable wheel travel for a given damper stroke.
+version: 1
+steps: 65
+targets:
+  - type: element_length
+    element: damper
+    side: left
+    mode: relative
+    start: -30
+    stop: 30
+  - type: element_length
+    element: damper
+    side: right
+    mode: relative
+    start: -30
+    stop: 30
+  - type: actuator_position
+    actuator: rack
+    direction: {axis: y}
+    mode: relative
+    start: 0
+    stop: 0

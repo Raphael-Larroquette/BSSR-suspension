@@ -1,0 +1,26 @@
+# 05 - STEERING AT BUMP RIDE HEIGHT (+40 mm)
+# Same rack sweep as 04, both wheels compressed. Diff against 04 to see how
+# much the steering geometry changes when the car is loaded.
+version: 1
+steps: 65
+targets:
+  - type: point
+    point: wheel_center
+    side: left
+    direction: {axis: z}
+    mode: relative
+    start: 40
+    stop: 40
+  - type: point
+    point: wheel_center
+    side: right
+    direction: {axis: z}
+    mode: relative
+    start: 40
+    stop: 40
+  - type: actuator_position
+    actuator: rack
+    direction: {axis: y}
+    mode: relative
+    start: -35
+    stop: 35

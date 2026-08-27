@@ -1,0 +1,28 @@
+# 03 - SINGLE WHEEL BUMP
+# Left wheel only; right held at design height. This is the real one-wheel
+# road input, and it is neither pure heave nor pure roll.
+# Gives: the coupled heave+roll response, asymmetric roll-centre behaviour,
+#        and the honest single-corner camber/toe curve.
+version: 1
+steps: 65
+targets:
+  - type: point
+    point: wheel_center
+    side: left
+    direction: {axis: z}
+    mode: relative
+    start: -63.5 #Define Bump Range in mm
+    stop: 63.5 #Define Bump Range in mm
+  - type: point
+    point: wheel_center
+    side: right
+    direction: {axis: z}
+    mode: relative
+    start: 0
+    stop: 0
+  - type: actuator_position
+    actuator: rack
+    direction: {axis: y}
+    mode: relative
+    start: 0
+    stop: 0

@@ -1,0 +1,27 @@
+# 02 - PURE ROLL
+# Equal and opposite wheel travel, rack centred, zero net heave.
+# Gives: camber vs roll (camber recovery), roll-centre migration in roll
+#        (height AND lateral), track change in roll, roll steer.
+version: 1
+steps: 65
+targets:
+  - type: point
+    point: wheel_center
+    side: left
+    direction: {axis: z}
+    mode: relative
+    start: -25 #Define Roll Range in mm
+    stop: 25 #Define Roll Range in mm
+  - type: point
+    point: wheel_center
+    side: right
+    direction: {axis: z}
+    mode: relative
+    start:  25 #Define Roll Range in mm
+    stop: -25 #Define Roll Range in mm
+  - type: actuator_position
+    actuator: rack
+    direction: {axis: y}
+    mode: relative
+    start: 0
+    stop: 0
