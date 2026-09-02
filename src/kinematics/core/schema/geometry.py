@@ -25,6 +25,7 @@ from kinematics.core.schema.config import (
     VehicleConfig,
 )
 from kinematics.core.schema.decoding import Point3Value, PointIDValue, SideValue
+from kinematics.core.schema.joints import JointsSpec
 
 HardpointMap = dict[PointIDValue, Point3Value]
 
@@ -40,6 +41,10 @@ class GeometrySpecBase(BaseModel):
 
     name: str = "unnamed"
     version: str = "0.0.0"
+    # Bearing joints to report misalignment for, keyed by the point they sit
+    # at. Declared once and applied to both sides of an axle, the same way
+    # hardpoints mirror. An undeclared point produces no output at all.
+    joints: JointsSpec = Field(default_factory=dict)
     # Every length-valued schema, solver tolerance, and metric currently uses
     # millimetres. Reject a misleading declaration until input normalization is
     # implemented end to end.

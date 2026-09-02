@@ -4,7 +4,7 @@ Physical suspension element declarations.
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
 from kinematics.core.enums import Axis
@@ -61,6 +61,20 @@ class SuspensionElement(ABC):
     """
 
     label: str
+    # Name of the rigid body this element belongs to. Several elements share
+    # one ``body_group`` when they are a single weldment that the model
+    # represents as separate two-point links -- an A-arm modelled as a front
+    # and a rear leg, for example. Rigid-body membership is declared here
+    # rather than inferred downstream: a shared endpoint between two links is
+    # a joint in general (a pushrod meeting a rocker), not a weld, so it
+    # cannot be used to group them. Defaults to the element's own label, which
+    # makes every untagged element its own body.
+    body_group: str | None = field(default=None, kw_only=True)
+
+    @property
+    def body_key(self) -> str:
+        """Return the rigid body this element belongs to."""
+        return self.label if self.body_group is None else self.body_group
 
     @property
     @abstractmethod
@@ -270,9 +284,31 @@ def map_element_points(
     transform: Callable[[PointKey], PointKey],
     *,
     label: str | None = None,
+    body_group: str | None = None,
 ) -> SuspensionElement:
     """
     Map every point reference while preserving the concrete element type.
+
+    ``body_group`` must be requalified alongside ``label`` whenever the
+    transform moves points into a new namespace. An axle maps one corner's
+    elements onto side-qualified points, so leaving a shared body group
+    untouched would merge the left and right copies of a weldment into a
+    single rigid body.
+    """
+    mapped = _map_element_points_typed(element, transform, label=label)
+    if body_group is not None:
+        mapped = replace(mapped, body_group=body_group)
+    return mapped
+
+
+def _map_element_points_typed(
+    element: SuspensionElement,
+    transform: Callable[[PointKey], PointKey],
+    *,
+    label: str | None = None,
+) -> SuspensionElement:
+    """
+    Dispatch point mapping on the concrete element type.
     """
     mapped_label = element.label if label is None else label
     if isinstance(element, RigidLinkElement | VariableLengthLinkElement):

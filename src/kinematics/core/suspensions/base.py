@@ -24,10 +24,17 @@ from kinematics.core.enums import (
     SuspensionType,
     Units,
 )
+from kinematics.core.joints import (
+    ResolvedJoint,
+    RigidAttachment,
+    describe_joints_for_export,
+    resolve_joints,
+)
 from kinematics.core.points.derived.manager import DerivedPointsSpec
 from kinematics.core.primitives.geometry import Point3
 from kinematics.core.primitives.point_ref import PointKey, PointRef, Side
 from kinematics.core.schema.config import SuspensionConfig
+from kinematics.core.schema.joints import JointsSpec
 from kinematics.core.state import SuspensionState
 
 if TYPE_CHECKING:
@@ -68,6 +75,9 @@ class Suspension(ABC):
     units: Units = Units.MILLIMETERS
     hardpoints: dict[PointKey, Point3] = field(default_factory=dict)
     config: SuspensionConfig | None = None
+    # Bearing joints declared for misalignment reporting. Only what is listed
+    # here produces output; an undeclared point is not analysed at all.
+    joints: JointsSpec = field(default_factory=dict, kw_only=True)
     side: Side = field(kw_only=True)
 
     # Internal state cache.
@@ -77,6 +87,12 @@ class Suspension(ABC):
         repr=False,
     )
     _assembly_cache: SuspensionAssembly | None = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
+    _joints_cache: tuple[ResolvedJoint, ...] | None = field(
         default=None,
         init=False,
         repr=False,
@@ -368,9 +384,7 @@ class Suspension(ABC):
         """Validate driven points and topology-declared scalar coordinates."""
         target_list = tuple(targets)
         self.validate_sweep_target_points(
-            point
-            for target in target_list
-            for point in target.driven_points
+            point for target in target_list for point in target.driven_points
         )
         available = self.drive_coordinates()
         for target in target_list:
@@ -433,6 +447,31 @@ class Suspension(ABC):
         marks them output-only. The base suspension has none.
         """
         return ()
+
+    def rigid_attachments(self) -> tuple[RigidAttachment, ...]:
+        """Return pickups carried rigidly by a body no element groups them with.
+
+        A mechanism pickup such as an inboard spring mount rides a locating
+        member without appearing in any of that member's elements. Declaring
+        it here folds it into the right rigid body, so a joint at that point
+        resolves to two bodies rather than one.
+        """
+        return ()
+
+    def resolved_joints(self) -> tuple[ResolvedJoint, ...]:
+        """Return declared joints resolved against this suspension's geometry."""
+        if self._joints_cache is None:
+            self._joints_cache = resolve_joints(self)
+        return self._joints_cache
+
+    def joint_export_metadata(self) -> list[dict[str, object]]:
+        """Describe declared joints for a results file's metadata header.
+
+        Owned here rather than assembled by the writer so that an adapter
+        needs nothing beyond the suspension it already holds, and so an axle
+        can tag both of its corners without the caller knowing it has any.
+        """
+        return describe_joints_for_export(self.resolved_joints())
 
     def assembly(self) -> SuspensionAssembly:
         """Return the validated point and element composition."""

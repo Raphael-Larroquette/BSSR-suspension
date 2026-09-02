@@ -141,6 +141,29 @@ class SuspensionType(StrEnum):
     TRAILING_ARM = "trailing_arm"
 
 
+class JointType(StrEnum):
+    """The bearing part installed at a joint.
+
+    This selects report vocabulary and per-side defaults only. It carries no
+    physics: how much freedom the bore and housing directions have is stated
+    by the joint's own ``bore`` and ``housing`` declarations, because the same
+    part behaves differently depending on the body it is mounted to. A rod end
+    threaded into a wishbone has a fully determined housing; the identical
+    part on a two-point track rod does not.
+    """
+
+    BUSHING = "bushing"
+    SPHERICAL = "spherical"
+    ROD_END = "rod_end"
+
+    @property
+    def demand_label(self) -> str:
+        """Return what the reported angle is called for this part."""
+        if self is JointType.BUSHING:
+            return "conical deflection"
+        return "misalignment"
+
+
 class Scope(StrEnum):
     """Whether a model or metric covers one corner or a composed axle."""
 

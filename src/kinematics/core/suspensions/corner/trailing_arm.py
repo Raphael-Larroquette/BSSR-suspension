@@ -457,12 +457,14 @@ class TrailingArmSuspension(CornerSuspension):
         elements: tuple[SuspensionElement, ...] = (
             RigidLinkElement(
                 label="Semi-Trailing Arm Front Link",
+                body_group="Semi-Trailing Arm",
                 type=ElementType.WISHBONE,
                 point_a=PointID.TRAILING_ARM_PIVOT_A,
                 point_b=PointID.TRAILING_ARM_OUTBOARD,
             ),
             RigidLinkElement(
                 label="Semi-Trailing Arm Rear Link",
+                body_group="Semi-Trailing Arm",
                 type=ElementType.WISHBONE,
                 point_a=PointID.TRAILING_ARM_PIVOT_B,
                 point_b=PointID.TRAILING_ARM_OUTBOARD,

@@ -33,7 +33,7 @@ hardpoints:
   left:
   # Lower wishbone.
     lower_wishbone_inboard_front: {x: 46.487, y: 249.79, z: 185}
-    lower_wishbone_inboard_rear: {x: -108.513, y: 249.49, z: 185}
+    lower_wishbone_inboard_rear: {x: -108.513, y: 249.79, z: 185}
     lower_wishbone_outboard: {x: 16.487, y: 422.38, z: 185}
 
   # Upper wishbone.
@@ -47,7 +47,7 @@ hardpoints:
 
   # Axle.
     axle_inboard: {x: 0, y: 405.893, z: 278.5} #this is the point of the axle axis within the upright? (It is non critical and must simply be about 100-200mm from the axle_outboard along the correct direction (the axles axis))
-    axle_outboard: {x: 0, y: 455, z: 278.5} #this is the point where the axle axis meets the hub mounting face
+    axle_outboard: {x: 0, y: 477.279, z: 278.5} #this is the point where the axle axis meets the hub mounting face
 
   # Outboard coilover.
     strut_bottom: {x: 16.487, y: 335.273, z: 209.701} #this is the bottom mount out the spring & damper onto the LCA
@@ -55,3 +55,61 @@ hardpoints:
 
 
 #not mentioning the right side defaults it to a mirror of the left.
+
+
+joints: #this section is for missalignment outputs 
+  lower_wishbone_inboard_front: #the outputs from this are expected to be 0 for all cases (or extremely close to 0)
+    label: "LCA Front Bush"
+    type: bushing
+    bore:
+      part: lower_wishbone
+      axis: {from: lower_wishbone_inboard_front, to: lower_wishbone_inboard_rear}
+  upper_wishbone_inboard_front: #the outputs from this are expected to be 0 for all cases (or extremely close to 0)
+    label: "UCA Front Bush"
+    type: bushing
+    bore:
+      part: upper_wishbone
+      axis: {from: upper_wishbone_inboard_front, to: upper_wishbone_inboard_rear}
+
+  # Outboard ball joints. Both are pressed into a fully located arm, so their
+  # housings are determinate and the bore runs along the steering axis.
+  lower_wishbone_outboard:
+    label: "LBJ"
+    type: spherical
+    bore:
+      part: upright
+      axis: {from: lower_wishbone_outboard, to: upper_wishbone_outboard}
+  upper_wishbone_outboard:
+    label: "UBJ"
+    type: spherical
+    bore:
+      part: upright
+      axis: {vector: [-6.38, 0.191, 1.081]}
+    housing:
+      part: upper_wishbone
+      axis: centred
+
+
+  # For the Track rods the spin of them is undetermined since its a 2 point member (ie there is no 3rd point to solve the system of equations)
+  trackrod_outboard:
+    label: "Outer Tie Rod End"
+    type: rod_end
+    bore: {part: upright, axis: {vector: [-50.284,16.291,-5.917]}}
+    housing: {part: track_rod, axis: indeterminate}
+  trackrod_inboard:
+    label: "Inner Tie Rod End"
+    type: rod_end
+    bore: {part: chassis, axis: {chassis_axis: x}}
+    housing: {part: track_rod, axis: indeterminate}
+
+  # Coilover eyes. The damper body is itself a two-point member.
+  strut_bottom:
+    label: "Damper Lower Mount"
+    type: spherical
+    bore: {part: lower_wishbone, axis: {chassis_axis: x}}
+    housing: {part: spring_damper, axis: indeterminate}
+  strut_top:
+    label: "Damper Upper Mount"
+    type: spherical
+    bore: {part: chassis, axis: {chassis_axis: x}}
+    housing: {part: spring_damper, axis: indeterminate}

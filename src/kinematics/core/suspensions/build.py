@@ -97,6 +97,7 @@ def build_macpherson(spec: GeometrySpecBase) -> Suspension:
             point: position.copy() for point, position in typed.hardpoints.items()
         },
         config=typed.config,
+        joints=typed.joints,
     )
 
 
@@ -114,6 +115,7 @@ def build_trailing_arm(spec: GeometrySpecBase) -> Suspension:
             point: position.copy() for point, position in typed.hardpoints.items()
         },
         config=typed.config,
+        joints=typed.joints,
         spring_type=typed.spring.type,
     )
 
@@ -142,6 +144,7 @@ def build_double_wishbone_axle(spec: GeometrySpecBase) -> Suspension:
             spring=typed.axle_config.spring,
             damper=typed.axle_config.damper,
             hardpoints=side_points[side],
+            joints=typed.joints,
         )
         corners[side] = _build_double_wishbone_corner(
             corner_geometry,
@@ -167,6 +170,7 @@ def build_macpherson_axle(spec: GeometrySpecBase) -> Suspension:
                 CornerConfig(),
             ),
             hardpoints=side_points[side],
+            joints=typed.joints,
         )
         corners[side] = cast(CornerSuspension, build_macpherson(corner_geometry))
     return _assemble_axle(typed, corners, {})
@@ -190,6 +194,7 @@ def build_trailing_arm_axle(spec: GeometrySpecBase) -> Suspension:
             ),
             spring=typed.axle_config.spring,
             hardpoints=side_points[side],
+            joints=typed.joints,
         )
         corners[side] = cast(CornerSuspension, build_trailing_arm(corner_geometry))
     return _assemble_axle(typed, corners, {})
@@ -350,6 +355,7 @@ def _build_corner(
             point: position.copy() for point, position in spec.hardpoints.items()
         },
         config=spec.config,
+        joints=spec.joints,
         actuation=actuation,
         spring=spring,
         damper=damper,

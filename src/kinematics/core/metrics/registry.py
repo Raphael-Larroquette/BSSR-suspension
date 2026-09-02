@@ -7,6 +7,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Sequence, cast
 
 from kinematics.core.enums import Scope
+from kinematics.core.joints import joint_metric_specs
 from kinematics.core.metrics.catalog import (
     get_default_corner_derivative_metrics,
     get_default_corner_metrics,
@@ -161,6 +162,7 @@ def metric_specs_for_suspension(suspension: "Suspension") -> dict[str, MetricSpe
         axle = cast("AxleSuspension", suspension)
         for corner in axle.corners.values():
             state_specs.extend(corner.topology_metric_specs())
+            state_specs.extend(joint_metric_specs(corner.resolved_joints()))
             derivatives.extend(
                 (definition, Scope.CORNER)
                 for definition in (
@@ -177,6 +179,7 @@ def metric_specs_for_suspension(suspension: "Suspension") -> dict[str, MetricSpe
         corner = cast("CornerSuspension", suspension)
         state_specs = [spec for spec in state_specs if spec.scope is Scope.CORNER]
         state_specs.extend(corner.topology_metric_specs())
+        state_specs.extend(joint_metric_specs(corner.resolved_joints()))
         derivatives.extend(
             (definition, Scope.CORNER)
             for definition in (

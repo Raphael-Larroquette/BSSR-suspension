@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Mapping, Sequence, cast, overload
 
 from kinematics.core.enums import PointID
+from kinematics.core.joints import joint_metric_values
 from kinematics.core.metrics.axle_metrics import append_axle_state_metrics
 from kinematics.core.metrics.catalog import (
     get_default_corner_derivative_metrics,
@@ -227,6 +228,13 @@ def compute_metrics_for_state(
     for metric in catalog:
         row[metric.column_name] = metric.compute(ctx)
     row.update(suspension.topology_metric_values(state))
+    row.update(
+        joint_metric_values(
+            suspension.resolved_joints(),
+            suspension.initial_state().positions,
+            state.positions,
+        )
+    )
     if tangents:
         definitions = (
             *get_default_corner_derivative_metrics(suspension),

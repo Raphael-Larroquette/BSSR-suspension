@@ -2,6 +2,7 @@
 File-to-file sweep command service.
 """
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -75,10 +76,18 @@ def run_sweep_files(
         )
 
     evaluated = solve_evaluated_sweep(suspension, sweep_config)
+    extra_metadata: dict[str, str] = {}
+    joint_metadata = suspension.joint_export_metadata()
+    if joint_metadata:
+        # Carried in the file header so a report can name the parts at each
+        # joint, state how their rotations were determined, and solve for
+        # bearing axes from the exported relative rotations alone.
+        extra_metadata["joints"] = json.dumps(joint_metadata)
     writer = create_writer_for_path(
         output_path,
         geometry_path=str(geometry_path),
         sweep_path=str(sweep_path),
+        **extra_metadata,
     )
     output_points = suspension.output_points()
     metric_specs = flat_specs_for_suspension(suspension)

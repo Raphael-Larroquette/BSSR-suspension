@@ -3,7 +3,7 @@
 ## Provenance
 
 - geometry: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\models\aurora\front.yaml`
-- geometry SHA-256: `2360b2b22835a7fd...`
+- geometry SHA-256: `4141bf717bba475c...`
 - format version: 3
 - reported side: **left**
 
@@ -11,14 +11,14 @@
 
 | file | kind | steps | converged | max residual | notes |
 | --- | --- | --- | --- | --- | --- |
-| `01_bump_parallel` | heave | 65 | True | 4.18e-06 | - |
-| `02_roll` | roll | 65 | True | 3.65e-06 | - |
-| `03_single_wheel_bump` | single_wheel | 65 | True | 4.01e-06 | - |
-| `04_steer_design` | steer | 65 | True | 4.35e-06 | - |
-| `05_steer_bump` | steer | 65 | True | 4.28e-06 | Held at +40.0 mm wheel travel, not design height. |
-| `06_steer_droop` | steer | 65 | True | 4.62e-06 | Held at -40.0 mm wheel travel, not design height. |
-| `07_bump_at_steer` | heave_at_steer | 65 | True | 4.08e-06 | Rack held at +20.00 mm - this is a STEERED sweep. |
-| `08_damper_stroke` | damper_stroke | 65 | True | 2.14e-06 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
+| `01_bump_parallel` | heave | 22 | True | 2.02e-06 | - |
+| `02_roll` | roll | 65 | True | 4.13e-06 | - |
+| `03_single_wheel_bump` | single_wheel | 22 | True | 1.27e-06 | - |
+| `04_steer_design` | steer | 65 | True | 2.69e-06 | - |
+| `05_steer_bump` | steer | 65 | True | 4.08e-06 | Held at +50.0 mm wheel travel, not design height. |
+| `06_steer_droop` | steer | 65 | True | 4.90e-06 | Held at -55.0 mm wheel travel, not design height. |
+| `07_bump_at_steer` | heave_at_steer | 65 | True | 2.91e-06 | Rack held at +20.00 mm - this is a STEERED sweep. |
+| `08_damper_stroke` | damper_stroke | 65 | True | 3.25e-06 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
 
 ## 01_bump_parallel  (heave)
 
@@ -26,60 +26,56 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.0000 | -1.3311 | 0.1213 | 1.4524 |
-| Caster | deg | 10.0000 | 9.9969 | 10.0469 | 0.0500 |
-| Kingpin inclination | deg | 10.0000 | 9.8769 | 11.3310 | 1.4542 |
-| Toe (positive = toe-in) | deg | 0.0000 | -0.0069 | 0.0166 | 0.0235 |
-| ISO steer angle | deg | -0.0000 | -0.0166 | 0.0069 | 0.0235 |
-| Scrub radius (ISO unsigned) | mm | 54.7086 | 54.6909 | 54.8595 | 0.1687 |
-| Scrub radius (signed lateral) | mm | -23.8609 | -23.9661 | -23.8519 | 0.1142 |
-| Steering-axis offset at ground | mm | -23.8609 | -23.9661 | -23.8519 | 0.1142 |
-| Mechanical trail | mm | 49.2309 | 49.2156 | 49.3477 | 0.1321 |
-| Half track | mm | 431.2630 | 419.7472 | 431.3512 | 11.6040 |
-| Wheel travel | mm | -0.0000 | -63.5000 | 63.5000 | 127.0000 |
-| Damper length | mm | 242.8113 | 209.6621 | 274.7803 | 65.1182 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5113 | 0.4984 | 0.5324 | 0.0340 |
-| Motion ratio squared | - | 0.2615 | 0.2484 | 0.2835 | 0.0350 |
-| Front-view IC, y | mm | -5930.6063 | -156225.5218 | 157025.6131 | 313251.1349 |
-| Front-view IC, z | mm | 185.0001 | -25357.7228 | 23813.3103 | 49171.0332 |
-| Front-view swing-arm length | mm | 6364.5790 | -158632.2369 | 158458.0578 | 317090.2947 |
-| Side-view IC, x | mm | nan | -15359909.9339 | 15274171.0123 | 30634080.9462 |
-| Side-view IC, z | mm | nan | 423.6196 | 630.5541 | 206.9345 |
-| Side-view swing-arm length | mm | nan | -15359909.9336 | 15274171.0120 | 30634080.9455 |
-| Side-view swing-arm angle | deg | nan | -0.0654 | 0.0701 | 0.1354 |
-| Camber, road-relative | deg | -0.0000 | -1.3311 | 0.1213 | 1.4524 |
+| Camber | deg | 0.0000 | -0.8833 | 0.1210 | 1.0043 |
+| Caster | deg | 10.0000 | 9.9963 | 10.0279 | 0.0316 |
+| Kingpin inclination | deg | 10.0000 | 9.8771 | 10.8844 | 1.0072 |
+| Toe (positive = toe-in) | deg | -0.0000 | -0.0073 | 0.0173 | 0.0247 |
+| ISO steer angle | deg | 0.0000 | -0.0173 | 0.0073 | 0.0247 |
+| Scrub radius (ISO unsigned) | mm | 49.2564 | 49.2410 | 49.2665 | 0.0256 |
+| Scrub radius (signed lateral) | mm | -1.5819 | -1.5866 | -1.5810 | 0.0056 |
+| Steering-axis offset at ground | mm | -1.5819 | -1.5866 | -1.5810 | 0.0056 |
+| Mechanical trail | mm | 49.2309 | 49.2156 | 49.2410 | 0.0254 |
+| Half track | mm | 453.5420 | 444.6960 | 453.6272 | 8.9312 |
+| Wheel travel | mm | 0.0000 | -55.0000 | 50.0000 | 105.0000 |
+| Damper length | mm | 242.8113 | 217.0122 | 270.5443 | 53.5321 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5094 | 0.5015 | 0.5223 | 0.0208 |
+| Motion ratio squared | - | 0.2595 | 0.2515 | 0.2728 | 0.0213 |
+| Front-view IC, y | mm | -5930.6063 | -83588.9565 | 49231.5400 | 132820.4965 |
+| Front-view IC, z | mm | 185.0000 | -8441.5587 | 12425.8124 | 20867.3711 |
+| Front-view swing-arm length | mm | 6386.8485 | -49500.7907 | 84957.7067 | 134458.4974 |
+| Camber, road-relative | deg | 0.0000 | -0.8833 | 0.1210 | 1.0043 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | 0.0000 | -23.0316 | 0.1764 | 23.2080 |
-| Track change rate | mm/mm | 0.0577 | -0.5469 | 0.6721 | 1.2190 |
-| Roll-centre height | mm | 11.8884 | -52.6506 | 76.5638 | 129.2145 |
-| Roll-centre lateral position | mm | -0.0000 | -0.0001 | 0.0000 | 0.0002 |
-| Roll-centre migration vs travel | mm/mm | -1.0397 | -1.0437 | -0.9001 | 0.1436 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | 0.0000 | -17.6920 | 0.1703 | 17.8623 |
+| Track change rate | mm/mm | 0.0575 | -0.4096 | 0.5927 | 1.0022 |
+| Roll-centre height | mm | 12.4925 | -42.5341 | 75.9925 | 118.5266 |
+| Roll-centre lateral position | mm | -0.0000 | -0.0000 | 0.0000 | 0.0001 |
+| Roll-centre migration vs travel | mm/mm | -1.1334 | -1.1662 | -1.0573 | 0.1089 |
 | Body roll | deg | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Heave | mm | -0.0000 | -63.5000 | 63.5000 | 127.0000 |
-| Ride-height change | mm | 0.0000 | -63.5753 | 63.4986 | 127.0739 |
+| Heave | mm | 0.0000 | -55.0000 | 50.0000 | 105.0000 |
+| Ride-height change | mm | -0.0000 | -50.0332 | 54.9999 | 105.0331 |
 | Rack displacement | mm | -0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Steering ratio | deg/mm | -0.6832 | -0.7555 | -0.6171 | 0.1384 |
+| Steering ratio | deg/mm | -0.6833 | -0.7415 | -0.6352 | 0.1062 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber gain | deg/mm | -0.0089 | -0.0367 | 0.0188 | 0.0556 |
-| Bump steer rate | deg/mm | -0.0004 | -0.0004 | 0.0010 | 0.0015 |
-| ISO steer gain in bump | deg/mm | 0.0004 | -0.0010 | 0.0004 | 0.0015 |
-| Caster gain | deg/mm | 0.0003 | -0.0007 | 0.0014 | 0.0021 |
-| KPI gain | deg/mm | 0.0090 | -0.0190 | 0.0366 | 0.0557 |
-| Half-track change rate | mm/mm | 0.0289 | -0.2734 | 0.3360 | 0.6095 |
-| Wheel-centre recession rate | mm/mm | -0.0002 | -0.0004 | 0.0008 | 0.0012 |
-| Damper rate vs wheel | mm/mm | -0.5113 | -0.5324 | -0.4984 | 0.0340 |
-| Toe per rack | deg/mm | 0.6832 | 0.6171 | 0.7555 | 0.1384 |
-| Steer per rack | deg/mm | -0.6832 | -0.7555 | -0.6171 | 0.1384 |
-| Camber per rack | deg/mm | -0.1200 | -0.1344 | -0.1071 | 0.0273 |
+| Camber gain | deg/mm | -0.0089 | -0.0280 | 0.0131 | 0.0411 |
+| Bump steer rate | deg/mm | -0.0004 | -0.0004 | 0.0003 | 0.0007 |
+| ISO steer gain in bump | deg/mm | 0.0004 | -0.0003 | 0.0004 | 0.0007 |
+| Caster gain | deg/mm | 0.0003 | -0.0004 | 0.0009 | 0.0013 |
+| KPI gain | deg/mm | 0.0090 | -0.0132 | 0.0279 | 0.0411 |
+| Half-track change rate | mm/mm | 0.0288 | -0.2048 | 0.2963 | 0.5011 |
+| Wheel-centre recession rate | mm/mm | -0.0003 | -0.0004 | 0.0002 | 0.0006 |
+| Damper rate vs wheel | mm/mm | -0.5094 | -0.5223 | -0.5015 | 0.0208 |
+| Toe per rack | deg/mm | 0.6833 | 0.6352 | 0.7415 | 0.1062 |
+| Steer per rack | deg/mm | -0.6833 | -0.7415 | -0.6352 | 0.1062 |
+| Camber per rack | deg/mm | -0.1196 | -0.1321 | -0.1094 | 0.0227 |
 
 ## 02_roll  (roll)
 
@@ -87,62 +83,58 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.0000 | -0.3275 | 0.1209 | 0.4484 |
-| Caster | deg | 10.0000 | 9.9969 | 10.0107 | 0.0138 |
-| Kingpin inclination | deg | 10.0000 | 9.8773 | 10.3287 | 0.4514 |
-| Toe (positive = toe-in) | deg | 0.0000 | -0.0065 | 0.0105 | 0.0169 |
-| ISO steer angle | deg | -0.0000 | -0.0105 | 0.0065 | 0.0169 |
-| Scrub radius (ISO unsigned) | mm | 54.7086 | 54.4371 | 55.0351 | 0.5979 |
-| Scrub radius (signed lateral) | mm | -23.8609 | -24.1367 | -23.6750 | 0.4617 |
-| Steering-axis offset at ground | mm | -23.8609 | -24.1367 | -23.6750 | 0.4617 |
-| Mechanical trail | mm | 49.2309 | 49.0193 | 49.4599 | 0.4405 |
-| Half track | mm | 431.2630 | 429.0572 | 431.3512 | 2.2940 |
+| Camber | deg | 0.0000 | -0.3252 | 0.1210 | 0.4462 |
+| Caster | deg | 10.0000 | 9.9963 | 10.0100 | 0.0137 |
+| Kingpin inclination | deg | 10.0000 | 9.8771 | 10.3264 | 0.4492 |
+| Toe (positive = toe-in) | deg | -0.0000 | -0.0066 | 0.0105 | 0.0171 |
+| ISO steer angle | deg | 0.0000 | -0.0105 | 0.0066 | 0.0171 |
+| Scrub radius (ISO unsigned) | mm | 49.2564 | 49.2465 | 49.2597 | 0.0133 |
+| Scrub radius (signed lateral) | mm | -1.5819 | -1.5988 | -1.5703 | 0.0285 |
+| Steering-axis offset at ground | mm | -1.5819 | -1.5988 | -1.5703 | 0.0285 |
+| Mechanical trail | mm | 49.2309 | 49.2214 | 49.2338 | 0.0124 |
+| Half track | mm | 453.5420 | 451.3421 | 453.6301 | 2.2881 |
 | Wheel travel | mm | -0.0000 | -25.0000 | 25.0000 | 50.0000 |
-| Damper length | mm | 242.8113 | 229.9249 | 255.5027 | 25.5778 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5113 | 0.5043 | 0.5197 | 0.0154 |
-| Motion ratio squared | - | 0.2615 | 0.2543 | 0.2701 | 0.0158 |
-| Front-view IC, y | mm | -5930.6063 | -87020.2499 | -2847.7095 | 84172.5405 |
-| Front-view IC, z | mm | 185.0001 | -267.3898 | 12946.8730 | 13214.2628 |
-| Front-view swing-arm length | mm | 6364.5790 | 3291.1713 | 88406.2721 | 85115.1008 |
-| Side-view IC, x | mm | nan | -38950174.0923 | 38864360.6590 | 77814534.7513 |
-| Side-view IC, z | mm | nan | 487.1425 | 563.9190 | 76.7765 |
-| Side-view swing-arm length | mm | nan | -38950174.0921 | 38864360.6589 | 77814534.7510 |
-| Side-view swing-arm angle | deg | nan | -0.0248 | 0.0253 | 0.0501 |
-| Camber, road-relative | deg | -0.0000 | -3.6605 | 3.4539 | 7.1144 |
-| Camber recovery | deg/deg | -0.0673 | -0.1290 | -0.0054 | 0.1237 |
+| Damper length | mm | 242.8113 | 229.9942 | 255.4757 | 25.4815 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5094 | 0.5041 | 0.5160 | 0.0120 |
+| Motion ratio squared | - | 0.2595 | 0.2541 | 0.2663 | 0.0122 |
+| Front-view IC, y | mm | -5930.6063 | -83588.9717 | -2857.8880 | 80731.0837 |
+| Front-view IC, z | mm | 185.0000 | -266.6989 | 12425.8153 | 12692.5142 |
+| Front-view swing-arm length | mm | 6386.8485 | 3323.4516 | 84957.7222 | 81634.2706 |
+| Camber, road-relative | deg | 0.0000 | -3.4940 | 3.2898 | 6.7838 |
+| Camber recovery | deg/deg | -0.0705 | -0.1344 | -0.0059 | 0.1286 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | 0.0000 | -1.5056 | 0.0000 | 1.5056 |
-| Track change rate | mm/mm | 0.0577 | -0.1783 | 0.2960 | 0.4742 |
-| Roll-centre height | mm | 11.8884 | -91.8693 | 11.8884 | 103.7577 |
-| Roll-centre lateral position | mm | 0.0001 | -875.1146 | 875.1144 | 1750.2290 |
-| Roll-centre migration vs roll | mm/deg | 0.0000 | -60.0785 | 60.0780 | 120.1564 |
-| Roll-centre lateral migration vs roll | mm/deg | -268.0858 | -268.0858 | -252.2991 | 15.7866 |
-| Body roll | deg | -0.0000 | -3.3330 | 3.3330 | 6.6659 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | 0.0000 | -1.5613 | 0.0000 | 1.5613 |
+| Track change rate | mm/mm | 0.0575 | -0.1761 | 0.2956 | 0.4717 |
+| Roll-centre height | mm | 12.4925 | -98.1499 | 12.4925 | 110.6423 |
+| Roll-centre lateral position | mm | 0.0000 | -940.3398 | 940.3396 | 1880.6793 |
+| Roll-centre migration vs roll | mm/deg | 0.0000 | -66.2302 | 66.2298 | 132.4599 |
+| Roll-centre lateral migration vs roll | mm/deg | -308.4378 | -308.4378 | -274.9713 | 33.4665 |
+| Body roll | deg | -0.0000 | -3.1688 | 3.1688 | 6.3376 |
 | Heave | mm | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Ride-height change | mm | -0.0000 | -0.0000 | 0.0384 | 0.0384 |
+| Ride-height change | mm | -0.0000 | -0.0000 | 0.0366 | 0.0366 |
 | Rack displacement | mm | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Steering ratio | deg/mm | -0.6832 | -0.7060 | -0.6609 | 0.0451 |
+| Steering ratio | deg/mm | -0.6833 | -0.7060 | -0.6610 | 0.0449 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber gain | deg/mm | -0.0089 | -0.0175 | -0.0006 | 0.0169 |
+| Camber gain | deg/mm | -0.0089 | -0.0173 | -0.0006 | 0.0167 |
 | Bump steer rate | deg/mm | -0.0004 | -0.0004 | -0.0001 | 0.0003 |
 | ISO steer gain in bump | deg/mm | 0.0004 | 0.0001 | 0.0004 | 0.0003 |
-| Caster gain | deg/mm | 0.0003 | -0.0000 | 0.0006 | 0.0006 |
-| KPI gain | deg/mm | 0.0090 | 0.0007 | 0.0175 | 0.0168 |
-| Half-track change rate | mm/mm | 0.0289 | -0.0891 | 0.1480 | 0.2371 |
-| Wheel-centre recession rate | mm/mm | -0.0002 | -0.0004 | 0.0002 | 0.0005 |
-| Damper rate vs wheel | mm/mm | -0.5113 | -0.5197 | -0.5043 | 0.0154 |
-| Toe per rack | deg/mm | 0.6832 | 0.6609 | 0.7060 | 0.0451 |
-| Steer per rack | deg/mm | -0.6832 | -0.7060 | -0.6609 | 0.0451 |
-| Camber per rack | deg/mm | -0.1200 | -0.1244 | -0.1157 | 0.0088 |
+| Caster gain | deg/mm | 0.0003 | 0.0000 | 0.0005 | 0.0005 |
+| KPI gain | deg/mm | 0.0090 | 0.0007 | 0.0173 | 0.0166 |
+| Half-track change rate | mm/mm | 0.0288 | -0.0881 | 0.1478 | 0.2359 |
+| Wheel-centre recession rate | mm/mm | -0.0003 | -0.0004 | -0.0001 | 0.0003 |
+| Damper rate vs wheel | mm/mm | -0.5094 | -0.5160 | -0.5041 | 0.0120 |
+| Toe per rack | deg/mm | 0.6833 | 0.6610 | 0.7060 | 0.0449 |
+| Steer per rack | deg/mm | -0.6833 | -0.7060 | -0.6610 | 0.0449 |
+| Camber per rack | deg/mm | -0.1196 | -0.1244 | -0.1149 | 0.0095 |
 
 ## 03_single_wheel_bump  (single_wheel)
 
@@ -150,60 +142,56 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.0000 | -1.3311 | 0.1213 | 1.4524 |
-| Caster | deg | 10.0000 | 9.9969 | 10.0469 | 0.0500 |
-| Kingpin inclination | deg | 10.0000 | 9.8769 | 11.3310 | 1.4542 |
-| Toe (positive = toe-in) | deg | 0.0000 | -0.0069 | 0.0166 | 0.0235 |
-| ISO steer angle | deg | -0.0000 | -0.0166 | 0.0069 | 0.0235 |
-| Scrub radius (ISO unsigned) | mm | 54.7086 | 54.4550 | 55.1912 | 0.7362 |
-| Scrub radius (signed lateral) | mm | -23.8609 | -24.2664 | -23.6794 | 0.5869 |
-| Steering-axis offset at ground | mm | -23.8609 | -24.2664 | -23.6794 | 0.5869 |
-| Mechanical trail | mm | 49.2309 | 49.0370 | 49.5703 | 0.5333 |
-| Half track | mm | 431.2630 | 419.7472 | 431.3512 | 11.6040 |
-| Wheel travel | mm | 0.0000 | -63.5000 | 63.5000 | 127.0000 |
-| Damper length | mm | 242.8113 | 209.6621 | 274.7803 | 65.1182 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5113 | 0.4984 | 0.5324 | 0.0340 |
-| Motion ratio squared | - | 0.2615 | 0.2484 | 0.2835 | 0.0350 |
-| Front-view IC, y | mm | -5930.6063 | -156225.5230 | 157025.6101 | 313251.1331 |
-| Front-view IC, z | mm | 185.0000 | -25357.7232 | 23813.3108 | 49171.0340 |
-| Front-view swing-arm length | mm | 6364.5790 | -158632.2339 | 158458.0591 | 317090.2930 |
-| Side-view IC, x | mm | nan | -15359910.8154 | 15274179.9551 | 30634090.7705 |
-| Side-view IC, z | mm | nan | 423.6196 | 630.5541 | 206.9345 |
-| Side-view swing-arm length | mm | nan | -15359910.8151 | 15274179.9547 | 30634090.7698 |
-| Side-view swing-arm angle | deg | nan | -0.0654 | 0.0701 | 0.1354 |
-| Camber, road-relative | deg | -0.0000 | -5.6120 | 4.0885 | 9.7005 |
+| Camber | deg | -0.0000 | -0.8833 | 0.1210 | 1.0043 |
+| Caster | deg | 10.0000 | 9.9963 | 10.0279 | 0.0316 |
+| Kingpin inclination | deg | 10.0000 | 9.8771 | 10.8844 | 1.0072 |
+| Toe (positive = toe-in) | deg | -0.0000 | -0.0074 | 0.0173 | 0.0247 |
+| ISO steer angle | deg | 0.0000 | -0.0173 | 0.0074 | 0.0247 |
+| Scrub radius (ISO unsigned) | mm | 49.2564 | 49.2490 | 49.2565 | 0.0076 |
+| Scrub radius (signed lateral) | mm | -1.5819 | -1.6019 | -1.5722 | 0.0297 |
+| Steering-axis offset at ground | mm | -1.5819 | -1.6019 | -1.5722 | 0.0297 |
+| Mechanical trail | mm | 49.2309 | 49.2239 | 49.2312 | 0.0073 |
+| Half track | mm | 453.5420 | 444.6960 | 453.6272 | 8.9312 |
+| Wheel travel | mm | -0.0000 | -55.0000 | 50.0000 | 105.0000 |
+| Damper length | mm | 242.8113 | 217.0122 | 270.5443 | 53.5321 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5094 | 0.5015 | 0.5223 | 0.0208 |
+| Motion ratio squared | - | 0.2595 | 0.2515 | 0.2728 | 0.0213 |
+| Front-view IC, y | mm | -5930.6063 | -83588.9622 | 49231.5313 | 132820.4935 |
+| Front-view IC, z | mm | 185.0000 | -8441.5578 | 12425.8135 | 20867.3713 |
+| Front-view swing-arm length | mm | 6386.8485 | -49500.7820 | 84957.7125 | 134458.4945 |
+| Camber, road-relative | deg | -0.0000 | -4.0689 | 3.4566 | 7.5254 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | 0.0000 | -9.1501 | 0.1169 | 9.2670 |
-| Track change rate | mm/mm | 0.0577 | -0.5469 | 0.6721 | 1.2190 |
-| Roll-centre height | mm | 11.8884 | -158.4803 | 69.8699 | 228.3502 |
-| Roll-centre lateral position | mm | 0.0000 | -5836.6351 | 1986.3800 | 7823.0152 |
-| Roll-centre migration vs travel | mm/mm | -0.5336 | -40.0215 | 50.2099 | 90.2313 |
-| Body roll | deg | 0.0000 | -4.2718 | 4.2808 | 8.5526 |
-| Heave | mm | -0.0000 | -31.7500 | 31.7500 | 63.5000 |
-| Ride-height change | mm | 0.0000 | -31.9883 | 32.0878 | 64.0761 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | 0.0000 | -7.1637 | 0.1083 | 7.2721 |
+| Track change rate | mm/mm | 0.0575 | -0.4096 | 0.5927 | 1.0022 |
+| Roll-centre height | mm | 12.4925 | -16.6522 | 52.9884 | 69.6406 |
+| Roll-centre lateral position | mm | 0.0000 | -1001.9615 | 1392.2011 | 2394.1627 |
+| Roll-centre migration vs travel | mm/mm | -0.6763 | -2.9145 | 4.7551 | 7.6696 |
+| Body roll | deg | -0.0000 | -3.5048 | 3.1856 | 6.6904 |
+| Heave | mm | -0.0000 | -27.5000 | 25.0000 | 52.5000 |
+| Ride-height change | mm | 0.0000 | -25.1011 | 27.7176 | 52.8187 |
 | Rack displacement | mm | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Steering ratio | deg/mm | -0.6832 | -0.7555 | -0.6171 | 0.1384 |
+| Steering ratio | deg/mm | -0.6833 | -0.7415 | -0.6352 | 0.1062 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber gain | deg/mm | -0.0089 | -0.0367 | 0.0188 | 0.0556 |
-| Bump steer rate | deg/mm | -0.0004 | -0.0004 | 0.0010 | 0.0015 |
-| ISO steer gain in bump | deg/mm | 0.0004 | -0.0010 | 0.0004 | 0.0015 |
-| Caster gain | deg/mm | 0.0003 | -0.0007 | 0.0014 | 0.0021 |
-| KPI gain | deg/mm | 0.0090 | -0.0190 | 0.0366 | 0.0557 |
-| Half-track change rate | mm/mm | 0.0289 | -0.2734 | 0.3360 | 0.6095 |
-| Wheel-centre recession rate | mm/mm | -0.0002 | -0.0004 | 0.0008 | 0.0012 |
-| Damper rate vs wheel | mm/mm | -0.5113 | -0.5324 | -0.4984 | 0.0340 |
-| Toe per rack | deg/mm | 0.6832 | 0.6171 | 0.7555 | 0.1384 |
-| Steer per rack | deg/mm | -0.6832 | -0.7555 | -0.6171 | 0.1384 |
-| Camber per rack | deg/mm | -0.1200 | -0.1344 | -0.1071 | 0.0273 |
+| Camber gain | deg/mm | -0.0089 | -0.0280 | 0.0131 | 0.0411 |
+| Bump steer rate | deg/mm | -0.0004 | -0.0004 | 0.0003 | 0.0007 |
+| ISO steer gain in bump | deg/mm | 0.0004 | -0.0003 | 0.0004 | 0.0007 |
+| Caster gain | deg/mm | 0.0003 | -0.0004 | 0.0009 | 0.0013 |
+| KPI gain | deg/mm | 0.0090 | -0.0132 | 0.0279 | 0.0411 |
+| Half-track change rate | mm/mm | 0.0288 | -0.2048 | 0.2963 | 0.5011 |
+| Wheel-centre recession rate | mm/mm | -0.0003 | -0.0004 | 0.0002 | 0.0006 |
+| Damper rate vs wheel | mm/mm | -0.5094 | -0.5223 | -0.5015 | 0.0208 |
+| Toe per rack | deg/mm | 0.6833 | 0.6352 | 0.7415 | 0.1062 |
+| Steer per rack | deg/mm | -0.6833 | -0.7415 | -0.6352 | 0.1062 |
+| Camber per rack | deg/mm | -0.1196 | -0.1321 | -0.1094 | 0.0227 |
 
 ## 04_steer_design  (steer)
 
@@ -211,61 +199,57 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | 0.0000 | -3.4602 | 6.1973 | 9.6575 |
-| Caster | deg | 10.0000 | 9.9996 | 10.0007 | 0.0011 |
-| Kingpin inclination | deg | 10.0000 | 9.9876 | 10.0232 | 0.0356 |
-| Toe (positive = toe-in) | deg | -0.0000 | -26.3992 | 23.6165 | 50.0157 |
-| ISO steer angle | deg | 0.0000 | -23.6165 | 26.3992 | 50.0157 |
-| Scrub radius (ISO unsigned) | mm | 54.7086 | 34.4545 | 70.4473 | 35.9928 |
-| Scrub radius (signed lateral) | mm | -23.8609 | -24.1726 | -23.5757 | 0.5969 |
-| Steering-axis offset at ground | mm | -23.8609 | -24.1726 | -23.5757 | 0.5969 |
-| Mechanical trail | mm | 49.2309 | 25.1256 | 66.1702 | 41.0446 |
-| Half track | mm | 431.2630 | 404.3032 | 443.2212 | 38.9180 |
+| Camber | deg | 0.0000 | -3.4556 | 6.1546 | 9.6101 |
+| Caster | deg | 10.0000 | 9.9993 | 10.0014 | 0.0020 |
+| Kingpin inclination | deg | 10.0000 | 9.9773 | 10.0449 | 0.0675 |
+| Toe (positive = toe-in) | deg | -0.0000 | -26.3323 | 23.6619 | 49.9943 |
+| ISO steer angle | deg | 0.0000 | -23.6619 | 26.3323 | 49.9943 |
+| Scrub radius (ISO unsigned) | mm | 49.2564 | 25.0096 | 66.7509 | 41.7413 |
+| Scrub radius (signed lateral) | mm | -1.5819 | -2.1736 | -1.0395 | 1.1340 |
+| Steering-axis offset at ground | mm | -1.5819 | -2.1736 | -1.0395 | 1.1340 |
+| Mechanical trail | mm | 49.2309 | 24.9880 | 66.7155 | 41.7275 |
+| Half track | mm | 453.5420 | 424.2482 | 463.6023 | 39.3541 |
 | Wheel travel | mm | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Damper length | mm | 242.8113 | 241.5493 | 243.5314 | 1.9820 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5113 | 0.5107 | 0.5118 | 0.0011 |
-| Motion ratio squared | - | 0.2615 | 0.2608 | 0.2619 | 0.0011 |
-| Front-view IC, y | mm | -5930.6063 | -6268.3878 | -5413.8808 | 854.5070 |
-| Front-view IC, z | mm | 185.0000 | 104.2071 | 238.1189 | 133.9118 |
-| Front-view swing-arm length | mm | 6364.5790 | 5819.1062 | 6715.8414 | 896.7352 |
-| Side-view IC, x | mm | nan | -516924661.4177 | 525115414.2124 | 1042040075.6301 |
-| Side-view IC, z | mm | nan | 523.0621 | 528.8529 | 5.7908 |
-| Side-view swing-arm length | mm | nan | -516924661.0948 | 525115413.8737 | 1042040074.9685 |
-| Side-view swing-arm angle | deg | nan | -0.0024 | 0.0014 | 0.0038 |
-| Camber, road-relative | deg | 0.0000 | -3.4602 | 6.1973 | 9.6575 |
+| Damper length | mm | 242.8113 | 240.4547 | 244.1604 | 3.7057 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5094 | 0.5080 | 0.5104 | 0.0025 |
+| Motion ratio squared | - | 0.2595 | 0.2580 | 0.2605 | 0.0025 |
+| Front-view IC, y | mm | -5930.6063 | -6593.9080 | -5028.9445 | 1564.9635 |
+| Front-view IC, z | mm | 185.0000 | 44.3626 | 289.6107 | 245.2480 |
+| Front-view swing-arm length | mm | 6386.8485 | 5453.3683 | 7063.4235 | 1610.0552 |
+| Camber, road-relative | deg | 0.0000 | -3.4556 | 6.1546 | 9.6101 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | 0.0000 | -15.0012 | 0.0000 | 15.0012 |
-| Track change rate | mm/mm | 0.0577 | 0.0553 | 0.2096 | 0.1544 |
-| Roll-centre height | mm | 11.8884 | 10.3680 | 11.8884 | 1.5204 |
-| Roll-centre lateral position | mm | -0.0000 | -143.6519 | 143.6519 | 287.3038 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | 0.0000 | -19.2709 | 0.0000 | 19.2709 |
+| Track change rate | mm/mm | 0.0575 | 0.0568 | 0.1930 | 0.1362 |
+| Roll-centre height | mm | 12.4925 | 6.4137 | 12.4925 | 6.0788 |
+| Roll-centre lateral position | mm | -0.0000 | -300.7483 | 300.7482 | 601.4966 |
 | Body roll | deg | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
 | Heave | mm | -0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Ride-height change | mm | 0.0000 | -0.8897 | 0.0000 | 0.8897 |
+| Ride-height change | mm | 0.0000 | -0.8797 | 0.0000 | 0.8797 |
 | Rack displacement | mm | -0.0000 | -35.0000 | 35.0000 | 70.0000 |
-| Ackermann error (inner - outer) | deg | 0.0000 | 0.0000 | 2.7826 | 2.7826 |
-| Ackermann | % | nan | 48.5978 | 67.5964 | 18.9986 |
-| Steering ratio | deg/mm | -0.6832 | -0.9074 | -0.6716 | 0.2357 |
+| Ackermann error (inner - outer) | deg | 0.0000 | 0.0000 | 2.6704 | 2.6704 |
+| Ackermann | % | nan | 43.7065 | 60.9359 | 17.2294 |
+| Steering ratio | deg/mm | -0.6833 | -0.9022 | -0.6729 | 0.2293 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber gain | deg/mm | -0.0089 | -0.0196 | -0.0040 | 0.0156 |
-| Bump steer rate | deg/mm | -0.0004 | -0.0369 | 0.0313 | 0.0681 |
-| ISO steer gain in bump | deg/mm | 0.0004 | -0.0313 | 0.0369 | 0.0681 |
-| Caster gain | deg/mm | 0.0003 | 0.0003 | 0.0003 | 0.0000 |
-| KPI gain | deg/mm | 0.0090 | 0.0086 | 0.0098 | 0.0012 |
-| Half-track change rate | mm/mm | 0.0289 | 0.0276 | 0.1048 | 0.0772 |
-| Wheel-centre recession rate | mm/mm | -0.0002 | -0.0150 | 0.0121 | 0.0270 |
-| Damper rate vs wheel | mm/mm | -0.5113 | -0.5118 | -0.5107 | 0.0011 |
-| Toe per rack | deg/mm | 0.6832 | 0.6716 | 0.9074 | 0.2357 |
-| Steer per rack | deg/mm | -0.6832 | -0.9074 | -0.6716 | 0.2357 |
-| Camber per rack | deg/mm | -0.1200 | -0.2883 | -0.0842 | 0.2041 |
+| Camber gain | deg/mm | -0.0089 | -0.0201 | -0.0036 | 0.0165 |
+| Bump steer rate | deg/mm | -0.0004 | -0.0369 | 0.0309 | 0.0678 |
+| ISO steer gain in bump | deg/mm | 0.0004 | -0.0309 | 0.0369 | 0.0678 |
+| Caster gain | deg/mm | 0.0003 | 0.0002 | 0.0003 | 0.0001 |
+| KPI gain | deg/mm | 0.0090 | 0.0082 | 0.0104 | 0.0022 |
+| Half-track change rate | mm/mm | 0.0288 | 0.0284 | 0.0965 | 0.0681 |
+| Wheel-centre recession rate | mm/mm | -0.0003 | -0.0281 | 0.0224 | 0.0505 |
+| Damper rate vs wheel | mm/mm | -0.5094 | -0.5104 | -0.5080 | 0.0025 |
+| Toe per rack | deg/mm | 0.6833 | 0.6729 | 0.9022 | 0.2293 |
+| Steer per rack | deg/mm | -0.6833 | -0.9022 | -0.6729 | 0.2293 |
+| Camber per rack | deg/mm | -0.1196 | -0.2853 | -0.0843 | 0.2010 |
 
 ## 05_steer_bump  (steer)
 
@@ -273,61 +257,57 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.6339 | -3.8801 | 5.1251 | 9.0052 |
-| Caster | deg | 10.0213 | 10.0202 | 10.0234 | 0.0031 |
-| Kingpin inclination | deg | 10.6351 | 10.6043 | 10.6920 | 0.0877 |
-| Toe (positive = toe-in) | deg | -0.0065 | -25.0840 | 22.0585 | 47.1425 |
-| ISO steer angle | deg | 0.0065 | -22.0585 | 25.0840 | 47.1425 |
-| Scrub radius (ISO unsigned) | mm | 54.7842 | 35.0159 | 71.4962 | 36.4803 |
-| Scrub radius (signed lateral) | mm | -23.9095 | -24.2474 | -23.6254 | 0.6220 |
-| Steering-axis offset at ground | mm | -23.9095 | -24.2474 | -23.6254 | 0.6220 |
-| Mechanical trail | mm | 49.2915 | 25.8449 | 67.2590 | 41.4142 |
-| Half track | mm | 428.6393 | 401.9634 | 440.2238 | 38.2603 |
-| Wheel travel | mm | 40.0000 | 40.0000 | 40.0000 | 0.0000 |
-| Damper length | mm | 222.0896 | 220.8498 | 222.7847 | 1.9349 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5250 | 0.5243 | 0.5258 | 0.0016 |
-| Motion ratio squared | - | 0.2756 | 0.2749 | 0.2765 | 0.0017 |
-| Front-view IC, y | mm | -2005.6485 | -2067.4732 | -1900.0707 | 167.4025 |
-| Front-view IC, z | mm | -350.8443 | -357.7218 | -346.3477 | 11.3741 |
-| Front-view swing-arm length | mm | 2465.3566 | 2336.1756 | 2537.2609 | 201.0853 |
-| Side-view IC, x | mm | -786118.5590 | -812007.9851 | -742148.3576 | 69859.6275 |
-| Side-view IC, z | mm | 588.2752 | 585.3548 | 591.2381 | 5.8833 |
-| Side-view swing-arm length | mm | -786118.5623 | -812024.1206 | -742147.2751 | 69876.8455 |
-| Side-view swing-arm angle | deg | -0.0400 | -0.0425 | -0.0385 | 0.0040 |
-| Camber, road-relative | deg | -0.6339 | -3.8801 | 5.1251 | 9.0052 |
+| Camber | deg | -0.8833 | -4.0426 | 4.6637 | 8.7063 |
+| Caster | deg | 10.0279 | 10.0257 | 10.0321 | 0.0064 |
+| Kingpin inclination | deg | 10.8844 | 10.8176 | 11.0112 | 0.1936 |
+| Toe (positive = toe-in) | deg | -0.0058 | -24.6130 | 21.6674 | 46.2804 |
+| ISO steer angle | deg | 0.0058 | -21.6674 | 24.6130 | 46.2804 |
+| Scrub radius (ISO unsigned) | mm | 49.2664 | 25.8281 | 68.2125 | 42.3843 |
+| Scrub radius (signed lateral) | mm | -1.5866 | -2.2367 | -1.0549 | 1.1817 |
+| Steering-axis offset at ground | mm | -1.5866 | -2.2367 | -1.0549 | 1.1817 |
+| Mechanical trail | mm | 49.2409 | 25.8066 | 68.1758 | 42.3692 |
+| Half track | mm | 449.1394 | 420.0721 | 459.1889 | 39.1168 |
+| Wheel travel | mm | 50.0000 | 50.0000 | 50.0000 | 0.0000 |
+| Damper length | mm | 217.0122 | 214.7307 | 218.2880 | 3.5573 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5223 | 0.5200 | 0.5245 | 0.0046 |
+| Motion ratio squared | - | 0.2728 | 0.2704 | 0.2751 | 0.0048 |
+| Front-view IC, y | mm | -1606.5498 | -1699.3816 | -1451.1457 | 248.2358 |
+| Front-view IC, z | mm | -371.1390 | -373.3642 | -368.1961 | 5.1681 |
+| Front-view swing-arm length | mm | 2098.2504 | 1918.5276 | 2198.6885 | 280.1609 |
+| Camber, road-relative | deg | -0.8833 | -4.0426 | 4.6637 | 8.7063 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | -5.2473 | -20.3387 | -5.2473 | 15.0914 |
-| Track change rate | mm/mm | -0.3208 | -0.3269 | -0.1864 | 0.1405 |
-| Roll-centre height | mm | -29.3841 | -29.3841 | -28.5693 | 0.8148 |
-| Roll-centre lateral position | mm | 0.0000 | -4.0435 | 4.0435 | 8.0869 |
-| Body roll | deg | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Heave | mm | 40.0000 | 40.0000 | 40.0000 | 0.0000 |
-| Ride-height change | mm | -40.0171 | -40.7416 | -40.0171 | 0.7245 |
-| Rack displacement | mm | -0.0000 | -35.0000 | 35.0000 | 70.0000 |
-| Ackermann error (inner - outer) | deg | 0.0000 | 0.0000 | 3.0255 | 3.0255 |
-| Ackermann | % | 295.1147 | 67.4391 | 459.7205 | 392.2814 |
-| Steering ratio | deg/mm | -0.6460 | -0.8600 | -0.6251 | 0.2350 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | -8.8053 | -27.8230 | -8.8053 | 19.0177 |
+| Track change rate | mm/mm | -0.4096 | -0.4148 | -0.2775 | 0.1373 |
+| Roll-centre height | mm | -42.5341 | -42.5341 | -41.7851 | 0.7490 |
+| Roll-centre lateral position | mm | -0.0000 | -14.1692 | 14.1692 | 28.3385 |
+| Body roll | deg | -0.0000 | -0.0000 | 0.0000 | 0.0000 |
+| Heave | mm | 50.0000 | 50.0000 | 50.0000 | 0.0000 |
+| Ride-height change | mm | -50.0332 | -50.6862 | -50.0332 | 0.6530 |
+| Rack displacement | mm | 0.0000 | -35.0000 | 35.0000 | 70.0000 |
+| Ackermann error (inner - outer) | deg | -0.0000 | -0.0000 | 2.9456 | 2.9456 |
+| Ackermann | % | -1050.4055 | -1050.4055 | 408.3087 | 1458.7142 |
+| Steering ratio | deg/mm | -0.6352 | -0.8402 | -0.6126 | 0.2276 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber gain | deg/mm | -0.0236 | -0.0359 | -0.0175 | 0.0184 |
-| Bump steer rate | deg/mm | 0.0001 | -0.0437 | 0.0377 | 0.0814 |
-| ISO steer gain in bump | deg/mm | -0.0001 | -0.0377 | 0.0437 | 0.0814 |
-| Caster gain | deg/mm | 0.0008 | 0.0008 | 0.0009 | 0.0001 |
-| KPI gain | deg/mm | 0.0236 | 0.0230 | 0.0246 | 0.0015 |
-| Half-track change rate | mm/mm | -0.1604 | -0.1635 | -0.0932 | 0.0703 |
-| Wheel-centre recession rate | mm/mm | 0.0004 | -0.0178 | 0.0149 | 0.0327 |
-| Damper rate vs wheel | mm/mm | -0.5250 | -0.5258 | -0.5243 | 0.0016 |
-| Toe per rack | deg/mm | 0.6460 | 0.6251 | 0.8600 | 0.2350 |
-| Steer per rack | deg/mm | -0.6460 | -0.8600 | -0.6251 | 0.2350 |
-| Camber per rack | deg/mm | -0.1127 | -0.2631 | -0.0786 | 0.1845 |
+| Camber gain | deg/mm | -0.0280 | -0.0430 | -0.0207 | 0.0222 |
+| Bump steer rate | deg/mm | 0.0002 | -0.0475 | 0.0432 | 0.0907 |
+| ISO steer gain in bump | deg/mm | -0.0002 | -0.0432 | 0.0475 | 0.0907 |
+| Caster gain | deg/mm | 0.0009 | 0.0009 | 0.0010 | 0.0001 |
+| KPI gain | deg/mm | 0.0279 | 0.0269 | 0.0301 | 0.0032 |
+| Half-track change rate | mm/mm | -0.2048 | -0.2074 | -0.1387 | 0.0686 |
+| Wheel-centre recession rate | mm/mm | 0.0002 | -0.0370 | 0.0316 | 0.0687 |
+| Damper rate vs wheel | mm/mm | -0.5223 | -0.5245 | -0.5200 | 0.0046 |
+| Toe per rack | deg/mm | 0.6352 | 0.6126 | 0.8402 | 0.2276 |
+| Steer per rack | deg/mm | -0.6352 | -0.8402 | -0.6126 | 0.2276 |
+| Camber per rack | deg/mm | -0.1094 | -0.2511 | -0.0767 | 0.1744 |
 
 ## 06_steer_droop  (steer)
 
@@ -335,61 +315,57 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | 0.0866 | -3.5901 | 6.7941 | 10.3842 |
-| Caster | deg | 9.9989 | 9.9983 | 9.9992 | 0.0009 |
-| Kingpin inclination | deg | 9.9107 | 9.8983 | 9.9191 | 0.0207 |
-| Toe (positive = toe-in) | deg | 0.0156 | -27.8537 | 25.2202 | 53.0739 |
-| ISO steer angle | deg | -0.0156 | -25.2202 | 27.8537 | 53.0739 |
-| Scrub radius (ISO unsigned) | mm | 54.6947 | 33.2162 | 70.6270 | 37.4108 |
-| Scrub radius (signed lateral) | mm | -23.8544 | -24.1674 | -23.5585 | 0.6089 |
-| Steering-axis offset at ground | mm | -23.8544 | -24.1674 | -23.5585 | 0.6089 |
-| Mechanical trail | mm | 49.2186 | 23.4161 | 66.3635 | 42.9474 |
-| Half track | mm | 426.2925 | 398.4934 | 438.1359 | 39.6425 |
-| Wheel travel | mm | -40.0000 | -40.0000 | -40.0000 | 0.0000 |
-| Damper length | mm | 263.0420 | 261.7316 | 263.7796 | 2.0480 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5011 | 0.4990 | 0.5016 | 0.0026 |
-| Motion ratio squared | - | 0.2511 | 0.2490 | 0.2516 | 0.0026 |
-| Front-view IC, y | mm | 11200.2774 | 10004.3936 | 14131.8499 | 4127.4563 |
-| Front-view IC, z | mm | -2422.1414 | -2892.8816 | -2228.1446 | 664.7370 |
-| Front-view swing-arm length | mm | -11034.0390 | -14026.7169 | -9813.2647 | 4213.4522 |
-| Side-view IC, x | mm | 695993.5040 | 668294.8214 | 750846.3688 | 82551.5474 |
-| Side-view IC, z | mm | 463.5732 | 461.8928 | 468.5017 | 6.6089 |
-| Side-view swing-arm length | mm | 695993.4906 | 668277.1398 | 750844.3351 | 82567.1952 |
-| Side-view swing-arm angle | deg | 0.0415 | 0.0387 | 0.0431 | 0.0043 |
-| Camber, road-relative | deg | 0.0866 | -3.5901 | 6.7941 | 10.3842 |
+| Camber | deg | -0.0483 | -3.8593 | 6.9309 | 10.7902 |
+| Caster | deg | 10.0014 | 9.9996 | 10.0026 | 0.0030 |
+| Kingpin inclination | deg | 10.0453 | 9.9864 | 10.0848 | 0.0984 |
+| Toe (positive = toe-in) | deg | 0.0166 | -28.5230 | 26.0821 | 54.6051 |
+| ISO steer angle | deg | -0.0166 | -26.0821 | 28.5230 | 54.6051 |
+| Scrub radius (ISO unsigned) | mm | 49.2418 | 21.9952 | 67.4224 | 45.4272 |
+| Scrub radius (signed lateral) | mm | -1.5817 | -2.1990 | -0.9964 | 1.2026 |
+| Steering-axis offset at ground | mm | -1.5817 | -2.1990 | -0.9964 | 1.2026 |
+| Mechanical trail | mm | 49.2164 | 21.9727 | 67.3866 | 45.4139 |
+| Half track | mm | 444.6960 | 414.1858 | 453.9974 | 39.8117 |
+| Wheel travel | mm | -55.0000 | -55.0000 | -55.0000 | 0.0000 |
+| Damper length | mm | 270.5443 | 268.0111 | 271.9530 | 3.9418 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5015 | 0.4948 | 0.5031 | 0.0083 |
+| Motion ratio squared | - | 0.2515 | 0.2448 | 0.2531 | 0.0083 |
+| Front-view IC, y | mm | 4796.2989 | 4266.4963 | 6057.4992 | 1791.0029 |
+| Front-view IC, z | mm | -1344.3848 | -1570.7331 | -1244.2178 | 326.5152 |
+| Front-view swing-arm length | mm | -4538.4091 | -5843.5519 | -3994.0049 | 1849.5470 |
+| Camber, road-relative | deg | -0.0483 | -3.8593 | 6.9309 | 10.7902 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | -9.9410 | -25.8960 | -9.9410 | 15.9550 |
-| Track change rate | mm/mm | 0.4417 | 0.4384 | 0.6625 | 0.2241 |
-| Roll-centre height | mm | 53.5264 | 51.4069 | 53.5264 | 2.1195 |
-| Roll-centre lateral position | mm | -0.0000 | -37.3731 | 37.3731 | 74.7462 |
-| Body roll | deg | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Heave | mm | -40.0000 | -40.0000 | -40.0000 | 0.0000 |
-| Ride-height change | mm | 39.9997 | 38.9817 | 39.9997 | 1.0179 |
-| Rack displacement | mm | -0.0000 | -35.0000 | 35.0000 | 70.0000 |
-| Ackermann error (inner - outer) | deg | 0.0000 | -0.0297 | 2.6335 | 2.6632 |
-| Ackermann | % | 157.2798 | -679.5316 | 157.2798 | 836.8114 |
-| Steering ratio | deg/mm | -0.7218 | -0.9699 | -0.7150 | 0.2548 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | -17.6920 | -39.3115 | -17.6920 | 21.6195 |
+| Track change rate | mm/mm | 0.5927 | 0.5903 | 0.8486 | 0.2584 |
+| Roll-centre height | mm | 75.9925 | 70.6451 | 75.9925 | 5.3474 |
+| Roll-centre lateral position | mm | -0.0000 | -50.0687 | 50.0687 | 100.1375 |
+| Body roll | deg | -0.0000 | -0.0000 | 0.0000 | 0.0000 |
+| Heave | mm | -55.0000 | -55.0000 | -55.0000 | 0.0000 |
+| Ride-height change | mm | 54.9999 | 53.9306 | 54.9999 | 1.0693 |
+| Rack displacement | mm | 0.0000 | -35.0000 | 35.0000 | 70.0000 |
+| Ackermann error (inner - outer) | deg | 0.0000 | -0.0320 | 2.4409 | 2.4729 |
+| Ackermann | % | 95.7654 | -658.7092 | 95.7654 | 754.4746 |
+| Steering ratio | deg/mm | -0.7415 | -0.9975 | -0.7374 | 0.2601 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber gain | deg/mm | 0.0054 | -0.0114 | 0.0117 | 0.0231 |
-| Bump steer rate | deg/mm | -0.0002 | -0.0468 | 0.0465 | 0.0932 |
-| ISO steer gain in bump | deg/mm | 0.0002 | -0.0465 | 0.0468 | 0.0932 |
-| Caster gain | deg/mm | -0.0002 | -0.0003 | -0.0002 | 0.0001 |
-| KPI gain | deg/mm | -0.0053 | -0.0060 | -0.0042 | 0.0018 |
-| Half-track change rate | mm/mm | 0.2208 | 0.2192 | 0.3312 | 0.1121 |
-| Wheel-centre recession rate | mm/mm | -0.0004 | -0.0190 | 0.0176 | 0.0366 |
-| Damper rate vs wheel | mm/mm | -0.5011 | -0.5016 | -0.4990 | 0.0026 |
-| Toe per rack | deg/mm | 0.7218 | 0.7150 | 0.9699 | 0.2548 |
-| Steer per rack | deg/mm | -0.7218 | -0.9699 | -0.7150 | 0.2548 |
-| Camber per rack | deg/mm | -0.1276 | -0.3222 | -0.0896 | 0.2326 |
+| Camber gain | deg/mm | 0.0131 | -0.0107 | 0.0223 | 0.0330 |
+| Bump steer rate | deg/mm | 0.0003 | -0.0606 | 0.0609 | 0.1215 |
+| ISO steer gain in bump | deg/mm | -0.0003 | -0.0609 | 0.0606 | 0.1215 |
+| Caster gain | deg/mm | -0.0004 | -0.0005 | -0.0003 | 0.0002 |
+| KPI gain | deg/mm | -0.0132 | -0.0150 | -0.0101 | 0.0050 |
+| Half-track change rate | mm/mm | 0.2963 | 0.2951 | 0.4243 | 0.1292 |
+| Wheel-centre recession rate | mm/mm | 0.0002 | -0.0448 | 0.0440 | 0.0888 |
+| Damper rate vs wheel | mm/mm | -0.5015 | -0.5031 | -0.4948 | 0.0083 |
+| Toe per rack | deg/mm | 0.7415 | 0.7374 | 0.9975 | 0.2601 |
+| Steer per rack | deg/mm | -0.7415 | -0.9975 | -0.7374 | 0.2601 |
+| Camber per rack | deg/mm | -0.1321 | -0.3394 | -0.0929 | 0.2466 |
 
 ## 07_bump_at_steer  (heave_at_steer)
 
@@ -397,60 +373,56 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -2.1218 | -3.2241 | -2.0686 | 1.1555 |
-| Caster | deg | 9.9998 | 9.9969 | 10.0458 | 0.0489 |
-| Kingpin inclination | deg | 9.9919 | 9.8767 | 11.3012 | 1.4246 |
-| Toe (positive = toe-in) | deg | 13.4949 | 12.0581 | 15.0623 | 3.0042 |
-| ISO steer angle | deg | -13.4949 | -15.0623 | -12.0581 | 3.0042 |
-| Scrub radius (ISO unsigned) | mm | 43.2905 | 41.7248 | 43.5648 | 1.8400 |
-| Scrub radius (signed lateral) | mm | -23.6827 | -23.7845 | -23.6683 | 0.1162 |
-| Steering-axis offset at ground | mm | -23.6827 | -23.7845 | -23.6683 | 0.1162 |
-| Mechanical trail | mm | 36.2381 | 34.3566 | 36.4992 | 2.1426 |
-| Half track | mm | 440.3293 | 429.1161 | 440.3787 | 11.2626 |
-| Wheel travel | mm | -0.0000 | -63.5000 | 63.5000 | 127.0000 |
-| Damper length | mm | 243.2800 | 210.0983 | 275.2793 | 65.1810 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5117 | 0.4993 | 0.5334 | 0.0341 |
-| Motion ratio squared | - | 0.2618 | 0.2493 | 0.2845 | 0.0352 |
-| Front-view IC, y | mm | -6146.4804 | -3117911.6290 | 79785.1946 | 3197696.8236 |
-| Front-view IC, z | mm | 218.9260 | -13229.1759 | 488763.4397 | 501992.6156 |
-| Front-view swing-arm length | mm | 6590.4642 | -80437.9508 | 3156425.3182 | 3236863.2690 |
-| Side-view IC, x | mm | 33102324.7261 | -28452309.8919 | 33102324.7261 | 61554634.6180 |
-| Side-view IC, z | mm | 523.8689 | 422.2320 | 628.5771 | 206.3451 |
-| Side-view swing-arm length | mm | 33102316.4530 | -28452318.1551 | 33102316.4530 | 61554634.6081 |
-| Side-view swing-arm angle | deg | 0.0009 | -0.0643 | 0.0713 | 0.1356 |
-| Camber, road-relative | deg | -2.1218 | -3.2241 | -2.0686 | 1.1555 |
+| Camber | deg | -2.1194 | -2.8230 | -2.0686 | 0.7544 |
+| Caster | deg | 9.9997 | 9.9963 | 10.0265 | 0.0302 |
+| Kingpin inclination | deg | 9.9884 | 9.8766 | 10.8422 | 0.9656 |
+| Toe (positive = toe-in) | deg | 13.5027 | 12.4590 | 14.8279 | 2.3689 |
+| ISO steer angle | deg | -13.5027 | -14.8279 | -12.4590 | 2.3689 |
+| Scrub radius (ISO unsigned) | mm | 36.1512 | 34.6357 | 36.3587 | 1.7231 |
+| Scrub radius (signed lateral) | mm | -1.2468 | -1.2546 | -1.2147 | 0.0399 |
+| Steering-axis offset at ground | mm | -1.2468 | -1.2546 | -1.2147 | 0.0399 |
+| Mechanical trail | mm | 36.1297 | 34.6144 | 36.3371 | 1.7227 |
+| Half track | mm | 461.9695 | 452.7472 | 462.0372 | 9.2900 |
+| Wheel travel | mm | 0.4022 | -55.8800 | 50.0630 | 105.9430 |
+| Damper length | mm | 243.4840 | 217.8106 | 271.9173 | 54.1067 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5102 | 0.5028 | 0.5237 | 0.0209 |
+| Motion ratio squared | - | 0.2603 | 0.2528 | 0.2743 | 0.0214 |
+| Front-view IC, y | mm | -6244.8033 | -234719.0079 | 155869.3045 | 390588.3123 |
+| Front-view IC, z | mm | 234.4722 | -25213.0725 | 36189.0350 | 61402.1076 |
+| Front-view swing-arm length | mm | 6710.8743 | -157437.4080 | 237950.7155 | 395388.1235 |
+| Camber, road-relative | deg | -2.1194 | -2.8230 | -2.0686 | 0.7544 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | -4.8995 | -28.8097 | -4.7111 | 24.0986 |
-| Track change rate | mm/mm | 0.0794 | -0.5577 | 0.7095 | 1.2671 |
-| Roll-centre height | mm | 11.3983 | -52.2738 | 75.3907 | 127.6646 |
-| Roll-centre lateral position | mm | 82.6216 | -211.0568 | 7438.8867 | 7649.9435 |
-| Roll-centre migration vs travel | mm/mm | -1.0940 | -9.9928 | 8.2006 | 18.1934 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | -6.1894 | -25.2104 | -6.0121 | 19.1983 |
+| Track change rate | mm/mm | 0.0849 | -0.4011 | 0.6527 | 1.0538 |
+| Roll-centre height | mm | 10.1549 | -42.3507 | 75.2486 | 117.5993 |
+| Roll-centre lateral position | mm | 168.2962 | -749.4333 | 1621.5698 | 2371.0031 |
+| Roll-centre migration vs travel | mm/mm | -1.4007 | -4.9034 | 4.1247 | 9.0281 |
 | Body roll | deg | 0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Heave | mm | -0.0000 | -63.5000 | 63.5000 | 127.0000 |
-| Ride-height change | mm | -0.2571 | -63.7365 | 63.1834 | 126.9199 |
+| Heave | mm | 0.4022 | -55.8800 | 50.0630 | 105.9430 |
+| Ride-height change | mm | -0.6568 | -50.2812 | 55.5701 | 105.8513 |
 | Rack displacement | mm | 20.0000 | 20.0000 | 20.0000 | 0.0000 |
-| Steering ratio | deg/mm | -0.6718 | -0.7567 | -0.5926 | 0.1641 |
+| Steering ratio | deg/mm | -0.6729 | -0.7450 | -0.6157 | 0.1293 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber gain | deg/mm | -0.0059 | -0.0317 | 0.0251 | 0.0568 |
-| Bump steer rate | deg/mm | -0.0195 | -0.0377 | -0.0195 | 0.0182 |
-| ISO steer gain in bump | deg/mm | 0.0195 | 0.0195 | 0.0377 | 0.0182 |
-| Caster gain | deg/mm | 0.0003 | -0.0007 | 0.0014 | 0.0021 |
-| KPI gain | deg/mm | 0.0087 | -0.0199 | 0.0362 | 0.0560 |
-| Half-track change rate | mm/mm | 0.0397 | -0.2788 | 0.3547 | 0.6336 |
-| Wheel-centre recession rate | mm/mm | -0.0084 | -0.0165 | -0.0084 | 0.0082 |
-| Damper rate vs wheel | mm/mm | -0.5117 | -0.5334 | -0.4993 | 0.0341 |
-| Toe per rack | deg/mm | 0.6718 | 0.5926 | 0.7567 | 0.1641 |
-| Steer per rack | deg/mm | -0.6718 | -0.7567 | -0.5926 | 0.1641 |
-| Camber per rack | deg/mm | -0.0950 | -0.1059 | -0.0845 | 0.0213 |
+| Camber gain | deg/mm | -0.0058 | -0.0236 | 0.0196 | 0.0432 |
+| Bump steer rate | deg/mm | -0.0195 | -0.0330 | -0.0194 | 0.0135 |
+| ISO steer gain in bump | deg/mm | 0.0195 | 0.0194 | 0.0330 | 0.0135 |
+| Caster gain | deg/mm | 0.0003 | -0.0005 | 0.0009 | 0.0014 |
+| KPI gain | deg/mm | 0.0086 | -0.0150 | 0.0273 | 0.0422 |
+| Half-track change rate | mm/mm | 0.0424 | -0.2005 | 0.3264 | 0.5269 |
+| Wheel-centre recession rate | mm/mm | -0.0158 | -0.0263 | -0.0158 | 0.0106 |
+| Damper rate vs wheel | mm/mm | -0.5102 | -0.5237 | -0.5028 | 0.0209 |
+| Toe per rack | deg/mm | 0.6729 | 0.6157 | 0.7450 | 0.1293 |
+| Steer per rack | deg/mm | -0.6729 | -0.7450 | -0.6157 | 0.1293 |
+| Camber per rack | deg/mm | -0.0949 | -0.1049 | -0.0868 | 0.0181 |
 
 ## 08_damper_stroke  (damper_stroke)
 
@@ -458,50 +430,83 @@
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -1.1253 | -1.1253 | 0.1213 | 1.2466 |
-| Caster | deg | 10.0392 | 9.9969 | 10.0392 | 0.0423 |
-| Kingpin inclination | deg | 11.1257 | 9.8768 | 11.1257 | 1.2489 |
-| Toe (positive = toe-in) | deg | -0.0016 | -0.0069 | 0.0166 | 0.0235 |
-| ISO steer angle | deg | 0.0016 | -0.0166 | 0.0069 | 0.0235 |
-| Scrub radius (ISO unsigned) | mm | 54.8378 | 54.6909 | 54.8378 | 0.1469 |
-| Scrub radius (signed lateral) | mm | -23.9490 | -23.9490 | -23.8519 | 0.0971 |
-| Steering-axis offset at ground | mm | -23.9490 | -23.9490 | -23.8519 | 0.0971 |
-| Mechanical trail | mm | 49.3318 | 49.2156 | 49.3318 | 0.1162 |
-| Half track | mm | 425.0795 | 421.0366 | 431.3503 | 10.3137 |
-| Wheel travel | mm | 57.5759 | -59.5504 | 57.5759 | 117.1263 |
+| Camber | deg | -1.1253 | -1.1253 | 0.1214 | 1.2467 |
+| Caster | deg | 10.0360 | 9.9963 | 10.0360 | 0.0397 |
+| Kingpin inclination | deg | 11.1259 | 9.8767 | 11.1259 | 1.2493 |
+| Toe (positive = toe-in) | deg | -0.0036 | -0.0073 | 0.0173 | 0.0247 |
+| ISO steer angle | deg | 0.0036 | -0.0173 | 0.0073 | 0.0247 |
+| Scrub radius (ISO unsigned) | mm | 49.2655 | 49.2409 | 49.2665 | 0.0256 |
+| Scrub radius (signed lateral) | mm | -1.5879 | -1.5879 | -1.5810 | 0.0068 |
+| Steering-axis offset at ground | mm | -1.5879 | -1.5879 | -1.5810 | 0.0068 |
+| Mechanical trail | mm | 49.2399 | 49.2155 | 49.2410 | 0.0255 |
+| Half track | mm | 447.3441 | 443.3050 | 453.6293 | 10.3242 |
+| Wheel travel | mm | 58.0307 | -59.5200 | 58.0307 | 117.5508 |
 | Damper length | mm | 212.8113 | 212.8113 | 272.8113 | 60.0000 |
-| Motion ratio (damper/wheel) | mm/mm | 0.5304 | 0.4987 | 0.5304 | 0.0317 |
-| Motion ratio squared | - | 0.2814 | 0.2487 | 0.2814 | 0.0327 |
-| Front-view IC, y | mm | -1329.4347 | -166758.5823 | 167324.9529 | 334083.5352 |
-| Front-view IC, z | mm | -371.9024 | -26974.7627 | 25467.0362 | 52441.7989 |
-| Front-view swing-arm length | mm | 1806.1608 | -169057.6403 | 169120.0374 | 338177.6777 |
-| Side-view IC, x | mm | -548346.3126 | -16630277.3678 | 16525783.2291 | 33156060.5969 |
-| Side-view IC, z | mm | 619.2028 | 430.7430 | 619.2028 | 188.4597 |
-| Side-view swing-arm length | mm | -548346.3255 | -16630277.3675 | 16525783.2288 | 33156060.5963 |
-| Side-view swing-arm angle | deg | -0.0588 | -0.0588 | 0.0649 | 0.1236 |
-| Camber, road-relative | deg | -1.1253 | -1.1253 | 0.1213 | 1.2466 |
+| Motion ratio (damper/wheel) | mm/mm | 0.5237 | 0.5014 | 0.5237 | 0.0223 |
+| Motion ratio squared | - | 0.2743 | 0.2514 | 0.2743 | 0.0228 |
+| Front-view IC, y | mm | -1329.7105 | -163053.8487 | 171537.1851 | 334591.0338 |
+| Front-view IC, z | mm | -372.4224 | -27676.5720 | 24921.3464 | 52597.9185 |
+| Front-view swing-arm length | mm | 1828.2935 | -173305.8849 | 165397.4101 | 338703.2950 |
+| Camber, road-relative | deg | -1.1253 | -1.1253 | 0.1214 | 1.2467 |
 
 ### Axle characteristics
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Track | mm | 862.5260 | 862.5260 | 862.5260 | 0.0000 |
-| Track change | mm | -12.3671 | -20.4528 | 0.1747 | 20.6275 |
-| Roll-centre height | mm | -46.9667 | -46.9667 | 72.9638 | 119.9305 |
+| Track | mm | 907.0840 | 907.0840 | 907.0840 | 0.0000 |
+| Track change | mm | -12.3958 | -20.4739 | 0.1745 | 20.6485 |
+| Roll-centre height | mm | -50.8122 | -50.8122 | 81.0707 | 131.8829 |
 | Roll-centre lateral position | mm | -0.0000 | -0.0000 | 0.0000 | 0.0000 |
 | Body roll | deg | -0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Heave | mm | 57.5759 | -59.5504 | 57.5759 | 117.1263 |
-| Ride-height change | mm | -57.6297 | -57.6297 | 59.5498 | 117.1795 |
+| Heave | mm | 58.0307 | -59.5200 | 58.0307 | 117.5508 |
+| Ride-height change | mm | -58.0846 | -58.0846 | 59.5195 | 117.6041 |
 | Rack displacement | mm | -0.0000 | -0.0000 | 0.0000 | 0.0000 |
-| Steering ratio | deg/mm | -0.6254 | -0.7487 | -0.6254 | 0.1233 |
+| Steering ratio | deg/mm | -0.6253 | -0.7487 | -0.6253 | 0.1234 |
 
 ### Gradients (analytic unless noted)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Toe per rack | deg/mm | 0.6254 | 0.6254 | 0.7487 | 0.1233 |
-| Steer per rack | deg/mm | -0.6254 | -0.7487 | -0.6254 | 0.1233 |
-| Camber per rack | deg/mm | -0.1103 | -0.1320 | -0.1103 | 0.0217 |
+| Toe per rack | deg/mm | 0.6253 | 0.6253 | 0.7487 | 0.1234 |
+| Steer per rack | deg/mm | -0.6253 | -0.7487 | -0.6253 | 0.1234 |
+| Camber per rack | deg/mm | -0.1102 | -0.1320 | -0.1102 | 0.0217 |
+
+## Bearing misalignment
+
+Required angle is the worst value anywhere in this sweep set, not per sweep. Install offset is the angle between the housing and bore directions at the neutral pose: non-zero means the bearing is fitted deliberately off centre and starts already eating part of its cone. The best-available column is what the joint would need if its bore axis were chosen to minimise the worst case.
+
+| joint | part | required (deg) | at | install offset (deg) | best available (deg) | clocking (deg) |
+| --- | --- | --- | --- | --- | --- | --- |
+| LCA Front Bush | bushing | 0.00 | `01_bump_parallel` step 0 | 0.00 | 0.00 | - |
+| UCA Front Bush | bushing | 0.00 | `01_bump_parallel` step 0 | 0.00 | 0.00 | - |
+| LBJ | spherical | 20.00 | `08_damper_stroke` step 64 | 0.00 | 19.38 | - |
+| UBJ | spherical | 31.37 | `06_steer_droop` step 0 | 0.00 | 25.94 | - |
+| Outer Tie Rod End | rod_end | 29.86 | `04_steer_design` step 64 | 8.37 | 26.13 | - |
+| Inner Tie Rod End | rod_end | 15.14 | `06_steer_droop` step 0 | 9.14 | 3.25 | - |
+| Damper Lower Mount | spherical | 0.00 | `08_damper_stroke` step 32 | 0.00 | 0.00 | - |
+| Damper Upper Mount | spherical | 0.00 | `08_damper_stroke` step 11 | 0.00 | 0.00 | - |
+
+### Members whose spin is undetermined
+
+These housings ride a two-point member, whose roll about its own axis no kinematic model can determine. The lower bound assumes the member turns freely to the best position at every instant; the locked value assumes it never turns, so one clocking chosen at assembly serves the whole sweep. Size the bearing against the locked value unless you know the member runs free.
+
+| joint | free-spin lower bound (deg) | locked (deg) | locked clocking (deg) |
+| --- | --- | --- | --- |
+| Outer Tie Rod End | 29.86 | 30.68 | 91.5 |
+| Inner Tie Rod End | 15.14 | 15.46 | 267.6 |
+| Damper Lower Mount | 0.00 | 0.00 | 270.0 |
+| Damper Upper Mount | 0.00 | 0.00 | 270.0 |
+
+### How each joint was resolved
+
+- **LCA Front Bush** -- LCA Front Bush: housing on 'Chassis' (fixed to chassis), bore on 'Lower Wishbone' (fitted from >=3 points), housing centred
+- **UCA Front Bush** -- UCA Front Bush: housing on 'Chassis' (fixed to chassis), bore on 'Upper Wishbone' (fitted from >=3 points), housing centred
+- **LBJ** -- LBJ: housing on 'Lower Wishbone' (fitted from >=3 points), bore on 'Upright' (fitted from >=3 points), housing centred
+- **UBJ** -- UBJ: housing on 'Upper Wishbone' (fitted from >=3 points), bore on 'Upright' (fitted from >=3 points), housing centred
+- **Outer Tie Rod End** -- Outer Tie Rod End: housing on 'Track Rod' (2-point link, transport (spin undetermined)), bore on 'Upright' (fitted from >=3 points), housing indeterminate
+- **Inner Tie Rod End** -- Inner Tie Rod End: housing on 'Track Rod' (2-point link, transport (spin undetermined)), bore on 'Chassis' (fixed to chassis), housing indeterminate
+- **Damper Lower Mount** -- Damper Lower Mount: housing on 'Spring/Damper' (2-point link, transport (spin undetermined)), bore on 'Lower Wishbone' (fitted from >=3 points), housing indeterminate
+- **Damper Upper Mount** -- Damper Upper Mount: housing on 'Spring/Damper' (2-point link, transport (spin undetermined)), bore on 'Chassis' (fixed to chassis), housing indeterminate
 
 ## Plots
 

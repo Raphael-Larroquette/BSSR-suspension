@@ -14,7 +14,7 @@ run_all.sh            run everything
 ## Run
 
 ```bash
-./run_all.sh                       # all eight sweeps + report
+uv run python models/Sweep_Set/run_all.py        # all eight sweeps + report
 uv run python susreport.py outputs/ --out report/ --side left
 ```
 

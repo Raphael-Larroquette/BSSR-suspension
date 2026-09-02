@@ -525,6 +525,14 @@ class AxleSuspension(Suspension):
             tangents,
         )
 
+    def joint_export_metadata(self) -> list[dict[str, object]]:
+        """Describe both corners' declared joints, tagged by side."""
+        return [
+            {**entry, "side": side.name.lower()}
+            for side, corner in self.corners.items()
+            for entry in corner.joint_export_metadata()
+        ]
+
     def elements(self) -> tuple[SuspensionElement, ...]:
         """Return side-qualified corner elements and shared axle hardware."""
         elements = tuple(
@@ -532,6 +540,7 @@ class AxleSuspension(Suspension):
                 element,
                 lambda point, side=side: side_qualified(side, point),
                 label=f"{side.name.title()} {element.label}",
+                body_group=f"{side.name.title()} {element.body_key}",
             )
             for side, corner in self.corners.items()
             for element in corner.elements()

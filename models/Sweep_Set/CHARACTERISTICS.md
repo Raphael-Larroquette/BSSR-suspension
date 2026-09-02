@@ -91,6 +91,52 @@ Available whenever a `hub_z` target exists — i.e. every sweep except 08.
 
 ---
 
+## G. Bearing misalignment (opt-in, per declared joint)
+
+Not part of the 49 above: these appear only for joints you declare in the
+geometry file's `joints:` block. An undeclared point is not analysed at all.
+
+| Characteristic | Unit | Best source | Notes |
+| --- | --- | --- | --- |
+| Relative rotation `joint_<name>_rx/ry/rz` | deg | all | Rotation vector of the two bodies' relative rotation, in the housing's neutral frame. Axis-independent, so any bearing axis can be scored against it afterwards. |
+| Required misalignment `misalign_<name>` | deg | all | The angle the bearing absorbs at each step. Present only when the bore axis is authored; a bore left as `optimize` has no per-step value until an axis is chosen. |
+| Install offset | deg | report | Neutral-pose angle between housing and bore. Non-zero means the bearing is fitted off centre. |
+| Best available | deg | report | What the joint would need with its bore axis chosen to minimise the worst case. |
+| Locked clocking | deg | report | For a housing on a two-point member: the assembly clocking that minimises the worst case if the member never spins. |
+
+**How to read it.** Misalignment is what the bearing must swallow, so lower is
+better and the number you take to a catalogue is the *required* column — the
+worst value anywhere in the whole sweep set, because the part has to survive
+all of it. There is no pass/fail here on purpose: the tool tells you what the
+geometry demands, and you choose a bearing that covers it.
+
+**Why a wishbone pivot reads exactly zero.** The arm rotates about its own
+pivot axis and nothing else, so a bore on that axis is a pure revolute. That
+is both why these can be plain bushings and a free check on your hardpoints:
+a non-zero reading at an inboard pivot means the geometry is not what the
+model claims. On Aurora's front both bushes read 0.00 deg across the full
+sweep set.
+
+**Why the outboard ball joints read so much.** Their bore runs along the
+steering axis, which is roughly perpendicular to the wishbone's pivot axis —
+the opposite limit, where the bearing eats the entire arm sweep. Aurora's
+front reads 21.8 deg at the LBJ and 29.8 deg at the UBJ against a 30 mm
+travel range. Ordinary rod ends are rated well below that, so this is a real
+constraint on the outboard hardware, not a reporting artefact.
+
+**Two-point members give a band, not a number.** A track rod or coilover with
+spherical joints at both ends carries no axial torque, so its roll about its
+own axis is undetermined — the solver neither knows nor can know it. Declaring
+such a housing `indeterminate` reports the *lower* bound, which assumes the
+member turns freely to the best position at every instant. The report pairs it
+with the locked value, which assumes it never turns. Size against the locked
+value unless you know the member runs free.
+
+**Nothing here needs a re-solve.** The sweeps export the relative rotation
+itself, which does not depend on any bearing axis, so choosing axes,
+re-choosing them, or asking what the best available one would be are all
+answered by `susreport.py` from the CSVs alone.
+
 ## Convention traps before you diff against SUSProg
 
 1. **`scrub_radius` is not scrub radius.** The exported `scrub_radius` follows

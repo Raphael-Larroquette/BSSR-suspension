@@ -389,12 +389,14 @@ class MacPhersonSuspension(CornerSuspension):
         return (
             RigidLinkElement(
                 label="Lower Arm Front Leg",
+                body_group="Lower Arm",
                 type=ElementType.WISHBONE,
                 point_a=PointID.LOWER_WISHBONE_INBOARD_FRONT,
                 point_b=PointID.LOWER_WISHBONE_OUTBOARD,
             ),
             RigidLinkElement(
                 label="Lower Arm Rear Leg",
+                body_group="Lower Arm",
                 type=ElementType.WISHBONE,
                 point_a=PointID.LOWER_WISHBONE_INBOARD_REAR,
                 point_b=PointID.LOWER_WISHBONE_OUTBOARD,

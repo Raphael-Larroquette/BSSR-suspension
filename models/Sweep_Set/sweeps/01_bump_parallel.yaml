@@ -3,22 +3,22 @@
 # Gives: camber curve, bump steer, caster/KPI change, track change,
 # motion ratio, roll-centre height vs ride, anti-dive/anti-lift.
 version: 1
-steps: 65
+steps: 22
 targets:
   - type: point
     point: wheel_center
     side: left
     direction: {axis: z}
     mode: relative
-    start: -63.5 #Define Bump Range in mm
-    stop: 63.5 #Define Bump Range in mm
+    start: -55 #Define Droop in mm from neutral
+    stop: 50 #Define Bump in mm from neutral
   - type: point
     point: wheel_center
     side: right
     direction: {axis: z}
     mode: relative
-    start: -63.5 #Define Bump Range in mm
-    stop: 63.5 #Define Bump Range in mm
+    start: -55 #Define Droop in mm from neutral
+    stop: 50 #Define Bump in mm from neutral
   - type: actuator_position
     actuator: rack
     direction: {axis: y}

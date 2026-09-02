@@ -31,6 +31,7 @@ from kinematics.core.enums import (
     SteeringType,
     SuspensionType,
 )
+from kinematics.core.joints import RigidAttachment
 from kinematics.core.points.derived.definitions import build_wheel_derived_spec
 from kinematics.core.points.derived.manager import (
     DerivedPointsManager,
@@ -361,6 +362,21 @@ class DoubleWishboneSuspension(CornerSuspension):
         )
         return row
 
+    def rigid_attachments(self) -> tuple[RigidAttachment, ...]:
+        """Fold the actuation pickup into whichever member carries it.
+
+        Direct actuation hangs the spring pickup off a locating member, and
+        pushrod-rocker actuation hangs the outboard pushrod end off the
+        upright. Neither point appears in that member's own elements, so
+        without this the joint there would resolve to a single body.
+        """
+        return (
+            RigidAttachment(
+                point=self.actuation.moving_pickup_point,
+                anchors=tuple(self.actuation.moving_pickup_body),
+            ),
+        )
+
     def topology_metric_specs(self) -> tuple[MetricSpec, ...]:
         """Compose state metric metadata from installed corner mechanisms."""
         return (
@@ -466,24 +482,28 @@ class DoubleWishboneSuspension(CornerSuspension):
         base_elements: tuple[SuspensionElement, ...] = (
             RigidLinkElement(
                 label="Upper Wishbone Front Leg",
+                body_group="Upper Wishbone",
                 type=ElementType.WISHBONE,
                 point_a=PointID.UPPER_WISHBONE_INBOARD_FRONT,
                 point_b=PointID.UPPER_WISHBONE_OUTBOARD,
             ),
             RigidLinkElement(
                 label="Upper Wishbone Rear Leg",
+                body_group="Upper Wishbone",
                 type=ElementType.WISHBONE,
                 point_a=PointID.UPPER_WISHBONE_INBOARD_REAR,
                 point_b=PointID.UPPER_WISHBONE_OUTBOARD,
             ),
             RigidLinkElement(
                 label="Lower Wishbone Front Leg",
+                body_group="Lower Wishbone",
                 type=ElementType.WISHBONE,
                 point_a=PointID.LOWER_WISHBONE_INBOARD_FRONT,
                 point_b=PointID.LOWER_WISHBONE_OUTBOARD,
             ),
             RigidLinkElement(
                 label="Lower Wishbone Rear Leg",
+                body_group="Lower Wishbone",
                 type=ElementType.WISHBONE,
                 point_a=PointID.LOWER_WISHBONE_INBOARD_REAR,
                 point_b=PointID.LOWER_WISHBONE_OUTBOARD,

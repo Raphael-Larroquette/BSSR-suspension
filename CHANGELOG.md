@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added opt-in bearing misalignment analysis. A geometry file's `joints:` block
+  declares, per joint, the part each of the bore and housing directions is
+  fixed to and the direction itself; sweeps then export the two bodies'
+  relative rotation per step, plus the required misalignment wherever the bore
+  axis is authored. Because the exported rotation is independent of both
+  directions, choosing bearing axes, optimising them, or reporting the best
+  available one are all post-processing and never require re-solving a sweep.
+  Housings on a two-point member, whose spin no kinematic model determines, are
+  declared `indeterminate` and reported as a bound with the locked-spin value
+  alongside. `susreport.py` gains a per-joint table and a `joints.csv`.
+- Added `body_group` to suspension elements so a weldment modelled as several
+  two-point links (an A-arm's front and rear legs) declares itself as one rigid
+  body, and `Suspension.rigid_attachments()` so a mechanism pickup riding a
+  locating member is folded into that member's body. Rigid-body membership is
+  declared by each topology rather than inferred, since a shared endpoint
+  between two links is a joint in general, not a weld.
 - Added topology-owned scalar drive coordinates for named actuator positions and
   true element lengths. Element-length targets support relative displacement or
   absolute pin-centre length, analytical residuals and Jacobians, analytical
