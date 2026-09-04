@@ -4,14 +4,18 @@ susreport - turn a directory of Suspension Explorer sweep CSVs into a
 characteristic report.
 
 Usage:
-    python susreport.py outputs/                          # defaults for everything
+    python susreport.py outputs/                       # uses run.yaml beside this file
     python susreport.py outputs/ --out report/
-    python susreport.py outputs/ --config run.yaml        # channel selection etc.
+    python susreport.py outputs/ --config path/to/run.yaml
     python susreport.py outputs/ --resolved report/_resolved_run.json
 
-Normally you do not call this directly - `run_all.py` solves the sweeps and
-then invokes this with the resolved configuration. Calling it by hand is the
-`--report-only` path: it never solves anything, it only reads CSVs.
+There are no built-in defaults: a configuration is required, and a missing or
+incomplete one is an error naming the key.
+
+`run_all.py` imports this module and calls `run_report()` directly, so a
+breakpoint here is hit by a normal `run_all.py` run. Calling this file as a
+script is the same work on a folder of CSVs, and needs nothing from the
+`kinematics` package except for the bearing-misalignment section.
 
 What it does that the raw CSV does not:
   * parses the '#' metadata header (format_version, provenance hashes, units)
@@ -63,32 +67,73 @@ C_D = "#8a94a6"   # reference lines
 
 # ==========================================================================
 # 0. Configuration
+#
+# There are no default values in this file. run.yaml is the single source of
+# truth for every setting, so a missing or incomplete configuration is an
+# error naming the key rather than a silent fallback that makes the report
+# disagree with the file you thought you were editing.
+#
+# The one thing that looks like a default and is not: `report: true` on a
+# sweep selects DEFAULT_CHANNELS[<sweep kind>], which is a named preset of
+# characteristics, not a fallback for a missing setting. Naming channels
+# explicitly in run.yaml overrides it.
 # ==========================================================================
-DEFAULT_DECIMALS = {"mm": 3, "deg": 4, "ratio": 4, "percent": 2}
-
-DEFAULT_REPORT = {
-    "joints": True,
-    "notes": True,
-    "plots": "auto",     # auto | true | false  (master override)
-    "gifs": "auto",      # auto | true | false  (master override; used by run_all)
+REQUIRED_CONFIG = {
+    "side": None,
+    "decimals": ("mm", "deg", "ratio", "percent"),
+    "report": ("joints", "notes", "plots", "gifs"),
+    "solver": ("on_bad_solve", "residual_limit"),
+    "sweeps": None,
 }
 
-DEFAULT_SOLVER = {
-    "on_bad_solve": "warn",     # off | warn | fail
-    "residual_limit": 1.0e-5,
-}
+# Keys every enabled sweep must carry. A sweep with `run: false` needs only
+# `run`, so that switching one off stays a one-line edit.
+REQUIRED_SWEEP_KEYS = ("run", "report", "plots")
+
+
+def _require(config: dict, source: str) -> None:
+    """Fail loudly, naming the key, when run.yaml is incomplete."""
+    missing: list[str] = []
+    for key, children in REQUIRED_CONFIG.items():
+        if key not in config:
+            missing.append(key)
+            continue
+        if children is None:
+            continue
+        if not isinstance(config[key], dict):
+            missing.append(f"{key} (must be a mapping)")
+            continue
+        missing += [f"{key}.{child}" for child in children
+                    if child not in config[key]]
+    for name, sweep in (config.get("sweeps") or {}).items():
+        if not isinstance(sweep, dict):
+            missing.append(f"sweeps.{name} (must be a mapping)")
+            continue
+        if "run" not in sweep:
+            missing.append(f"sweeps.{name}.run")
+            continue
+        if sweep.get("run") is False:
+            continue
+        missing += [f"sweeps.{name}.{key}" for key in REQUIRED_SWEEP_KEYS
+                    if key not in sweep]
+    if missing:
+        raise SystemExit(
+            f"{source}: missing required setting(s): {', '.join(missing)}.\n"
+            "There are no built-in defaults - every setting must be present. "
+            "See RUNNING.md for the key reference."
+        )
 
 
 def decimals_for_unit(unit: str, decimals: dict) -> int:
     """Map a channel's unit string onto one of the four decimal settings."""
     unit = (unit or "").strip()
     if unit == "mm":
-        return int(decimals.get("mm", 3))
+        return int(decimals["mm"])
     if unit == "deg":
-        return int(decimals.get("deg", 4))
+        return int(decimals["deg"])
     if unit == "%":
-        return int(decimals.get("percent", 2))
-    return int(decimals.get("ratio", 4))
+        return int(decimals["percent"])
+    return int(decimals["ratio"])
 
 
 def fmt(value: float | None, unit: str, decimals: dict) -> str:
@@ -495,11 +540,11 @@ def check_solver(sw: Sweep, solver_cfg: dict) -> list[str]:
     min/max/range columns so a single bad step cannot set your design envelope,
     but they stay in the CSV.
     """
-    mode = str(solver_cfg.get("on_bad_solve", "warn")).lower()
+    mode = str(solver_cfg["on_bad_solve"]).lower()
     if mode == "off":
         return []
 
-    limit = float(solver_cfg.get("residual_limit", 1.0e-5))
+    limit = float(solver_cfg["residual_limit"])
     d = sw.data
     problems: list[str] = []
     bad = pd.Series(False, index=d.index)
@@ -1081,8 +1126,8 @@ def write_report(sweeps: list[Sweep], summary: pd.DataFrame, side: str,
                  out: Path, plots: list[Path], joints: list[JointResult] | None,
                  config: dict, problems: dict[str, list[str]]) -> Path:
     joints = joints or []
-    decimals = config.get("decimals", DEFAULT_DECIMALS)
-    report_cfg = config.get("report", DEFAULT_REPORT)
+    decimals = config["decimals"]
+    report_cfg = config["report"]
     lines: list[str] = []
     lines.append("# Suspension characteristic report\n")
 
@@ -1123,7 +1168,7 @@ def write_report(sweeps: list[Sweep], summary: pd.DataFrame, side: str,
                      f"{res:.2e} | {' '.join(s.notes) or '-'} |")
     lines.append("")
 
-    if report_cfg.get("notes", True):
+    if report_cfg["notes"]:
         lines.append("## Notes\n")
         lines.append(
             "Conventions, formulas and the meaningful source sweep for every "
@@ -1203,7 +1248,7 @@ def write_report(sweeps: list[Sweep], summary: pd.DataFrame, side: str,
         if figure.exists():
             lines.append(f"Plots: `plots/{figure.name}`\n")
 
-    if joints and report_cfg.get("joints", True):
+    if joints and report_cfg["joints"]:
         lines.append("## Bearing misalignment\n")
         lines.append(
             "Required angle is the worst value anywhere in this sweep set, not "
@@ -1256,44 +1301,49 @@ def write_report(sweeps: list[Sweep], summary: pd.DataFrame, side: str,
 # 10. Configuration loading
 # ==========================================================================
 def load_config(config_path: Path | None, resolved_path: Path | None) -> dict:
-    """Build the effective configuration.
+    """Load and validate the configuration. There is no implicit fallback.
 
     `--resolved` is the JSON that run_all writes after merging run.yaml with
     the command-line overrides; it is the authoritative record of what actually
     ran. `--config` reads run.yaml directly and is the hand-invocation path.
+    With neither given, run.yaml beside this script is used. With no
+    configuration at all this raises, rather than inventing values.
     """
-    config: dict = {
-        "side": "left",
-        "decimals": dict(DEFAULT_DECIMALS),
-        "report": dict(DEFAULT_REPORT),
-        "solver": dict(DEFAULT_SOLVER),
-        "sweeps": {},
-        "config_path": None,
-    }
-
+    source: Path | None = None
     raw: dict | None = None
-    if resolved_path and resolved_path.is_file():
-        raw = json.loads(resolved_path.read_text())
-        config["config_path"] = str(resolved_path)
-    elif config_path and config_path.is_file():
-        import yaml
-        raw = yaml.safe_load(config_path.read_text()) or {}
-        config["config_path"] = str(config_path)
 
-    if raw:
-        for key in ("side", "sweeps", "ran"):
-            if key in raw:
-                config[key] = raw[key]
-        for key in ("decimals", "report", "solver"):
-            if isinstance(raw.get(key), dict):
-                config[key].update(raw[key])
+    if resolved_path is not None:
+        if not resolved_path.is_file():
+            raise SystemExit(f"resolved configuration not found: {resolved_path}")
+        source = resolved_path
+        raw = json.loads(resolved_path.read_text())
+    else:
+        source = config_path if config_path is not None else HERE / "run.yaml"
+        if not source.is_file():
+            raise SystemExit(
+                f"configuration not found: {source}\n"
+                "susreport has no built-in defaults. Pass --config with a "
+                "run.yaml, or --resolved with the JSON run_all writes."
+            )
+        import yaml
+        raw = yaml.safe_load(source.read_text()) or {}
+
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{source}: configuration must be a mapping")
+
+    config = dict(raw)
+    config["config_path"] = str(source)
+    config.setdefault("sweeps", {})
+    # Name run.yaml in the error, not the generated JSON: run.yaml is the file
+    # the reader would have to edit to fix it.
+    _require(config, str(config.get("source_config") or source))
     return config
 
 
 def channels_for(sw: Sweep, config: dict) -> tuple[list[str], list[str]]:
     """Return (report channels, plot channels) for one sweep."""
     sweep_cfg = (config.get("sweeps") or {}).get(sw.name) or {}
-    report_cfg = config.get("report", DEFAULT_REPORT)
+    report_cfg = config["report"]
 
     # A sweep marked `run: false` may still have a stale CSV on disk from an
     # earlier run. run_all filters those out by its `ran` list, but susreport
@@ -1301,7 +1351,7 @@ def channels_for(sw: Sweep, config: dict) -> tuple[list[str], list[str]]:
     if sweep_cfg.get("run") is False:
         return [], []
 
-    wanted = sweep_cfg.get("report", True)
+    wanted = sweep_cfg["report"]
     if wanted is False or wanted == "none":
         return [], []
     if wanted is True or wanted == "all":
@@ -1310,11 +1360,11 @@ def channels_for(sw: Sweep, config: dict) -> tuple[list[str], list[str]]:
         keys = [str(k) for k in wanted]
     keys = [k for k in keys if k in CHANNELS]
 
-    master = str(report_cfg.get("plots", "auto")).lower()
+    master = str(report_cfg["plots"]).lower()
     if master in ("false", "none", "off"):
         return keys, []
 
-    wanted_plots = sweep_cfg.get("plots", "all")
+    wanted_plots = sweep_cfg["plots"]
     if master in ("true", "all", "on"):
         wanted_plots = "all"
     if wanted_plots is False or wanted_plots == "none":
@@ -1329,34 +1379,24 @@ def channels_for(sw: Sweep, config: dict) -> tuple[list[str], list[str]]:
 # ==========================================================================
 # 11. Entry point
 # ==========================================================================
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("indir", type=Path, help="directory of sweep CSVs")
-    ap.add_argument("--out", type=Path, default=None, help="output directory")
-    ap.add_argument("--side", default=None, choices=("left", "right"))
-    ap.add_argument("--config", type=Path, default=None,
-                    help="run.yaml to read channel selection and formatting from")
-    ap.add_argument("--resolved", type=Path, default=None,
-                    help="resolved JSON configuration written by run_all.py")
-    ap.add_argument("--no-joints", action="store_true",
-                    help="skip the bearing misalignment section")
-    args = ap.parse_args()
+def run_report(indir: Path, out: Path, config: dict,
+               side: str | None = None) -> Path:
+    """Build the report from a directory of sweep CSVs. Returns report.md.
 
-    config_path = args.config
-    if config_path is None and args.resolved is None:
-        candidate = HERE / "run.yaml"
-        config_path = candidate if candidate.is_file() else None
+    This is the whole of susreport's work, callable directly: `run_all.py`
+    imports it rather than launching a second Python, so tracebacks and
+    breakpoints land in the calling process.
 
-    config = load_config(config_path, args.resolved)
-    side = args.side or config.get("side", "left")
-    if args.no_joints:
-        config["report"]["joints"] = False
-
-    out = args.out or args.indir.parent / "report"
+    Args:
+        indir: directory of solved sweep CSVs.
+        out: directory to write report.md, summary.csv, joints.csv and plots/.
+        config: a validated configuration from `load_config`.
+        side: override the configured reported corner.
+    """
+    side = side or config["side"]
     out.mkdir(parents=True, exist_ok=True)
 
-    files = sorted(args.indir.glob("*.csv"))
+    files = sorted(indir.glob("*.csv"))
     # A sweep switched off in run.yaml leaves its old CSV on disk. Reporting it
     # would quietly resurrect stale numbers and, worse, let a disabled sweep
     # keep setting bearing requirements - so honour the list of sweeps that
@@ -1365,13 +1405,13 @@ def main() -> None:
     if ran:
         files = [f for f in files if f.stem in set(ran)]
     if not files:
-        raise SystemExit(f"no CSVs in {args.indir}")
+        raise SystemExit(f"no CSVs in {indir}")
 
     sweeps: list[Sweep] = []
     frames: list[pd.DataFrame] = []
     plots: list[Path] = []
     problems: dict[str, list[str]] = {}
-    fail_mode = str(config["solver"].get("on_bad_solve", "warn")).lower() == "fail"
+    fail_mode = str(config["solver"]["on_bad_solve"]).lower() == "fail"
 
     for f in files:
         sw = read_sweep(f)
@@ -1401,7 +1441,7 @@ def main() -> None:
     summary.to_csv(out / "summary.csv", index=False)
 
     joints: list[JointResult] = []
-    if config["report"].get("joints", True):
+    if config["report"]["joints"]:
         try:
             joints = analyse_joints(sweeps, side)
         except ImportError as error:
@@ -1441,6 +1481,34 @@ def main() -> None:
     print(f"  plots   : {out/'plots'} ({len(plots)} figures)")
     if joints:
         print(f"  joints  : {out/'joints.csv'} ({len(joints)} declared)")
+    return report
+
+
+# ==========================================================================
+# 12. Command-line entry point
+# ==========================================================================
+def main() -> None:
+    """Parse arguments, load the configuration, and build the report."""
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("indir", type=Path, help="directory of sweep CSVs")
+    ap.add_argument("--out", type=Path, default=None, help="output directory")
+    ap.add_argument("--side", default=None, choices=("left", "right"))
+    ap.add_argument("--config", type=Path, default=None,
+                    help="run.yaml to read channel selection and formatting "
+                         "from (default: run.yaml beside this script)")
+    ap.add_argument("--resolved", type=Path, default=None,
+                    help="resolved JSON configuration written by run_all.py")
+    ap.add_argument("--no-joints", action="store_true",
+                    help="skip the bearing misalignment section")
+    args = ap.parse_args()
+
+    config = load_config(args.config, args.resolved)
+    if args.no_joints:
+        config["report"]["joints"] = False
+    out = args.out or args.indir.parent / "report"
+    run_report(args.indir, out, config, side=args.side)
 
 
 if __name__ == "__main__":

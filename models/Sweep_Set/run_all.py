@@ -43,7 +43,6 @@ import yaml
 HERE = Path(__file__).resolve().parent          # models/Sweep_Set
 MODELS = HERE.parent                            # models
 SWEEPS = HERE / "sweeps"
-SUSREPORT = HERE / "susreport.py"
 RUN_YAML = HERE / "run.yaml"
 
 # Where merged sweep files are written. run.yaml overrides the sweep YAMLs, so
@@ -54,19 +53,24 @@ RESOLVED_DIRNAME = "_resolved_sweeps"
 
 
 # ==========================================================================
-# Defaults - used when run.yaml is absent or silent on a key
+# Required configuration
+#
+# There are no default values in this file. run.yaml is the single source of
+# truth, so a missing setting is an error naming the key rather than a silent
+# fallback that makes the run disagree with the file you edited.
+#
+# This list covers only what run_all itself reads. The report-side settings
+# (decimals, solver, per-sweep channel lists) are validated by susreport when
+# the resolved configuration reaches it - each half validates what it uses.
+# `--dry-run` runs both validations, so it catches every kind of typo.
 # ==========================================================================
-DEFAULTS: dict = {
-    "model": "aurora",
-    "geometry": None,
-    "side": "left",
-    "jobs": "auto",
-    "decimals": {"mm": 3, "deg": 4, "ratio": 4, "percent": 2},
-    "report": {"joints": True, "notes": True, "plots": "auto", "gifs": "auto"},
-    "solver": {"on_bad_solve": "warn", "residual_limit": 1.0e-5},
-    "gif": {"fps": 20, "overlays": ["fvic", "fvsa", "roll_center"],
-            "overlay_frame": 3.0},
-    "sweeps": {},
+REQUIRED_CONFIG = {
+    "model": None,
+    "side": None,
+    "jobs": None,
+    "report": ("plots", "gifs"),
+    "gif": ("fps", "overlays", "overlay_frame"),
+    "sweeps": None,
 }
 
 # run.yaml keys that override a sweep YAML target, and how to find that target.
@@ -92,27 +96,54 @@ TARGET_MATCHERS = {
 # ==========================================================================
 # Configuration
 # ==========================================================================
-def deep_merge(base: dict, over: dict) -> dict:
-    """Recursively merge `over` into a copy of `base`."""
-    out = copy.deepcopy(base)
-    for key, value in (over or {}).items():
-        if isinstance(value, dict) and isinstance(out.get(key), dict):
-            out[key] = deep_merge(out[key], value)
-        else:
-            out[key] = copy.deepcopy(value)
-    return out
-
-
-def load_run_config(path: Path | None) -> dict:
-    """Load run.yaml over the built-in defaults."""
-    config = copy.deepcopy(DEFAULTS)
+def load_run_config(path: Path) -> dict:
+    """Load and validate run.yaml. There is no implicit fallback."""
     if path is None or not path.is_file():
-        return config
-    raw = yaml.safe_load(path.read_text()) or {}
+        sys.exit(
+            f"run configuration not found: {path}\n"
+            "run_all has no built-in defaults. Point --config at a run.yaml; "
+            "see RUNNING.md for the key reference."
+        )
+    raw = yaml.safe_load(path.read_text())
+    if not isinstance(raw, dict):
+        sys.exit(f"{path}: configuration must be a mapping")
     version = raw.get("version", 1)
     if version != 1:
         sys.exit(f"{path}: unsupported run configuration version {version}")
-    return deep_merge(config, raw)
+
+    missing: list[str] = []
+    for key, children in REQUIRED_CONFIG.items():
+        if key not in raw:
+            missing.append(key)
+            continue
+        if children is None:
+            continue
+        if not isinstance(raw[key], dict):
+            missing.append(f"{key} (must be a mapping)")
+            continue
+        missing += [f"{key}.{child}" for child in children
+                    if child not in raw[key]]
+    if missing:
+        sys.exit(
+            f"{path}: missing required setting(s): {', '.join(missing)}.\n"
+            "There are no built-in defaults - every setting must be present. "
+            "See RUNNING.md for the key reference."
+        )
+    return copy.deepcopy(raw)
+
+
+def load_susreport():
+    """Import the report builder from this directory.
+
+    Imported lazily and by name rather than launched as a second process, so
+    its tracebacks surface here and a breakpoint in susreport.py is hit by an
+    ordinary run of this script. Lazy because it pulls in matplotlib and
+    pandas, which a --solve-only run has no use for.
+    """
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    import susreport
+    return susreport
 
 
 def resolve_jobs(value) -> int:
@@ -343,16 +374,28 @@ def main() -> None:
     skip = parse_list(args.skip) or []
     plot_only = parse_list(args.plots)
     gif_only = parse_list(args.gifs)
-    plots_master = master_override(config["report"].get("plots", "auto"))
-    gifs_master = master_override(config["report"].get("gifs", "auto"))
+    gifs_master = master_override(config["report"]["gifs"])
 
     # ---- decide what runs --------------------------------------------
+    # Every sweep file must have an entry in run.yaml. A file with no entry is
+    # an error rather than an implicit "run it": a sweep silently joining the
+    # set would also silently raise a bearing requirement.
+    configured = config["sweeps"] or {}
+    unconfigured = [s.stem for s in sources if s.stem not in configured]
+    if unconfigured:
+        sys.exit(
+            f"{args.config}: no entry under `sweeps:` for "
+            f"{', '.join(unconfigured)}.\n"
+            "Every file in the sweeps directory needs one, even if it is just "
+            "`run: false`. See RUNNING.md."
+        )
+
     plan: list[dict] = []
     for source in sources:
         stem = source.stem
-        sweep_cfg = (config.get("sweeps") or {}).get(stem) or {}
+        sweep_cfg = configured[stem]
 
-        enabled = truthy(sweep_cfg.get("run"), True)
+        enabled = truthy(sweep_cfg["run"], True)
         if only is not None:
             enabled = any(matches(s, stem) for s in only)
         if any(matches(s, stem) for s in skip):
@@ -360,6 +403,8 @@ def main() -> None:
         if not enabled:
             continue
 
+        # `gif` is optional per sweep: absent means no animation, which is
+        # the only setting whose absence is unambiguous.
         wants_gif = truthy(sweep_cfg.get("gif"), False)
         if isinstance(sweep_cfg.get("gif"), dict):
             wants_gif = truthy(sweep_cfg["gif"].get("enabled"), True)
@@ -385,13 +430,38 @@ def main() -> None:
             config.setdefault("sweeps", {}).setdefault(item["name"], {})
             config["sweeps"][item["name"]]["plots"] = "all" if keep else "none"
 
-    jobs = resolve_jobs(config.get("jobs", "auto"))
+    jobs = resolve_jobs(config["jobs"])
 
     print(f"geometry : {geometry}")
     print(f"sweeps   : {sweeps_dir}  ({len(plan)} of {len(sources)} enabled)")
     print(f"outputs  : {outputs}")
     print(f"report   : {report}")
     print(f"jobs     : {jobs}\n")
+
+    # ---- the resolved configuration -----------------------------------
+    # run.yaml after the command-line overrides: what susreport reads, and the
+    # record of what actually ran. Written before solving so a --dry-run can
+    # validate the report-side settings too, and so a crashed solve still
+    # leaves the configuration that produced it.
+    resolved_config = {
+        key: config[key] for key in
+        ("side", "decimals", "report", "solver", "gif") if key in config
+    }
+    resolved_config.update({
+        "sweeps": {i["name"]: i["cfg"] for i in plan},
+        "ran": [i["name"] for i in plan],
+        "geometry": str(geometry),
+        "source_config": str(args.config),
+    })
+    resolved_path = report / "_resolved_run.json"
+    resolved_path.write_text(json.dumps(resolved_config, indent=2, default=str))
+
+    # Validate the half of the configuration susreport owns, before spending
+    # any CPU. This is also what makes --dry-run a complete config check.
+    susreport = None
+    if not args.solve_only:
+        susreport = load_susreport()
+        report_config = susreport.load_config(None, resolved_path)
 
     # ---- solve --------------------------------------------------------
     if not args.report_only:
@@ -415,8 +485,11 @@ def main() -> None:
             for item in plan:
                 if item["gif"]:
                     print(f"   gif: {item['name']} "
-                          f"overlays={config['gif'].get('overlays')}")
+                          f"overlays={config['gif']['overlays']}")
             print(f"\n   merged sweep files in {resolved_dir}")
+            print(f"   resolved configuration  {resolved_path}")
+            if susreport is not None:
+                print("   configuration validated (run_all and susreport)")
             print("   (dry run: nothing solved, no report written)")
             return
 
@@ -437,7 +510,7 @@ def main() -> None:
         # The animation writer holds every frame in memory, so several at once
         # thrash rather than go faster. This stays serial whatever --jobs says.
         gif_items = [i for i in plan if i["gif"]]
-        overlays = [str(o) for o in (config["gif"].get("overlays") or [])]
+        overlays = [str(o) for o in (config["gif"]["overlays"] or [])]
         for item in gif_items:
             print(f"\n-> animation ({item['name']})")
             cmd = ["uv", "run", "kinematics", "sweep",
@@ -447,12 +520,9 @@ def main() -> None:
                    "--animation-out", str(outputs / f"{item['name']}.gif")]
             if overlays:
                 cmd += ["--animation-overlays", ",".join(overlays)]
-            frame = config["gif"].get("overlay_frame")
-            if frame:
-                cmd += ["--animation-overlay-frame", str(frame)]
-            fps = config["gif"].get("fps")
-            if fps:
-                cmd += ["--animation-fps", str(fps)]
+            cmd += ["--animation-overlay-frame",
+                    str(config["gif"]["overlay_frame"])]
+            cmd += ["--animation-fps", str(config["gif"]["fps"])]
             run(cmd)
 
     if args.solve_only:
@@ -460,22 +530,6 @@ def main() -> None:
         return
 
     # ---- report -------------------------------------------------------
-    # Write the fully resolved configuration next to the report. This is both
-    # what susreport reads and the record of what actually ran.
-    resolved_config = {
-        "side": config["side"],
-        "decimals": config["decimals"],
-        "report": config["report"],
-        "solver": config["solver"],
-        "gif": config["gif"],
-        "sweeps": {i["name"]: i["cfg"] for i in plan},
-        "ran": [i["name"] for i in plan],
-        "geometry": str(geometry),
-        "source_config": str(args.config) if args.config.is_file() else None,
-    }
-    resolved_path = report / "_resolved_run.json"
-    resolved_path.write_text(json.dumps(resolved_config, indent=2, default=str))
-
     # Only report on the sweeps that actually ran this time. Stale CSVs from a
     # disabled sweep stay on disk but must not silently reappear in the report
     # or, worse, in the bearing table.
@@ -486,10 +540,7 @@ def main() -> None:
               + ", ".join(p.stem for p in stale))
 
     print("\n-> report")
-    cmd = ["uv", "run", "python", str(SUSREPORT), str(outputs),
-           "--out", str(report), "--resolved", str(resolved_path),
-           "--side", config["side"]]
-    run(cmd)
+    susreport.run_report(outputs, report, report_config)
 
     print(f"\ndone. report at {report}")
 

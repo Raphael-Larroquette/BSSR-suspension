@@ -3,12 +3,16 @@
 #
 #   uv run python models/Sweep_Set/run_all.py
 #
+# THERE ARE NO BUILT-IN DEFAULTS. Neither run_all.py nor susreport.py carries
+# fallback values: every setting below is required, and a missing or misspelt
+# one is an error naming the key. Every file in sweeps/ also needs an entry
+# under `sweeps:`, even if it is only `run: false`.
+#
 # PRECEDENCE, highest first:
 #
 #   1. command-line flags   (this invocation only; see RUNNING.md or --help)
 #   2. THIS FILE            (run.yaml)
 #   3. the sweep YAML       (sweeps/NN_*.yaml)
-#   4. built-in defaults    (run_all.py DEFAULTS)
 #
 # So: a range set here REPLACES the one written in the sweep file. Anything
 # this file does not mention passes through from the sweep file untouched.
@@ -46,7 +50,7 @@ report:
 
   # Master overrides for every sweep at once, so you do not have to touch each
   # entry below:
-  #   auto   - each sweep's own `plots:` / `gif:` setting decides  (default)
+  #   auto   - each sweep's own `plots:` / `gif:` setting decides
   #   false  - force off everywhere, whatever the sweeps say
   #   true   - force on everywhere, whatever the sweeps say
   plots: auto
@@ -68,7 +72,7 @@ solver:
   on_bad_solve: warn
   residual_limit: 1.0e-5
 
-# ---- animation defaults --------------------------------------------------
+# ---- animation settings --------------------------------------------------
 # Per-sweep `gif:` mappings merge over this block.
 gif:
   fps: 20
@@ -88,8 +92,10 @@ gif:
 #                                   the sweep is invisible to the bearing
 #                                   table - check the "at" column there before
 #                                   turning one off.
-#   report:   true | false | [list] true  = the default channel set for that
-#                                   sweep kind; false = solved and written to
+#   report:   true | false | [list] true  = the named channel preset for that
+#                                   sweep kind (DEFAULT_CHANNELS in
+#                                   susreport.py - a curated list, not a
+#                                   fallback); false = solved and written to
 #                                   CSV but no section in report.md; a list
 #                                   picks channels explicitly, in order.
 #   plots:    all | none | [list]   must be a subset of `report`. FVIC, FVSA,
