@@ -177,3 +177,6 @@ CODEX.md
 AGENTS.md
 .gemini/
 GEMINI.md
+
+# Generated sweep files: run.yaml merged over sweeps/*.yaml by run_all.py.
+models/*/outputs/_resolved_sweeps/

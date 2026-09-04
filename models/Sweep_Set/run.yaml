@@ -1,0 +1,237 @@
+# ==========================================================================
+# run.yaml - the single place to configure a sweep run
+#
+#   uv run python models/Sweep_Set/run_all.py
+#
+# PRECEDENCE, highest first:
+#
+#   1. command-line flags   (this invocation only; see RUNNING.md or --help)
+#   2. THIS FILE            (run.yaml)
+#   3. the sweep YAML       (sweeps/NN_*.yaml)
+#   4. built-in defaults    (run_all.py DEFAULTS)
+#
+# So: a range set here REPLACES the one written in the sweep file. Anything
+# this file does not mention passes through from the sweep file untouched.
+# run_all writes the merged result to outputs/_resolved_sweeps/ and solves
+# that, so its hash lands in the CSV provenance header and you can read
+# exactly what was solved. Never edit files in _resolved_sweeps/.
+#
+# Channel names used under `report:` and `plots:` are defined in
+# susreport.py (the CHANNELS table) and explained in CHARACTERISTICS.md.
+# ==========================================================================
+version: 1
+
+# ---- what to run against -------------------------------------------------
+model: aurora            # folder under models/ holding the geometry
+geometry: null           # explicit path to a geometry yaml; overrides `model`
+side: left               # which corner the per-corner rows report
+
+# Parallel solver processes. Each sweep is an independent subprocess writing
+# its own CSV, so they cannot interfere; `auto` is min(8, CPU cores). The
+# report is built serially afterwards, and animations are always serial
+# because the writer holds every frame in memory.
+jobs: auto
+
+# ---- number formatting in report.md --------------------------------------
+decimals:
+  mm: 3
+  deg: 4
+  ratio: 4               # mm/mm, deg/deg, deg/mm and unitless channels
+  percent: 2
+
+# ---- report --------------------------------------------------------------
+report:
+  joints: true           # the bearing misalignment section
+  notes: true            # conventions + degenerate-geometry notes
+
+  # Master overrides for every sweep at once, so you do not have to touch each
+  # entry below:
+  #   auto   - each sweep's own `plots:` / `gif:` setting decides  (default)
+  #   false  - force off everywhere, whatever the sweeps say
+  #   true   - force on everywhere, whatever the sweeps say
+  plots: auto
+  gifs: auto
+
+# ---- solver health -------------------------------------------------------
+# `residual_limit` is compared against `solver_max_residual`: the largest
+# constraint violation left in a row after the solve, in the constraint's own
+# units (mm for lengths, deg for angles). A healthy Aurora step sits at 1e-6
+# to 5e-6 mm, four orders below anything geometrically meaningful, so 1e-5
+# catches a solver that limped without firing on good rows.
+#
+#   off   - report every row as solved, no checking
+#   warn  - banner in report.md naming the bad steps, and those rows are
+#           excluded from the min/max/range columns so one bad step cannot
+#           set your design envelope. They stay in the CSV.
+#   fail  - non-zero exit, no report written
+solver:
+  on_bad_solve: warn
+  residual_limit: 1.0e-5
+
+# ---- animation defaults --------------------------------------------------
+# Per-sweep `gif:` mappings merge over this block.
+gif:
+  fps: 20
+  # Construction geometry drawn on top of the links and wheels. Any of:
+  #   fvic, fvsa, svic, svsa, roll_center      (empty list = clean render)
+  overlays: [fvic, fvsa, roll_center]
+  # Instant centres routinely sit tens of metres from the car. The view is
+  # held at this multiple of the geometry bounding box and anything outside
+  # is drawn as an edge arrow with its numeric value, rather than letting the
+  # axes autoscale until the suspension is a dot.
+  overlay_frame: 3.0
+
+# ==========================================================================
+# Per-sweep settings
+#
+#   run:      true | false          solve it at all. `false` means no CSV, and
+#                                   the sweep is invisible to the bearing
+#                                   table - check the "at" column there before
+#                                   turning one off.
+#   report:   true | false | [list] true  = the default channel set for that
+#                                   sweep kind; false = solved and written to
+#                                   CSV but no section in report.md; a list
+#                                   picks channels explicitly, in order.
+#   plots:    all | none | [list]   must be a subset of `report`. FVIC, FVSA,
+#                                   SVIC, SVSA, track, rack and wheel travel
+#                                   are never plotted even under `all` - see
+#                                   NEVER_PLOT in susreport.py.
+#   gif:      true | false | {...}  a mapping merges over the top-level `gif:`
+#                                   block, e.g. {enabled: true, fps: 30}
+#   steps:    int                   points in the sweep
+#   travel:   {left: [a, b], right: [a, b]}    wheel-centre z, mm from design
+#   damper:   {left: [a, b], right: [a, b]}    element length, mm from design
+#                                   (mutually exclusive with `travel`)
+#   rack:     [a, b]                rack y, mm from centre
+#
+# A range key here must match a target that already exists in the sweep file;
+# run_all stops with an error rather than inventing one.
+# ==========================================================================
+sweeps:
+
+  # -- 01 parallel bump / droop --------------------------------------------
+  # Both wheels together, rack centred. The straight-line reference for
+  # camber, bump steer, motion ratio and roll-centre migration.
+  01_bump_parallel:
+    run: true
+    report: true
+    plots: all
+    gif: true
+    steps: 22
+    travel:
+      left: [-55, 50]
+      right: [-55, 50]
+    rack: [0, 0]
+
+  # -- 02 roll -------------------------------------------------------------
+  # Equal and opposite wheel travel: the roll attitude of a specific cornering
+  # condition, set by the range below. Not a pure-roll abstraction.
+  02_roll:
+    run: true
+    report: true
+    plots: all
+    gif: {enabled: true, overlays: [fvic, roll_center]}
+    steps: 65
+    travel:
+      left: [-25, 25]
+      right: [25, -25]
+    rack: [0, 0]
+
+  # -- 03 single wheel bump ------------------------------------------------
+  # OFF. Its left side is numerically identical to 01 and its right side is
+  # held, so it never sets a bearing requirement and adds no characteristic
+  # that 01 does not already give. Turn it on if the model ever gains a
+  # cross-axle element (an anti-roll bar) that couples the two corners.
+  03_single_wheel_bump:
+    run: false
+
+  # -- 04 steering at design ride height -----------------------------------
+  04_steer_design:
+    run: true
+    report: true
+    plots: all
+    gif: false
+    steps: 65
+    travel:
+      left: [0, 0]
+      right: [0, 0]
+    rack: [-35, 35]
+
+  # -- 05 steering at bump -------------------------------------------------
+  05_steer_bump:
+    run: true
+    report: true
+    plots: all
+    gif: false
+    steps: 65
+    travel:
+      left: [50, 50]
+      right: [50, 50]
+    rack: [-35, 35]
+
+  # -- 06 steering at droop ------------------------------------------------
+  06_steer_droop:
+    run: true
+    report: true
+    plots: all
+    gif: false
+    steps: 65
+    travel:
+      left: [-55, -55]
+      right: [-55, -55]
+    rack: [-35, 35]
+
+  # -- 07 bump with the wheels steered -------------------------------------
+  # OFF. It never sets a bearing requirement either (04, 06 and 08 all beat
+  # it). Its one unique output is the SHAPE of the toe-vs-travel curve while
+  # steered: bump steer is ~-0.0004 deg/mm straight ahead but ranges -0.037 to
+  # +0.031 deg/mm across lock, so a bump taken mid-corner produces a toe input
+  # two orders of magnitude larger than the same bump in a straight line.
+  # 04/05/06 only sample that at three ride heights. Turn this on when you are
+  # specifically chasing bump steer.
+  07_bump_at_steer:
+    run: false
+
+  # -- 08 damper stroke ----------------------------------------------------
+  # Driven by damper length instead of wheel travel. This is where the usable
+  # wheel travel for a given damper stroke comes from - read it, then set the
+  # `travel` ranges above to match. It is also the honest source for motion
+  # ratio, being measured in damper coordinates rather than derived.
+  08_damper_stroke:
+    run: true
+    report: [damper_length, wheel_travel_lr, motion_ratio]
+    plots: [motion_ratio]
+    gif: false
+    steps: 65
+    damper:
+      left: [-30, 30]
+      right: [-30, 30]
+    rack: [0, 0]
+
+  # -- 09 steering at a held roll attitude ---------------------------------
+  # Lock to lock with the axle held in roll. The mid-corner steering geometry,
+  # and the only place Ackermann-in-roll is defined.
+  09_steer_in_roll:
+    run: true
+    report: true
+    plots: all
+    gif: true
+    steps: 65
+    travel:
+      left: [-25, -25]
+      right: [25, 25]
+    rack: [-35, 35]
+
+  # -- 10 corner ramp ------------------------------------------------------
+  # Roll and steer build together from straight-and-level to full roll at full
+  # lock: one line through corner entry rather than a held attitude.
+  10_corner_ramp:
+    run: true
+    report: true
+    plots: all
+    gif: true
+    steps: 65
+    travel:
+      left: [0, -25]
+      right: [0, 25]
+    rack: [0, 35]

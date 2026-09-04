@@ -170,6 +170,28 @@ There is no Cartesian product anywhere in this tool. A bump-steer *surface*
 stitched afterwards. That's why the sweep set below has three separate steer
 files rather than one 2-D sweep.
 
+### Pairing by index is a feature, not only a limit
+
+Because the targets pair by index, a sweep is a **path** through the state
+space, and you get to choose the path. Two useful shapes fall out:
+
+- **Hold an attitude and sweep one thing.** Constant `start`/`stop` on the two
+  wheel-centre targets pins the axle at that attitude while another target
+  sweeps. `05`/`06` do this with heave; `09_steer_in_roll` does it with roll —
+  left wheel held at −25 mm, right at +25 mm, rack swept lock to lock. That is
+  the mid-corner steering geometry, and the only place Ackermann is defined at
+  a rolled attitude.
+
+- **Ramp several things together.** Give every target a different start and
+  stop and they interpolate in step, tracing a diagonal.
+  `10_corner_ramp` ramps roll from 0 to full and the rack from centre to full
+  lock at the same time, which is roughly the path a real corner entry takes.
+
+Between a held attitude and a ramp you bracket the coupled behaviour without
+needing the surface. When you do eventually want the surface, the honest way is
+to generate one file per attitude from `run.yaml` and stitch the CSVs — not to
+try to express it in one file.
+
 ---
 
 ## 6. Counting degrees of freedom

@@ -1,0 +1,37 @@
+# 09 - STEERING AT A HELD ROLL ATTITUDE
+# Lock to lock with the axle held in roll: the outside wheel compressed, the
+# inside wheel extended, rack swept through its full range. This is 04, but at
+# the attitude the car is actually in when it is being steered hard.
+#
+# Diff against 04 to see how much the steering geometry moves once the car
+# rolls. It is also the only sweep where Ackermann-in-roll is defined -
+# Ackermann needs the rack to move, so 02 cannot give it.
+#
+# Roll direction is held one way only; the geometry is symmetric about the
+# centreline, so sweeping the rack lock to lock already covers the inside and
+# outside wheel in both roles.
+#
+# Ranges here are overridden by run.yaml. See RUNNING.md.
+version: 1
+steps: 65
+targets:
+  - type: point
+    point: wheel_center
+    side: left
+    direction: {axis: z}
+    mode: relative
+    start: -25 #Held roll attitude, mm (matches 02's roll range)
+    stop: -25
+  - type: point
+    point: wheel_center
+    side: right
+    direction: {axis: z}
+    mode: relative
+    start: 25 #Equal and opposite: this is the rolled attitude
+    stop: 25
+  - type: actuator_position
+    actuator: rack
+    direction: {axis: y}
+    mode: relative
+    start: -35 #Define Steering Rack Range in mm
+    stop: 35
