@@ -70,7 +70,7 @@ REQUIRED_CONFIG = {
     "side": None,
     "jobs": None,
     "report": ("plots", "gifs"),
-    "gif": ("fps", "overlays", "overlay_frame"),
+    "gif": ("fps",),
     "sweeps": None,
 }
 
@@ -315,9 +315,6 @@ def main() -> None:
     ap.add_argument("--no-gifs", action="store_true", help="no animations at all")
     ap.add_argument("--no-joints", action="store_true",
                     help="drop the bearing misalignment section")
-    ap.add_argument("--gif-overlays", default=None,
-                    help="comma-separated overlays, e.g. fvic,fvsa,roll_center "
-                         "(use 'none' for a clean render)")
     ap.add_argument("--jobs", type=int, default=None,
                     help="parallel solver processes (default: run.yaml `jobs`)")
     ap.add_argument("--report-only", action="store_true",
@@ -351,9 +348,6 @@ def main() -> None:
         config["report"]["gifs"] = False
     if args.on_bad_solve:
         config["solver"]["on_bad_solve"] = args.on_bad_solve
-    if args.gif_overlays is not None:
-        overlays = parse_list(args.gif_overlays) or []
-        config["gif"]["overlays"] = [] if overlays == ["none"] else overlays
 
     model_dir = MODELS / config["model"]
     geometry = (Path(config["geometry"]).resolve() if config.get("geometry")
@@ -485,8 +479,7 @@ def main() -> None:
                 print("   $", " ".join(job["cmd"]))
             for item in plan:
                 if item["gif"]:
-                    print(f"   gif: {item['name']} "
-                          f"overlays={config['gif']['overlays']}")
+                    print(f"   gif: {item['name']}")
             print(f"\n   merged sweep files in {resolved_dir}")
             print(f"   resolved configuration  {resolved_path}")
             if susreport is not None:
@@ -511,7 +504,6 @@ def main() -> None:
         # The animation writer holds every frame in memory, so several at once
         # thrash rather than go faster. This stays serial whatever --jobs says.
         gif_items = [i for i in plan if i["gif"]]
-        overlays = [str(o) for o in (config["gif"]["overlays"] or [])]
         for item in gif_items:
             print(f"\n-> animation ({item['name']})")
             cmd = ["uv", "run", "kinematics", "sweep",
@@ -519,11 +511,6 @@ def main() -> None:
                    "--sweep", str(item["resolved"]),
                    "--out", str(outputs / f"{item['name']}.csv"),
                    "--animation-out", str(outputs / f"{item['name']}.gif")]
-            if overlays:
-                cmd += ["--animation-overlays", ",".join(overlays)]
-            cmd += ["--animation-overlay-frame",
-                    str(config["gif"]["overlay_frame"])]
-            cmd += ["--animation-fps", str(config["gif"]["fps"])]
             run(cmd)
 
     if args.solve_only:

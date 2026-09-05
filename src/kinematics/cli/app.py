@@ -32,18 +32,6 @@ def sweep(
     animation_out: Path | None = typer.Option(
         None, help="Optional animation output path (.mp4, .gif, etc.)"
     ),
-    animation_overlays: str | None = typer.Option(
-        None,
-        help="Comma-separated construction overlays drawn on the animation: "
-        "fvic, fvsa, svic, svsa, roll_center. 'none' renders members only.",
-    ),
-    animation_overlay_frame: float = typer.Option(
-        3.0,
-        help="How many times the geometry half-range an overlay marker may "
-        "stray before it is clipped back onto the frame. Instant centres sit "
-        "tens of metres out, so without this the suspension shrinks to a dot.",
-    ),
-    animation_fps: int = typer.Option(20, help="Animation frames per second."),
 ):
     """
     Run a sweep from file and write results to Parquet or CSV format.
@@ -67,19 +55,13 @@ def sweep(
         visualization = require_visualization()
 
         # Create animation.
-        try:
-            visualization.visualize_suspension_sweep(
-                suspension=run.suspension,
-                solution_states=run.evaluated.states,
-                output_path=animation_out,
-                fps=animation_fps,
-                show_live=False,
-                overlays=animation_overlays,
-                overlay_frame=animation_overlay_frame,
-            )
-        except ValueError as error:
-            typer.echo(f"Error: {error}", err=True)
-            raise typer.Exit(1) from error
+        visualization.visualize_suspension_sweep(
+            suspension=run.suspension,
+            solution_states=run.evaluated.states,
+            output_path=animation_out,
+            fps=20,
+            show_live=False,
+        )
 
         typer.echo(f"Wrote animation: {animation_out}")
 

@@ -59,8 +59,6 @@ Checked against Aurora's 01 sweep, that holds to 1–3% across the whole range
 (the residual is the difference between wheel-centre and contact-patch travel).
 So plot `camber_gain`, and read `fvic_y` / `fvic_z` / `fvsa` from the table when
 you want to know *where* to move a hardpoint rather than what the result is.
-The instant centre is also drawn in the animation, where its position relative
-to the car is the point — see the `gif.overlays` setting in `RUNNING.md`.
 
 ## C. Springing and travel
 

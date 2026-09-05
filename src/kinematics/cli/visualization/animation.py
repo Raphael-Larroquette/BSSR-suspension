@@ -11,11 +11,6 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 
 from kinematics.cli.visualization.main import SuspensionVisualizer
-from kinematics.cli.visualization.overlays import (
-    OverlaySeries,
-    draw_overlays,
-    update_overlays,
-)
 from kinematics.cli.visualization.plots import (
     compute_bounds_from_states,
     configure_3d_axis,
@@ -33,7 +28,6 @@ def create_animation(
     codec: str = "libx264",
     dpi: int = 200,
     show_live: bool = True,
-    overlays: OverlaySeries | None = None,
 ) -> None:
     """
     Create an animation showing suspension movement through multiple states.
@@ -48,9 +42,6 @@ def create_animation(
         codec: Video codec to use (for ffmpeg writer).
         dpi: DPI for the output animation.
         show_live: Whether to show the animation live during creation.
-        overlays: Optional construction geometry (instant centres, swing arms,
-            roll centre) computed by ``overlays.build_overlays``. One frame per
-            entry in ``position_states``.
     """
     # Create figure with four subplots using common function.
     fig, axes = create_four_view_axes()
@@ -78,13 +69,6 @@ def create_animation(
             ax, initial_positions, num_bands=num_bands
         )
 
-    # Overlay artists (instant centres, swing arms, roll centre). Created once
-    # per view and repointed each frame, like the links and wheels.
-    overlay_artists: dict[str, dict] = {k: {} for k in axes.keys()}
-    if overlays:
-        for view_name, ax in axes.items():
-            overlay_artists[view_name] = draw_overlays(ax, overlays)
-
     # Layout.
     plt.subplots_adjust(
         left=0.0, right=1, bottom=0.025, top=0.95, wspace=0.01, hspace=0.01
@@ -110,11 +94,6 @@ def create_animation(
                 wheel_artists[view_name], positions, num_bands=num_bands
             )
 
-        # Update construction overlays.
-        if overlays and frame < len(overlays.frames):
-            for view_name in axes.keys():
-                update_overlays(overlay_artists[view_name], overlays.frames[frame])
-
         # Update global title.
         if title_center_key is None:
             title_artist.set_text(f"Frame {frame}")
@@ -128,7 +107,6 @@ def create_animation(
         artists = []
         for view_name in axes.keys():
             artists.extend(link_artists[view_name])
-            artists.extend(overlay_artists[view_name].values())
             for wheel in wheel_artists[view_name]:
                 artists.extend(wheel["rims"])
                 artists.extend(wheel["bands"])
@@ -136,12 +114,6 @@ def create_animation(
 
     # Play forward then reverse (ping-pong).
     pingpong_states = position_states + position_states[-2:0:-1]
-    # The animation plays forward then backward, so a frame index is not a
-    # state index on the return leg. Keep the mapping explicitly, otherwise the
-    # overlays would run forward while the suspension runs back.
-    pingpong_indices = list(range(len(position_states))) + list(
-        range(len(position_states) - 2, 0, -1)
-    )
     frame_indices = range(0, len(pingpong_states), 1)
 
     # Choose writer automatically if not provided.
@@ -175,32 +147,19 @@ def create_animation(
             for frame in frame_indices:
                 positions = pingpong_states[frame]
                 # Update all artists for this frame.
-                state_index = pingpong_indices[frame]
-                overlay_frame = (
-                    overlays.frames[state_index]
-                    if overlays and state_index < len(overlays.frames)
-                    else None
-                )
                 for view_name in axes.keys():
                     visualizer.update_links(link_artists[view_name], positions)
                     visualizer.update_wheel(
                         wheel_artists[view_name], positions, num_bands=num_bands
                     )
-                    if overlay_frame is not None:
-                        update_overlays(
-                            overlay_artists[view_name], overlay_frame
-                        )
-                # Update global title. Overlay values that are clipped out of
-                # frame are reported here instead of being lost off-screen.
+                # Update global title.
                 wheel_center_z = positions[title_center_key][2]
                 initial_wheel_center_z = initial_positions[title_center_key][2]
-                title_lines = [
+                title_string = (
                     f"Wheel Center Z: "
-                    f"{wheel_center_z - initial_wheel_center_z:.1f} [mm]"
-                ]
-                if overlay_frame is not None and overlay_frame.annotations:
-                    title_lines.append("   ".join(overlay_frame.annotations))
-                title_artist.set_text("\n".join(title_lines))
+                    f"{wheel_center_z - initial_wheel_center_z:.1f} [mm]",
+                )
+                title_artist.set_text("\n".join(title_string))
                 if show_live:
                     fig.canvas.draw()
                     fig.canvas.flush_events()

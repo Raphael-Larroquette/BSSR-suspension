@@ -128,18 +128,6 @@ Applies to every animation; a per-sweep `gif:` mapping merges over this.
 | key | shipped value | meaning |
 | --- | --- | --- |
 | `fps` | `20` | frames per second |
-| `overlays` | `[fvic, fvsa, roll_center]` | construction geometry drawn on top of the members. Any of `fvic`, `fvsa`, `svic`, `svsa`, `roll_center`. An empty list renders the members alone |
-| `overlay_frame` | `3.0` | how many times the geometry half-range an overlay marker may stray before it is clipped |
-
-Instant centres routinely sit tens of metres from a car two metres wide, and
-the front-view IC runs to infinity every time the wishbones pass through
-parallel. Autoscaling to include one would shrink the suspension to a dot, so a
-marker outside the frame is pulled back onto the boundary along the same
-direction and drawn **hollow** — filled means "this is where the point actually
-is". The true value is printed in the animation title.
-
-Asking for `fvsa` implies `fvic` (and `svsa` implies `svic`): a swing arm drawn
-without its instant centre is a line to nowhere.
 
 ### `sweeps.<name>`
 
@@ -184,7 +172,6 @@ Every flag overrides `run.yaml` for that invocation only.
 | `--no-plots` | no figures at all |
 | `--no-gifs` | no animations at all |
 | `--no-joints` | drop the bearing misalignment section |
-| `--gif-overlays a,b` | overlays for every animation; `none` for a clean render |
 | `--jobs N` | parallel solver processes |
 | `--report-only` | rebuild the report from the CSVs already in `outputs/`, solving nothing |
 | `--solve-only` | solve and stop, no report |
@@ -211,9 +198,6 @@ uv run python models/Sweep_Set/run_all.py --no-plots --no-gifs --no-joints
 
 # check what a config change would actually do before spending the CPU
 uv run python models/Sweep_Set/run_all.py --dry-run
-
-# clean animation with no construction geometry
-uv run python models/Sweep_Set/run_all.py --gifs 01 --gif-overlays none
 
 # the rear axle, when it exists
 uv run python models/Sweep_Set/run_all.py --model aurora --geometry models/aurora/rear.yaml

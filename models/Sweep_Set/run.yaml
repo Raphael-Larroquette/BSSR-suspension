@@ -67,14 +67,6 @@ solver:
 # Per-sweep `gif:` mappings merge over this block.
 gif:
   fps: 20
-  # Construction geometry drawn on top of the links and wheels. Any of:
-  #   fvic, fvsa, svic, svsa, roll_center      (empty list = clean render)
-  overlays: [fvic, fvsa, roll_center]
-  # Instant centres routinely sit tens of metres from the car. The view is
-  # held at this multiple of the geometry bounding box and anything outside
-  # is drawn as an edge arrow with its numeric value, rather than letting the
-  # axes autoscale until the suspension is a dot.
-  overlay_frame: 3.0
 
 # ==========================================================================
 # Per-sweep settings
@@ -127,7 +119,7 @@ sweeps:
     run: true
     report: true
     plots: all
-    gif: {enabled: true, overlays: [fvic, roll_center]}
+    gif: true
     steps: 65
     travel:
       left: [-25, 25]
