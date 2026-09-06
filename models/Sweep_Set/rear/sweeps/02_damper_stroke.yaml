@@ -12,7 +12,7 @@ steps: 41
 targets:
   - type: element_length
     element: damper
-    side: left
+    side: center #the wheel sits on the vehicle centreline
     mode: relative
     start: -30
     stop: 30

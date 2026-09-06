@@ -3,9 +3,11 @@
 # ONE degree of freedom and this sweep has exactly one target. Drive the wheel
 # centre and read everything else.
 #
-# Gives: camber and toe curves, motion ratio, wheel-centre recession, and the
-#        side-view family (SVIC, SVSA, anti-squat) that the front cannot
-#        produce because its wishbone axes are parallel in side view.
+# Gives: motion ratio, wheel-centre recession, and the side-view family (SVIC,
+#        SVSA, anti-squat) that the front cannot produce because its wishbone
+#        axes are parallel in side view. There are no camber or toe curves: the
+#        wheel is on the centreline and the pivot is transverse, so neither
+#        angle is defined nor changes.
 #
 # Ranges here are overridden by rear/run.yaml. See RUNNING.md.
 version: 1
@@ -13,7 +15,7 @@ steps: 41
 targets:
   - type: point
     point: wheel_center
-    side: left
+    side: center #the wheel sits on the vehicle centreline
     direction: {axis: z}
     mode: relative
     start: -40 #Define Droop in mm from neutral

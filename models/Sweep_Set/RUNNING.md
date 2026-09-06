@@ -118,6 +118,14 @@ a different amount of one.
 | `sweeps_dir` | path | `sweeps` | the sweep YAMLs, relative to this file |
 | `reporter` | `susreport` \| `susreport_rear` | `susreport` | which report module builds `report.md` |
 | `side` | `left` \| `right` \| `null` | `left` | which corner the per-corner rows report. **`null` for a corner model**, which has only one |
+
+**A standalone corner geometry is always `side: left`.** The loader rejects
+`right` — *"side 'right' is available only through an axle geometry"* — because
+a right corner is the mirror of a left one and adds nothing on its own. If the
+real wheel faces the other way, negate every `y` in the geometry file: the
+suspension is identical by mirror symmetry, and only the signs of lateral
+quantities (scrub, FVSA, half track) flip, all of which are conventional on a
+centreline wheel anyway. Sweep targets in that set then also take `side: left`.
 | `jobs` | int \| `auto` | `auto` | parallel solver processes; `auto` = min(8, CPU cores) |
 
 ### `decimals`

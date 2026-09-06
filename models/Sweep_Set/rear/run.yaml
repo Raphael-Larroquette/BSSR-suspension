@@ -12,6 +12,12 @@
 # Aurora's rear is a SINGLE CORNER, so its ranges take the bare [start, stop]
 # form rather than the axle's {left:, right:}, and it is reported by
 # susreport_rear.py rather than susreport.py.
+#
+# A standalone corner geometry is ALWAYS `side: left` - the loader rejects
+# 'right', because a right corner is the mirror of a left one and adds nothing
+# on its own. If the real wheel faces the other way, negate every y in the
+# geometry file; the suspension is identical by mirror symmetry. Sweep targets
+# in sweeps/ therefore also say `side: left`.
 # ==========================================================================
 version: 1
 

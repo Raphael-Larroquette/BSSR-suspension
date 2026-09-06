@@ -281,6 +281,21 @@ def solve_one(job: dict) -> tuple[str, int, str]:
     return job["name"], result.returncode, (result.stdout or "") + (result.stderr or "")
 
 
+def _failure_reason(output: str) -> str:
+    """Pull the headline out of a subprocess traceback.
+
+    A solver failure prints a full traceback, whose last non-empty line is the
+    exception and its message. That line is what the reader needs first.
+    """
+    lines = [line.strip() for line in (output or "").splitlines() if line.strip()]
+    if not lines:
+        return "no output"
+    for line in reversed(lines):
+        if ": " in line and not line.startswith(("File ", "  ")):
+            return line
+    return lines[-1]
+
+
 def truthy(value, default: bool) -> bool:
     """Interpret a run.yaml on/off value."""
     if value is None:
@@ -531,8 +546,24 @@ def main() -> None:
                 if code != 0:
                     failures.append((name, output))
         if failures:
-            for name, output in failures:
-                print(f"\n--- {name} ---\n{output}", file=sys.stderr)
+            # Every sweep loads the same geometry, so a geometry or
+            # configuration fault fails all of them with one message. Say that
+            # once rather than making the reader diff N identical tracebacks.
+            reasons = {_failure_reason(output) for _name, output in failures}
+            if len(reasons) == 1 and len(failures) > 1:
+                reason = reasons.pop()
+                print(f"\n--- all {len(failures)} sweeps failed identically ---",
+                      file=sys.stderr)
+                print(f"{reason}\n", file=sys.stderr)
+                print("Every sweep loads the same geometry, so this is almost "
+                      "certainly the geometry file or run.yaml, not the "
+                      "sweeps.", file=sys.stderr)
+                print(f"\nFull output from {failures[0][0]}:\n{failures[0][1]}",
+                      file=sys.stderr)
+            else:
+                for name, output in failures:
+                    print(f"\n--- {name} ---\n{output}", file=sys.stderr)
+                    print(f"  reason: {_failure_reason(output)}", file=sys.stderr)
             sys.exit(f"{len(failures)} sweep(s) failed to solve")
 
         # ---- animations, serially ------------------------------------
