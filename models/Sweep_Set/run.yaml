@@ -3,11 +3,6 @@
 #
 #   uv run python models/Sweep_Set/run_all.py
 #
-# THERE ARE NO BUILT-IN DEFAULTS. Neither run_all.py nor susreport.py carries
-# fallback values: every setting below is required, and a missing or misspelt
-# one is an error naming the key. Every file in sweeps/ also needs an entry
-# under `sweeps:`, even if it is only `run: false`.
-#
 # PRECEDENCE, highest first:
 #
 #   1. command-line flags   (this invocation only; see RUNNING.md or --help)
@@ -30,13 +25,11 @@ model: aurora            # folder under models/ holding the geometry
 geometry: null           # explicit path to a geometry yaml; overrides `model`
 side: left               # which corner the per-corner rows report
 
-# Parallel solver processes. Each sweep is an independent subprocess writing
-# its own CSV, so they cannot interfere; `auto` is min(8, CPU cores). The
-# report is built serially afterwards, and animations are always serial
-# because the writer holds every frame in memory.
-jobs: auto
+#Number of CPU Cores to run the sweeps. Auto is min(8, CPU cores). 
+#Report and animations are built in serial after.
+jobs: auto 
 
-# ---- number formatting in report.md --------------------------------------
+# ---- Decimals for report.md --------------------------------------
 decimals:
   mm: 3
   deg: 4
@@ -45,16 +38,14 @@ decimals:
 
 # ---- report --------------------------------------------------------------
 report:
-  joints: true           # the bearing misalignment section
-  notes: true            # conventions + degenerate-geometry notes
-
-  # Master overrides for every sweep at once, so you do not have to touch each
-  # entry below:
-  #   auto   - each sweep's own `plots:` / `gif:` setting decides
-  #   false  - force off everywhere, whatever the sweeps say
-  #   true   - force on everywhere, whatever the sweeps say
-  plots: auto
-  gifs: auto
+  joints: true           # the bearing misalignment section. Options: True / False
+  notes: true            # conventions + degenerate-geometry notes. Options: True / False
+  plots: auto            # Master Overide of all plots. Options: Auto / True / False
+  gifs: auto             # Master Overide of all animations. Options: Auto / True / False
+  #   auto   - Follows settings in each sweep's own `plots:` / `gif:`
+  #   false  - force off everywhere
+  #   true   - force on everywhere
+  
 
 # ---- solver health -------------------------------------------------------
 # `residual_limit` is compared against `solver_max_residual`: the largest

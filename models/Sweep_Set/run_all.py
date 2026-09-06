@@ -13,6 +13,7 @@ Layout it assumes:
     models/
       aurora/            <- geometry, outputs, report
         front.yaml
+        rear.yaml
         outputs/
         report/
       Sweep_Set/         <- this file

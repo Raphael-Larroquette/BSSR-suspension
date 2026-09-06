@@ -5,7 +5,7 @@ version: "0.1.2" #the first digit represents a fully funtional version, the seco
 units: millimeters
 
 vehicle_config:
-  cg_position: {x: 1127.778, y: 39.844, z: 320}
+  cg_position: {x: -1127.778, y: -39.844, z: 320}
   wheelbase: 2240.00
 
 axle_config:

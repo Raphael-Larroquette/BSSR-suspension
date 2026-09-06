@@ -1,0 +1,29 @@
+type: trailing_arm
+side: right #for 3 wheel use the corrisponding side for the direction your wheel faces
+name: "Aurora Rear Recreated"
+version: "0.1.0" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
+units: millimeters
+
+spring:
+  type: coilover
+
+config:
+  steering:
+    type: none
+  wheel:
+    offset: 23.737 #TBDDDD
+    tire:
+      aspect_ratio: 0.8
+      section_width: 95
+      rim_diameter: 16
+  cg_position: {x: -1127.778, y: -39.844, z: 320}
+  wheelbase: 2240.00
+
+hardpoints:
+  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5} 
+  trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5} 
+  trailing_arm_outboard: {x: -2240, y: 70.332, z: 278.5}
+  axle_inboard: {x: -2240, y: 70.332, z: 278.5}
+  axle_outboard: {x: -2240, y: -23.737, z: 278.5}
+  strut_top: {x: -1901.921, y: 100, z: 546.579} 
+  strut_bottom: {x: -2135.97, y: 100, z: 329.131}
