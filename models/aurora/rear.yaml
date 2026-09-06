@@ -1,5 +1,5 @@
 type: trailing_arm
-side: right #for 3 wheel use the corrisponding side for the direction your wheel faces
+side: left
 name: "Aurora Rear Recreated"
 version: "0.1.0" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
 units: millimeters
@@ -11,7 +11,7 @@ config:
   steering:
     type: none
   wheel:
-    offset: 23.737 #TBDDDD
+    offset: -23.737 #ofset must be negative because we have to pick left side but wheel is flipped
     tire:
       aspect_ratio: 0.8
       section_width: 95

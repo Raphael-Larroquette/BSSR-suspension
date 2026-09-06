@@ -12,7 +12,7 @@ steps: 41
 targets:
   - type: element_length
     element: damper
-    side: right #must match the `side:` declared in the rear geometry file
+    side: left
     mode: relative
     start: -30
     stop: 30

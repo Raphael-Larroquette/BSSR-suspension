@@ -13,7 +13,7 @@ steps: 41
 targets:
   - type: point
     point: wheel_center
-    side: right #must match the `side:` declared in the rear geometry file
+    side: left
     direction: {axis: z}
     mode: relative
     start: -40 #Define Droop in mm from neutral
