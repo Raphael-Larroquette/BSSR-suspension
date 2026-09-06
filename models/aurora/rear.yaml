@@ -18,12 +18,13 @@ config:
       rim_diameter: 16
   cg_position: {x: -1127.778, y: -39.844, z: 320}
   wheelbase: 2240.00
+  axle_position: rear
 
 hardpoints:
   trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5} 
   trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5} 
   trailing_arm_outboard: {x: -2240, y: 70.332, z: 278.5}
-  axle_inboard: {x: -2240, y: 70.332, z: 278.5}
+  axle_inboard: {x: -2240, y: 69.332, z: 278.5} #y changed from 70.332 from cad to 69.332 to satisfty being destinct from trailing arm outboard
   axle_outboard: {x: -2240, y: -23.737, z: 278.5}
   strut_top: {x: -1901.921, y: 100, z: 546.579} 
   strut_bottom: {x: -2135.97, y: 100, z: 329.131}
