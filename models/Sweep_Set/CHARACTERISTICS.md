@@ -397,18 +397,54 @@ as a standalone corner rather than an axle. Three consequences:
    blank. Anti-squat needs the driven axle declared; anti-lift needs
    `front_brake_bias`.
 
+A fourth, about the arm axis itself: **a plain transverse pivot produces no
+camber or toe change.** If both arm mounts share an X, the carrier rotates about
+an axis parallel to the wheel spin axis, so the wheel rises in a plane and both
+curves are exactly flat. Camber and toe change are what obliquity in plan buys
+you. Flat curves are therefore a design outcome to decide on, not a solver
+failure — and if you want camber gain at the rear, obliquity is the lever.
+
 Two channels to read carefully on a centreline wheel: **half track** is
 measured from the vehicle centreline and so reports approximately zero, and the
 signs of **scrub radius** and **FVSA** follow the `side:` you declared rather
 than anything physical. Read their magnitudes, not their signs.
 
-One more: **the steering axis of an unsteered corner is a construction, not a
-hinge.** Camber, caster, KPI, scrub and trail are all measured about the line
-the model calls the steering axis, which on a trailing arm is
-`TRAILING_ARM_OUTBOARD` → `AXLE_INBOARD`. They still describe how the wheel is
-oriented, but nothing rotates about that line — and it means
-`trailing_arm_outboard` is a load-bearing hardpoint for the alignment channels,
-not just for the motion.
+One more, and it decides what the rear report contains: **an unsteered trailing
+arm has no kingpin.** `TrailingArmSuspension.steering_axis_points()` returns
+`TRAILING_ARM_OUTBOARD → AXLE_INBOARD` and its own docstring says why:
+
+> The architecture does not steer; this is not a physical kingpin axis. It
+> merely lets the shared metric catalog evaluate its conventional alignment
+> columns for the rigid carrier.
+
+So **caster, KPI, scrub radius and mechanical trail are properties of that
+construction line**, not of the suspension, and the rear preset omits them.
+Camber and toe are computed from the wheel spin axis instead, so they are
+physical and are kept. The omitted channels are still in `CHANNELS` — name them
+in `run.yaml` if you want them anyway.
+
+### Choosing `trailing_arm_outboard` when there is no upright
+
+On a hub-motor arm the arm bolts straight to the motor axle, so there is no
+separate upright and no obvious "arm outboard" point. It matters less than it
+looks:
+
+The arm is constrained by two distances, `PIVOT_A → OUTBOARD` and
+`PIVOT_B → OUTBOARD`, which together put that point on a circle about the pivot
+axis; every other carrier point is then rotated rigidly by the same rotation.
+**The motion is one rotation about the pivot axis whatever point you pick**, so
+the wheel path, camber curve and toe curve are unchanged by the choice. What it
+does change is the nominal alignment line above — which is exactly the set of
+channels the rear preset already drops.
+
+Two requirements, both cheap: the point must not lie **on** the pivot axis (the
+distances would not define a rotation), and it must be **distinct from
+`AXLE_INBOARD`** (they are the two ends of the nominal line, so coincident
+points make it a zero-length vector and every angle built on it undefined).
+`AXLE_INBOARD` is itself a free construction point — your own `front.yaml` notes
+it need only sit 100–200 mm from `AXLE_OUTBOARD` along the axle axis — so the
+easy resolution is to place `trailing_arm_outboard` at the real clamp and slide
+`axle_inboard` further inboard along the axle.
 
 The rear report is built by `susreport_rear.py`; the front by `susreport.py`.
 See `RUNNING.md`.

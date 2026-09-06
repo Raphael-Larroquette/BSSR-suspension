@@ -180,9 +180,17 @@ def test_trailing_arm_axle_mirrors_an_unsteered_pair():
     ("point", "replacement", "message"),
     (
         (
+            # Non-horizontal axis: the two mounts are at different heights.
             PointID.TRAILING_ARM_PIVOT_B,
-            Point3([1000, 700, 300]),
-            "horizontal, oblique",
+            Point3([900, 700, 420]),
+            "horizontal axis",
+        ),
+        (
+            # Longitudinal axis: no transverse component at all. That is a
+            # swing axle, not a trailing arm.
+            PointID.TRAILING_ARM_PIVOT_B,
+            Point3([900, 500, 300]),
+            "transverse component",
         ),
         (
             PointID.TRAILING_ARM_OUTBOARD,
@@ -209,6 +217,53 @@ def test_trailing_arm_rejects_invalid_physical_conventions(
             config=coilover.config,
             spring_type=coilover.spring_type,
         )
+
+
+def test_plain_transverse_pivot_is_accepted_and_solves(coilover):
+    """A trailing arm whose mounts share an X is a valid revolute joint.
+
+    This is the common hub-motor layout: both arm mounts on one transverse
+    line, so the wheel swings in a plane. It produces no camber or toe change,
+    which is a property of the design rather than a reason to reject it.
+    """
+    hardpoints = coilover.get_hardpoints_copy()
+    pivot_a = hardpoints[PointID.TRAILING_ARM_PIVOT_A]
+    hardpoints[PointID.TRAILING_ARM_PIVOT_B] = Point3(
+        [float(pivot_a[Axis.X]), float(pivot_a[Axis.Y]) + 200.0,
+         float(pivot_a[Axis.Z])]
+    )
+    suspension = TrailingArmSuspension(
+        name="plain trailing arm",
+        side=Side.LEFT,
+        hardpoints=hardpoints,
+        config=coilover.config,
+        spring_type=coilover.spring_type,
+    )
+
+    sweep = load_sweep(TEST_DATA / "trailing_arm_sweep.yaml", suspension)
+    states, infos = solve_sweep(suspension, sweep)
+    assert all(info.converged for info in infos)
+    assert all(info.max_residual < 1e-3 for info in infos)
+
+    # The arm length about the pivot axis is preserved, as for any revolute.
+    for state in states:
+        for pivot in (PointID.TRAILING_ARM_PIVOT_A, PointID.TRAILING_ARM_PIVOT_B):
+            assert _distance(state, pivot, PointID.TRAILING_ARM_OUTBOARD) == (
+                pytest.approx(
+                    _distance(
+                        suspension.initial_state(),
+                        pivot,
+                        PointID.TRAILING_ARM_OUTBOARD,
+                    ),
+                    abs=1e-6,
+                )
+            )
+
+    # A transverse hinge sweeps the wheel in a plane: no camber, no toe change.
+    rows = [_corner_metric_row(row)
+            for row in compute_sweep_metrics(suspension, sweep, states).rows]
+    cambers = [float(row["camber"]) for row in rows]
+    assert max(cambers) - min(cambers) == pytest.approx(0.0, abs=1e-6)
 
 
 def test_torsion_bar_requires_pivot_a_on_its_axis():

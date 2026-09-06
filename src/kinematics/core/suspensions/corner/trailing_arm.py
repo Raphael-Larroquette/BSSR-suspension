@@ -1,9 +1,14 @@
-"""Unsteered semi-trailing-arm suspension with coilover or torsion-bar springing.
+"""Unsteered trailing-arm suspension with coilover or torsion-bar springing.
 
-The two fixed arm mounts define an oblique, horizontal rotation axis. The
-entire outboard wheel carrier is constrained rigidly to one arm point, so bump
-and droop rotate the hub about that axis and naturally produce semi-trailing-arm
-camber and toe change.
+The two fixed arm mounts define a horizontal rotation axis. The entire outboard
+wheel carrier is constrained rigidly to one arm point, so bump and droop rotate
+the hub about that axis.
+
+The axis may be purely transverse (a plain trailing arm: both mounts at the same
+X, so the wheel rises in a plane and gains no camber or toe) or oblique in plan
+(a semi-trailing arm, whose obliquity is exactly what produces its camber and
+toe change). Both are supported; only a non-horizontal axis, or one with no
+transverse component at all, is rejected.
 
 The torsion-bar variant models the Porsche 944-style arrangement: pivot A lies
 on a transverse torsion-bar axis, and arm motion about that authored axis drives
@@ -178,18 +183,26 @@ class TrailingArmSuspension(CornerSuspension):
         return self.REQUIRED_POINTS | self.TORSION_POINTS
 
     def validate_hardpoints(self) -> None:
-        """Require an oblique arm pivot, rearward arm, and valid spring hardware."""
+        """Require a horizontal arm pivot, rearward arm, and valid spring hardware."""
         super().validate_hardpoints()
         pivot_a = self.hardpoints[PointID.TRAILING_ARM_PIVOT_A]
         pivot_b = self.hardpoints[PointID.TRAILING_ARM_PIVOT_B]
-        if (
-            abs(float(pivot_a[Axis.X] - pivot_b[Axis.X])) <= EPS_GEOMETRIC
-            or abs(float(pivot_a[Axis.Z] - pivot_b[Axis.Z])) > EPS_GEOMETRIC
-            or abs(float(pivot_a[Axis.Y] - pivot_b[Axis.Y])) <= EPS_GEOMETRIC
-        ):
+        # The axis must be horizontal and must have a transverse component, so
+        # that it is a hinge the arm can swing about in bump. Longitudinal
+        # obliquity is NOT required: equal X is a plain trailing arm, which is
+        # a perfectly good revolute joint and the common layout for a
+        # hub-motor arm. It simply produces no camber or toe change, which is
+        # a design outcome rather than a modelling error.
+        if abs(float(pivot_a[Axis.Z] - pivot_b[Axis.Z])) > EPS_GEOMETRIC:
             raise ValueError(
-                "TRAILING_ARM_PIVOT_A/B must define a horizontal, oblique "
-                "semi-trailing-arm axis (different X and Y, equal Z)."
+                "TRAILING_ARM_PIVOT_A/B must define a horizontal axis "
+                "(equal Z)."
+            )
+        if abs(float(pivot_a[Axis.Y] - pivot_b[Axis.Y])) <= EPS_GEOMETRIC:
+            raise ValueError(
+                "TRAILING_ARM_PIVOT_A/B must define a trailing-arm axis with a "
+                "transverse component (different Y). Equal Y would make the "
+                "axis longitudinal, which is a swing axle, not a trailing arm."
             )
         arm_x = float(self.hardpoints[PointID.TRAILING_ARM_OUTBOARD][Axis.X])
         rearmost_pivot_x = min(float(pivot_a[Axis.X]), float(pivot_b[Axis.X]))

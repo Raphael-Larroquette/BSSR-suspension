@@ -93,9 +93,21 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
 # Channel lists used when a sweep asks for `report: true` without naming any.
 PRESETS: dict[str, list[str]] = {
     # Wheel travel commanded, damper read. The design reference for the arm.
+    #
+    # Caster, KPI, scrub radius and mechanical trail are deliberately ABSENT.
+    # They are all angles of, or ground intersections of, the "steering axis",
+    # and an unsteered trailing arm has no kingpin: the library returns
+    # TRAILING_ARM_OUTBOARD -> AXLE_INBOARD as a nominal carrier reference line
+    # purely so the shared metric catalogue has something to evaluate (see
+    # TrailingArmSuspension.steering_axis_points). Reporting them would be
+    # reporting a property of an arbitrary construction line. They are still in
+    # CHANNELS, so name them explicitly in run.yaml if you want them.
+    #
+    # Camber and toe are kept because they come from the wheel spin axis, not
+    # from that line, and are physical.
     "heave": [
-        "camber", "caster", "kpi", "toe", "scrub_signed", "trail",
-        "half_track", "wheel_travel", "damper_length", "motion_ratio",
+        "camber", "toe", "half_track",
+        "wheel_travel", "damper_length", "motion_ratio",
         "camber_gain", "bump_steer", "recession_rate",
         "svic_x", "svic_z", "svsa", "svsa_angle", "anti_squat", "anti_lift",
     ],
@@ -217,12 +229,20 @@ def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
         "- **Scrub radius** is reported as the signed lateral offset "
         "(`steering_axis_offset_ground`). The ISO `scrub_radius` column is an "
         "unsigned distance that includes mechanical trail.",
-        "- **The steering axis of an unsteered corner is a construction, not "
-        "a hinge.** Camber, caster, KPI, scrub and trail are all measured "
-        "about the line the model calls the steering axis; on a trailing arm "
-        "that is the line from the arm's outboard point to the axle inboard "
-        "point. They still describe how the wheel is oriented, but nothing "
-        "rotates about that line.",
+        "- **An unsteered trailing arm has no kingpin, so caster, KPI, scrub "
+        "radius and mechanical trail are not reported.** The library returns "
+        "`TRAILING_ARM_OUTBOARD -> AXLE_INBOARD` as a nominal carrier "
+        "reference line so the shared metric catalogue has something to "
+        "evaluate; it is not a physical axis, and any angle measured about it "
+        "is a property of where those two construction points were placed. "
+        "Camber and toe come from the wheel spin axis instead, so they are "
+        "physical and are reported. Name the others explicitly in run.yaml if "
+        "you want them anyway.",
+        "- **A plain transverse arm pivot produces no camber or toe change.** "
+        "If both arm mounts share an X, the wheel swings in a plane and both "
+        "curves are flat. Camber and toe change are what arm-axis obliquity "
+        "in plan buys you, so flat curves here are a design outcome, not a "
+        "solver failure.",
     ]
     if C._degenerate_side_view(sweeps):
         out.append(
