@@ -223,6 +223,32 @@ class TrailingArmSuspension(CornerSuspension):
             raise ValueError(
                 "TRAILING_ARM_OUTBOARD must not lie on the trailing-arm pivot axis."
             )
+        # TRAILING_ARM_OUTBOARD -> AXLE_INBOARD is the nominal carrier
+        # reference line (see steering_axis_points). Caster and KPI are its
+        # inclinations in the side and front views, so if the two points differ
+        # only in Y the line is purely transverse, both projections vanish, and
+        # the metric evaluates atan2(0, 0) - which surfaces as a
+        # ZeroDivisionError deep in the dual-number pass rather than as
+        # anything a reader could act on. Catch it here instead.
+        #
+        # It is also a sign the arm point is on the axle axis: on a real arm
+        # the clamp or dropout sits off that line, so give it its true X and Z.
+        reference = (
+            self.hardpoints[PointID.AXLE_INBOARD]
+            - self.hardpoints[PointID.TRAILING_ARM_OUTBOARD]
+        )
+        if (
+            abs(float(reference[Axis.X])) <= EPS_GEOMETRIC
+            and abs(float(reference[Axis.Z])) <= EPS_GEOMETRIC
+        ):
+            raise ValueError(
+                "TRAILING_ARM_OUTBOARD and AXLE_INBOARD differ only in Y, so "
+                "the carrier reference line is purely transverse and the "
+                "caster and KPI columns are undefined. Give "
+                "TRAILING_ARM_OUTBOARD its real X and Z: on a physical arm the "
+                "clamp does not sit on the axle axis."
+            )
+
         if self.spring_type is CornerSpringType.TORSION_BAR:
             axis_a = self.hardpoints[PointID.TORSION_BAR_AXIS_A]
             axis_b = self.hardpoints[PointID.TORSION_BAR_AXIS_B]

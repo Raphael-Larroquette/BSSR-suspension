@@ -193,6 +193,13 @@ def test_trailing_arm_axle_mirrors_an_unsteered_pair():
             "transverse component",
         ),
         (
+            # Arm point on the axle axis: the carrier reference line becomes
+            # purely transverse, so caster and KPI would be atan2(0, 0).
+            PointID.TRAILING_ARM_OUTBOARD,
+            Point3([500, 801, 350]),
+            "differ only in Y",
+        ),
+        (
             PointID.TRAILING_ARM_OUTBOARD,
             Point3([1000, 850, 250]),
             "rearward of the pivot axis",
