@@ -1,32 +1,47 @@
-# Aurora front-axle kinematics workspace
+# Aurora kinematics workspace
 
 ```
-../aurora/front.yaml   your geometry
-run.yaml               WHAT RUNS AND WHAT IS REPORTED - start here
-run_all.py             solve the set, render, build the report
-sweeps/                target structure for each sweep
-susreport.py           parser: CSVs -> characteristics, gradients, plots
-../aurora/outputs/     raw solver CSVs (one per sweep) + animations
-../aurora/report/      generated: summary.csv, report.md, joints.csv, plots/
+run_all.py             solve a sweep set, render, build the report
+susreport.py           reporter: two-wheel axle   (Aurora front)
+susreport_rear.py      reporter: single corner    (Aurora rear)
+susreport_common.py    what the two reporters share
+bearings.py            bearing misalignment, shared by both
+
+front/run.yaml         WHAT RUNS AND WHAT IS REPORTED for the front - start here
+front/sweeps/          target structure for each front sweep
+rear/run.yaml          the same, for the rear
+rear/sweeps/
+
 RUNNING.md             run.yaml key reference, CLI overrides, precedence
 SWEEPS.md              complete sweep-authoring grammar
-CHARACTERISTICS.md     every characteristic the set produces, with caveats
+CHARACTERISTICS.md     every characteristic the sets produce, with caveats
 ```
+
+Results land beside the geometry they were run against:
+`../aurora/outputs/<set name>/` and `../aurora/report/<set name>/`.
 
 ## Run
 
 ```bash
-uv run python models/Sweep_Set/run_all.py              # whatever run.yaml says
-uv run python models/Sweep_Set/run_all.py --report-only  # rebuild without solving
-uv run python models/Sweep_Set/run_all.py --dry-run      # show what would happen
+uv run python models/Sweep_Set/run_all.py                       # the front set
+uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
+uv run python models/Sweep_Set/run_all.py --report-only         # no solving
+uv run python models/Sweep_Set/run_all.py --dry-run             # nothing at all
 ```
 
 Ranges, step counts, which sweeps run, which characteristics each one reports,
-which get figures and which get animations are all set in **`run.yaml`**.
-Command-line flags override it for one invocation. Full reference in
-`RUNNING.md`.
+which get figures and which get animations are all set in that set's
+**`run.yaml`**. Command-line flags override it for one invocation. Full
+reference in `RUNNING.md`.
 
-## The sweeps
+Pointing a set at another car needs no reconfiguration — results follow the
+geometry:
+
+```bash
+uv run python models/Sweep_Set/run_all.py --geometry models/gen14/front.yaml
+```
+
+## The front sweeps
 
 | # | File | Drives | Answers | Default |
 | --- | --- | --- | --- | --- |
@@ -59,3 +74,20 @@ you are specifically chasing bump steer.
 Targets pair by index, never as a grid — that is why 04/05/06 are three files
 rather than one 2-D sweep, and why 09 (held attitude) and 10 (ramp) are two
 paths rather than one surface. See `SWEEPS.md` §5.
+
+## The rear sweeps
+
+Aurora's rear is a single trailing-arm corner with no steering, so it has
+exactly **one degree of freedom** and each sweep has exactly one target. Roll,
+Ackermann and steer sweeps have no meaning on one wheel, so the set is small on
+purpose rather than mirroring the front.
+
+| # | File | Drives | Answers |
+| --- | --- | --- | --- |
+| 01 | `01_bump` | wheel centre | camber and toe curves, motion ratio, recession, and the side-view family the front cannot produce |
+| 02 | `02_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion ratio |
+
+The side-view point is the reason the rear gets its own reporter: a trailing
+arm's side-view instant centre **is its pivot axis**, so SVIC, SVSA, SVSA angle
+and anti-squat are all well defined. On the front they are undefined, because
+its wishbone axes are exactly parallel in side view.

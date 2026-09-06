@@ -2,6 +2,7 @@
 # run.yaml - the single place to configure a sweep run
 #
 #   uv run python models/Sweep_Set/run_all.py
+#   uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/front/run.yaml
 #
 # PRECEDENCE, highest first:
 #
@@ -20,9 +21,23 @@
 # ==========================================================================
 version: 1
 
-# ---- what to run against -------------------------------------------------
-model: aurora            # folder under models/ holding the geometry
-geometry: null           # explicit path to a geometry yaml; overrides `model`
+# ---- identity and paths --------------------------------------------------
+# `name` is what the output and report folders are called, so the same sweep
+# set can be pointed at another car without collisions:
+#   <geometry folder>/outputs/<name>/   and   <geometry folder>/report/<name>/
+name: front
+
+# Default target. --geometry overrides it, which is how you run this same
+# sweep set against a different car.
+geometry: ../../aurora/front.yaml
+
+# Relative to this file.
+sweeps_dir: sweeps
+
+# Which report module builds report.md. susreport = two-wheel axle;
+# susreport_rear = single corner.
+reporter: susreport
+
 side: left               # which corner the per-corner rows report
 
 #Number of CPU Cores to run the sweeps. Auto is min(8, CPU cores). 
@@ -198,6 +213,11 @@ sweeps:
     rack: [0, 0]
 
   # -- 09 steering at a held roll attitude ---------------------------------
+  # NOTE: roll is held one way while the rack sweeps both, so only half of this
+  # sweep is a real cornering state - the other half is rolled one way and
+  # steered the other. On Aurora that reads as ~110% Ackermann turning into the
+  # roll and NEGATIVE (anti-Ackermann) turning out of it. If you only want the
+  # physical half, set `rack: [0, 35]` (or [-35, 0]) to match the roll sign.
   # Lock to lock with the axle held in roll. The mid-corner steering geometry,
   # and the only place Ackermann-in-roll is defined.
   09_steer_in_roll:

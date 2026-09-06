@@ -11,21 +11,26 @@ reference and CHARACTERISTICS.md for what the channels mean.
 
 Layout it assumes:
     models/
-      aurora/            <- geometry, outputs, report
-        front.yaml
-        rear.yaml
-        outputs/
-        report/
-      Sweep_Set/         <- this file
-        run.yaml
-        sweeps/
-        susreport.py
+      Sweep_Set/         <- this file, the reporters, and the sweep sets
+        run_all.py  susreport.py  susreport_rear.py  susreport_common.py
+        bearings.py
+        front/           <- a sweep set: run.yaml + sweeps/
+        rear/            <- another one
+      aurora/            <- a car: geometry files, and results per sweep set
+        front.yaml  rear.yaml
+        outputs/front/  outputs/rear/
+        report/front/   report/rear/
+
+A sweep set names itself and its default geometry, and results land beside
+whatever geometry it is pointed at - so the same set runs against another car
+without collisions or reconfiguration.
 
 Usage:
     uv run python models/Sweep_Set/run_all.py
+    uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
     uv run python models/Sweep_Set/run_all.py --only 01,02,09
     uv run python models/Sweep_Set/run_all.py --report-only
-    uv run python models/Sweep_Set/run_all.py --geometry models/aurora/rear.yaml
+    uv run python models/Sweep_Set/run_all.py --geometry models/gen14/front.yaml
 """
 
 from __future__ import annotations
@@ -42,9 +47,7 @@ from pathlib import Path
 import yaml
 
 HERE = Path(__file__).resolve().parent          # models/Sweep_Set
-MODELS = HERE.parent                            # models
-SWEEPS = HERE / "sweeps"
-RUN_YAML = HERE / "run.yaml"
+RUN_YAML = HERE / "front" / "run.yaml"           # the default sweep set
 
 # Where merged sweep files are written. run.yaml overrides the sweep YAMLs, so
 # the file actually handed to the solver is a merge of the two. It is written
@@ -66,13 +69,21 @@ RESOLVED_DIRNAME = "_resolved_sweeps"
 # `--dry-run` runs both validations, so it catches every kind of typo.
 # ==========================================================================
 REQUIRED_CONFIG = {
-    "model": None,
+    "name": None,
+    "geometry": None,
+    "sweeps_dir": None,
+    "reporter": None,
     "side": None,
     "jobs": None,
     "report": ("plots", "gifs"),
     "gif": ("fps",),
     "sweeps": None,
 }
+
+# Report modules a run.yaml may name. Each owns a suspension kind: the axle
+# reporter's columns are side-suffixed and it carries track, roll, roll centre
+# and Ackermann; the corner reporter's are unsuffixed and it does not.
+REPORTERS = ("susreport", "susreport_rear")
 
 # run.yaml keys that override a sweep YAML target, and how to find that target.
 # (config key) -> predicate over one target mapping from the sweep file.
@@ -91,6 +102,13 @@ TARGET_MATCHERS = {
                                     and t.get("side") == "right"),
     ("rack", None): lambda t: (t.get("type") == "actuator_position"
                                and t.get("actuator") == "rack"),
+    # Corner models drive one wheel and one damper, and their sweep targets
+    # carry a `side:` only because the geometry declares one. The bare form
+    # matches whichever side is there.
+    ("travel", None): lambda t: (t.get("type") == "point"
+                                 and t.get("point") == "wheel_center"),
+    ("damper", None): lambda t: (t.get("type") == "element_length"
+                                 and t.get("element") == "damper"),
 }
 
 
@@ -133,18 +151,23 @@ def load_run_config(path: Path) -> dict:
     return copy.deepcopy(raw)
 
 
-def load_susreport():
-    """Import the report builder from this directory.
+def load_reporter(name: str):
+    """Import the report module this run.yaml names, and return its REPORTER.
 
     Imported lazily and by name rather than launched as a second process, so
-    its tracebacks surface here and a breakpoint in susreport.py is hit by an
+    its tracebacks surface here and a breakpoint in the reporter is hit by an
     ordinary run of this script. Lazy because it pulls in matplotlib and
     pandas, which a --solve-only run has no use for.
     """
+    if name not in REPORTERS:
+        sys.exit(f"unknown reporter '{name}'. Known: {', '.join(REPORTERS)}")
     if str(HERE) not in sys.path:
         sys.path.insert(0, str(HERE))
-    import susreport
-    return susreport
+    import importlib
+
+    import susreport_common
+    module = importlib.import_module(name)
+    return susreport_common, module.REPORTER
 
 
 def resolve_jobs(value) -> int:
@@ -195,6 +218,8 @@ def resolve_sweep_file(source: Path, overrides: dict, outdir: Path) -> Path:
         if group not in wanted:
             continue
         value = wanted[group]
+        # {left: [...], right: [...]} on an axle; a bare [start, stop] on a
+        # single corner, where there is only one wheel to drive.
         sides = value if isinstance(value, dict) else {None: value}
         for side, span in sides.items():
             key = (group, side if group != "rack" else None)
@@ -295,8 +320,6 @@ def main() -> None:
     ap.add_argument("--config", type=Path, default=RUN_YAML,
                     help="run configuration file "
                          "(default: run.yaml beside this script)")
-    ap.add_argument("--model", default=None,
-                    help="folder under models/ holding the geometry")
     ap.add_argument("--geometry", type=Path, default=None,
                     help="explicit path to the geometry yaml, overrides --model")
     ap.add_argument("--sweeps-dir", type=Path, default=None,
@@ -332,8 +355,6 @@ def main() -> None:
     config = load_run_config(args.config)
 
     # ---- CLI over run.yaml -------------------------------------------
-    if args.model:
-        config["model"] = args.model
     if args.geometry:
         config["geometry"] = str(args.geometry)
     if args.side:
@@ -349,15 +370,26 @@ def main() -> None:
     if args.on_bad_solve:
         config["solver"]["on_bad_solve"] = args.on_bad_solve
 
-    model_dir = MODELS / config["model"]
-    geometry = (Path(config["geometry"]).resolve() if config.get("geometry")
-                else model_dir / "front.yaml")
-    sweeps_dir = args.sweeps_dir or SWEEPS
-    outputs = model_dir / "outputs"
-    report = model_dir / "report"
+    # Paths in run.yaml are relative to run.yaml itself, so a sweep set can be
+    # moved or copied without rewriting them.
+    config_dir = args.config.resolve().parent
+    geometry = Path(config["geometry"])
+    if not geometry.is_absolute():
+        geometry = (config_dir / geometry).resolve()
+    sweeps_dir = args.sweeps_dir
+    if sweeps_dir is None:
+        sweeps_dir = Path(config["sweeps_dir"])
+        if not sweeps_dir.is_absolute():
+            sweeps_dir = (config_dir / sweeps_dir).resolve()
 
     if not geometry.is_file():
         sys.exit(f"geometry not found: {geometry}")
+
+    # Results live beside the geometry, in a folder named after the sweep set.
+    # That is what lets one sweep set run against several cars.
+    set_name = str(config["name"])
+    outputs = geometry.parent / "outputs" / set_name
+    report = geometry.parent / "report" / set_name
     outputs.mkdir(parents=True, exist_ok=True)
     report.mkdir(parents=True, exist_ok=True)
 
@@ -427,6 +459,7 @@ def main() -> None:
 
     jobs = resolve_jobs(config["jobs"])
 
+    print(f"sweep set: {set_name}  ({config['reporter']})")
     print(f"geometry : {geometry}")
     print(f"sweeps   : {sweeps_dir}  ({len(plan)} of {len(sources)} enabled)")
     print(f"outputs  : {outputs}")
@@ -440,7 +473,8 @@ def main() -> None:
     # leaves the configuration that produced it.
     resolved_config = {
         key: config[key] for key in
-        ("side", "decimals", "report", "solver", "gif") if key in config
+        ("name", "reporter", "side", "decimals", "report", "solver", "gif")
+        if key in config
     }
     resolved_config.update({
         "sweeps": {i["name"]: i["cfg"] for i in plan},
@@ -453,10 +487,10 @@ def main() -> None:
 
     # Validate the half of the configuration susreport owns, before spending
     # any CPU. This is also what makes --dry-run a complete config check.
-    susreport = None
+    common = reporter = None
     if not args.solve_only:
-        susreport = load_susreport()
-        report_config = susreport.load_config(None, resolved_path)
+        common, reporter = load_reporter(str(config["reporter"]))
+        report_config = common.load_config(None, resolved_path)
 
     # ---- solve --------------------------------------------------------
     if not args.report_only:
@@ -482,8 +516,9 @@ def main() -> None:
                     print(f"   gif: {item['name']}")
             print(f"\n   merged sweep files in {resolved_dir}")
             print(f"   resolved configuration  {resolved_path}")
-            if susreport is not None:
-                print("   configuration validated (run_all and susreport)")
+            if reporter is not None:
+                print(f"   configuration validated "
+                      f"(run_all and {config['reporter']})")
             print("   (dry run: nothing solved, no report written)")
             return
 
@@ -528,7 +563,7 @@ def main() -> None:
               + ", ".join(p.stem for p in stale))
 
     print("\n-> report")
-    susreport.run_report(outputs, report, report_config)
+    common.run_report(outputs, report, report_config, reporter)
 
     print(f"\ndone. report at {report}")
 

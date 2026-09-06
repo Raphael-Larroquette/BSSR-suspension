@@ -1,16 +1,59 @@
-# Running the sweep set
+# Running a sweep set
 
 ```
-uv run python models/Sweep_Set/run_all.py
+uv run python models/Sweep_Set/run_all.py                                  # front
+uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
 ```
 
-That solves every enabled sweep, writes a CSV per sweep into
-`models/<model>/outputs/`, renders the requested figures and animations, and
-builds `models/<model>/report/report.md`.
+That solves every enabled sweep, writes a CSV per sweep, renders the requested
+figures and animations, and builds `report.md`.
 
-Everything that is not a hardpoint is configured in **`run.yaml`** next to
-`run_all.py`. This file documents its keys, the command-line overrides, and
-how the two interact.
+## Sweep sets, cars, and reporters
+
+```
+models/
+  Sweep_Set/
+    run_all.py                 the runner
+    susreport.py               reporter: two-wheel axle
+    susreport_rear.py          reporter: single corner
+    susreport_common.py        what the two reporters share
+    bearings.py                bearing misalignment, shared
+    front/  run.yaml  sweeps/  a sweep set
+    rear/   run.yaml  sweeps/  another one
+  aurora/
+    front.yaml  rear.yaml      the car
+    outputs/front/  outputs/rear/
+    report/front/   report/rear/
+```
+
+A **sweep set** is a `run.yaml` plus a `sweeps/` directory. It names itself
+(`name:`), names a default geometry (`geometry:`), and names the report module
+that suits it (`reporter:`). Results land **beside whatever geometry it is
+pointed at**, in a folder called after the set:
+
+```
+<geometry folder>/outputs/<name>/     <geometry folder>/report/<name>/
+```
+
+So the same sweep set runs against a different car with no reconfiguration and
+no collisions:
+
+```
+uv run python models/Sweep_Set/run_all.py --geometry models/gen14/front.yaml
+                                          # -> models/gen14/outputs/front/
+```
+
+## Two reporters
+
+| `reporter:` | for | CSV columns | has |
+| --- | --- | --- | --- |
+| `susreport` | a two-wheel axle | side-suffixed (`camber_left`) | track, body roll, roll centre, rack, Ackermann |
+| `susreport_rear` | a single corner | unsuffixed (`camber`) | the side-view family (SVIC, SVSA, anti-squat), which parallel wishbones cannot produce |
+
+They are separate files because the two describe different objects, not the
+same object at different detail. What they share — CSV parsing, solver health,
+tables, plots, report assembly — is in `susreport_common.py`, and the bearing
+misalignment analysis is in `bearings.py`, so a fix there reaches both.
 
 ---
 
@@ -67,12 +110,14 @@ a different amount of one.
 
 ### Top level
 
-| key | type | shipped value | meaning |
+| key | type | front value | meaning |
 | --- | --- | --- | --- |
 | `version` | int | `1` | configuration format version |
-| `model` | str | `aurora` | folder under `models/` holding the geometry |
-| `geometry` | path \| null | `null` | explicit geometry YAML; overrides `model` |
-| `side` | `left` \| `right` | `left` | which corner the per-corner rows report |
+| `name` | str | `front` | names the `outputs/<name>/` and `report/<name>/` folders |
+| `geometry` | path | `../../aurora/front.yaml` | default geometry, **relative to this file**; `--geometry` overrides |
+| `sweeps_dir` | path | `sweeps` | the sweep YAMLs, relative to this file |
+| `reporter` | `susreport` \| `susreport_rear` | `susreport` | which report module builds `report.md` |
+| `side` | `left` \| `right` \| `null` | `left` | which corner the per-corner rows report. **`null` for a corner model**, which has only one |
 | `jobs` | int \| `auto` | `auto` | parallel solver processes; `auto` = min(8, CPU cores) |
 
 ### `decimals`
@@ -138,9 +183,12 @@ Applies to every animation; a per-sweep `gif:` mapping merges over this.
 | `plots` | `all` \| `none` \| list | must be a subset of `report` |
 | `gif` | `true` \| `false` \| mapping | a mapping merges over the top-level `gif:` block, e.g. `{enabled: true, fps: 30}` |
 | `steps` | int | points in the sweep |
-| `travel` | `{left: [a, b], right: [a, b]}` | wheel-centre z, mm relative to design |
-| `damper` | `{left: [a, b], right: [a, b]}` | element length, mm relative to design. Mutually exclusive with `travel` |
+| `travel` | `{left: [a, b], right: [a, b]}` on an axle, `[a, b]` on a corner | wheel-centre z, mm relative to design |
+| `damper` | same two forms | element length, mm relative to design. Mutually exclusive with `travel` |
 | `rack` | `[a, b]` | rack y, mm relative to centre |
+
+A single corner has one wheel and one damper, so its ranges take the bare
+`[start, stop]` form; the `{left:, right:}` form is for an axle.
 
 `report: false` is the useful middle setting: the sweep still solves, still
 writes its CSV, and still feeds the bearing misalignment table, but adds
@@ -160,9 +208,8 @@ Every flag overrides `run.yaml` for that invocation only.
 
 | flag | effect |
 | --- | --- |
-| `--config PATH` | use a different run configuration (default: `run.yaml` beside the script) |
-| `--model NAME` | folder under `models/` |
-| `--geometry PATH` | explicit geometry file |
+| `--config PATH` | **which sweep set to run** (default: `front/run.yaml`) |
+| `--geometry PATH` | run this sweep set against a different car |
 | `--sweeps-dir PATH` | an alternative directory of sweep YAMLs |
 | `--side left\|right` | reported corner |
 | `--only A,B` | run only these sweeps; everything else is off |
@@ -199,8 +246,8 @@ uv run python models/Sweep_Set/run_all.py --no-plots --no-gifs --no-joints
 # check what a config change would actually do before spending the CPU
 uv run python models/Sweep_Set/run_all.py --dry-run
 
-# the rear axle, when it exists
-uv run python models/Sweep_Set/run_all.py --model aurora --geometry models/aurora/rear.yaml
+# the rear
+uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
 ```
 
 ---
@@ -227,23 +274,26 @@ setting.
 
 ## Calling the report builder directly
 
-`run_all` **imports** `susreport` and calls `run_report()` directly — one
+`run_all` **imports** the reporter its `run.yaml` names and calls `run_report()` directly — one
 process, so a traceback or a breakpoint in `susreport.py` lands in the run you
 started. The import is lazy, so a `--solve-only` run never pays for matplotlib.
 
-`susreport.py` never solves anything — it only reads CSVs — so it also runs on
+A reporter never solves anything — it only reads CSVs — so it also runs on
 its own, on any folder of CSVs, needing nothing from the `kinematics` package
 except for the bearing-misalignment section:
 
 ```bash
-uv run python models/Sweep_Set/susreport.py models/aurora/outputs \
-    --out models/aurora/report --config models/Sweep_Set/run.yaml
+uv run python models/Sweep_Set/susreport.py models/aurora/outputs/front \
+    --out models/aurora/report/front --config models/Sweep_Set/front/run.yaml
+
+uv run python models/Sweep_Set/susreport_rear.py models/aurora/outputs/rear \
+    --out models/aurora/report/rear --config models/Sweep_Set/rear/run.yaml
 ```
 
-With no `--config` it uses `run.yaml` beside itself. With no configuration
+With no `--config` it uses `front/run.yaml`. With no configuration
 available at all it stops — there are no defaults to fall back on.
 
-`run_all` hands it `models/<model>/report/_resolved_run.json` instead: the
+`run_all` hands it `<geometry folder>/report/<name>/_resolved_run.json` instead: the
 configuration after the command-line overrides, written before solving. That
 file is the authoritative record of what actually ran, including the list of
 sweeps — which is how a sweep you switched off does not sneak back into the
@@ -252,8 +302,9 @@ gitignored.
 
 ### Where each setting is validated
 
-`run_all` checks the keys it reads (`model`, `side`, `jobs`, `report.plots`,
-`report.gifs`, `gif.*`, and every sweep's `run`). `susreport` checks the rest
+`run_all` checks the keys it reads (`name`, `geometry`, `sweeps_dir`,
+`reporter`, `side`, `jobs`, `report.plots`, `report.gifs`, `gif.*`, and every
+sweep's `run`). The reporter checks the rest
 (`decimals`, `solver`, each sweep's `report` and `plots`) when the resolved
 configuration reaches it — which happens **before** any solving, so a typo in a
 report setting fails in a second rather than after eight solves. `--dry-run`

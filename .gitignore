@@ -179,5 +179,5 @@ AGENTS.md
 GEMINI.md
 
 # Generated sweep files: run.yaml merged over sweeps/*.yaml by run_all.py.
-models/*/outputs/_resolved_sweeps/
-models/*/report/_resolved_run.json
+models/*/outputs/*/_resolved_sweeps/
+models/*/report/*/_resolved_run.json

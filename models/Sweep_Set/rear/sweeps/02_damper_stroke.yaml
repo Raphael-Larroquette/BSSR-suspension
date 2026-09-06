@@ -1,0 +1,18 @@
+# 02 - REAR DRIVEN BY DAMPER LENGTH
+# The inverse of 01: command the damper and read the wheel. This is how you
+# find the usable wheel travel for the damper you actually have, which is what
+# sets the ranges in 01.
+#
+# Also the honest source for motion ratio, being measured in the coordinate the
+# hardware constrains rather than derived from the other direction.
+#
+# Ranges here are overridden by rear/run.yaml. See RUNNING.md.
+version: 1
+steps: 41
+targets:
+  - type: element_length
+    element: damper
+    side: right #must match the `side:` declared in the rear geometry file
+    mode: relative
+    start: -30
+    stop: 30

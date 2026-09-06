@@ -380,4 +380,35 @@ Ackermann geometry is unaffected by the missing wheel.
 
 **Anti-squat will stay blank on the front axle and that is correct** — an
 undriven axle cannot squat. Aurora drives the rear wheel, so anti-squat belongs
-to the rear model when it exists.
+to the rear model.
+
+### The rear is a corner, and gets its own report
+
+Aurora's rear is one trailing-arm corner on the centreline, so it is modelled
+as a standalone corner rather than an axle. Three consequences:
+
+1. **Its CSV columns carry no side suffix** — `camber`, not `camber_left`.
+2. **Every axle channel is absent by definition**: track, track change, body
+   roll, roll-centre height and lateral migration, rack displacement,
+   Ackermann, and the axle steering ratio all need two wheels.
+3. **The side-view family finally means something.** A trailing arm's SVIC is
+   its pivot axis — a well-defined line — so `svic_x`, `svic_z`, `svsa`,
+   `svsa_angle` and `anti_squat` all populate, where the front leaves them
+   blank. Anti-squat needs the driven axle declared; anti-lift needs
+   `front_brake_bias`.
+
+Two channels to read carefully on a centreline wheel: **half track** is
+measured from the vehicle centreline and so reports approximately zero, and the
+signs of **scrub radius** and **FVSA** follow the `side:` you declared rather
+than anything physical. Read their magnitudes, not their signs.
+
+One more: **the steering axis of an unsteered corner is a construction, not a
+hinge.** Camber, caster, KPI, scrub and trail are all measured about the line
+the model calls the steering axis, which on a trailing arm is
+`TRAILING_ARM_OUTBOARD` → `AXLE_INBOARD`. They still describe how the wheel is
+oriented, but nothing rotates about that line — and it means
+`trailing_arm_outboard` is a load-bearing hardpoint for the alignment channels,
+not just for the motion.
+
+The rear report is built by `susreport_rear.py`; the front by `susreport.py`.
+See `RUNNING.md`.
