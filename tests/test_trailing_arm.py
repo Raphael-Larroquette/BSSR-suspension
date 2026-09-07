@@ -309,3 +309,107 @@ def load_geometry_mapping(data):
     from kinematics.core.input import build_suspension
 
     return build_suspension(data)
+
+
+# ---------------------------------------------------------------------------
+# Centreline variant: one wheel on the vehicle centreline, as on the rear of a
+# three-wheel vehicle. Authored with `side: center` and no separate carrier
+# pickup; the arm carries the axle directly.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def centered() -> TrailingArmSuspension:
+    suspension = load_geometry(TEST_DATA / "trailing_arm_centered_geometry.yaml")
+    assert isinstance(suspension, TrailingArmSuspension)
+    return suspension
+
+
+def test_centered_arm_solves_about_its_transverse_axis(centered):
+    assert centered.side is Side.CENTER
+    assert centered.arm_anchor is PointID.AXLE_INBOARD
+    assert tuple(centered.free_points()) == (PointID.AXLE_INBOARD,)
+    assert PointID.TRAILING_ARM_OUTBOARD not in centered.required_points()
+
+    sweep = load_sweep(TEST_DATA / "trailing_arm_centered_sweep.yaml", centered)
+    states, infos = solve_sweep(centered, sweep)
+    assert all(info.converged for info in infos)
+    assert all(info.max_residual < 1e-3 for info in infos)
+
+    # The whole carrier rotates rigidly about the pivot axis, so every distance
+    # within it, and from either mount to it, is held.
+    design = centered.initial_state()
+    rigid_pairs = (
+        (PointID.AXLE_INBOARD, PointID.AXLE_OUTBOARD),
+        (PointID.AXLE_INBOARD, PointID.STRUT_BOTTOM),
+        (PointID.TRAILING_ARM_PIVOT_A, PointID.AXLE_INBOARD),
+        (PointID.TRAILING_ARM_PIVOT_B, PointID.AXLE_OUTBOARD),
+    )
+    for state in states:
+        for point_a, point_b in rigid_pairs:
+            assert _distance(state, point_a, point_b) == pytest.approx(
+                _distance(design, point_a, point_b), abs=1e-3
+            )
+
+
+def test_centered_arm_suppresses_metrics_that_need_a_lateral_datum(centered):
+    assert centered.steering_axis_points() is None
+
+    sweep = load_sweep(TEST_DATA / "trailing_arm_centered_sweep.yaml", centered)
+    states, _ = solve_sweep(centered, sweep)
+    rows = [
+        _corner_metric_row(row)
+        for row in compute_sweep_metrics(centered, sweep, states).rows
+    ]
+
+    for suppressed in ("camber", "toe_angle", "caster", "kpi", "half_track",
+                       "scrub_radius", "fvsa_length"):
+        assert suppressed not in rows[0]
+        assert f"deriv_{suppressed}_wrt_hub_z" not in rows[0]
+
+    # The side-view family is what a trailing arm is worth reporting for, and
+    # none of it needs a vehicle side.
+    for present in ("wheel_travel", "damper_length", "svic_x", "svic_z",
+                    "svsa_length", "svsa_angle", "anti_lift"):
+        assert present in rows[0]
+
+    # The pivot axis IS the side-view instant centre, so it does not move.
+    assert {round(float(row["svic_x"]), 6) for row in rows} == {-1000.0}
+    assert {round(float(row["svic_z"]), 6) for row in rows} == {300.0}
+
+
+def test_centered_arm_rejects_a_separate_carrier_pickup(test_data_dir):
+    import yaml
+
+    data = yaml.safe_load(
+        (test_data_dir / "trailing_arm_centered_geometry.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    data["hardpoints"]["trailing_arm_outboard"] = {"x": -1400, "y": 60, "z": 320}
+    with pytest.raises(ValueError, match="must not author TRAILING_ARM_OUTBOARD"):
+        load_geometry_mapping(data)
+
+
+def test_centered_arm_requires_a_transverse_pivot_axis(test_data_dir):
+    import yaml
+
+    data = yaml.safe_load(
+        (test_data_dir / "trailing_arm_centered_geometry.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    data["hardpoints"]["trailing_arm_pivot_b"]["x"] = -900
+    with pytest.raises(ValueError, match="transverse pivot axis"):
+        load_geometry_mapping(data)
+
+
+def test_only_the_trailing_arm_accepts_a_centreline_side(test_data_dir):
+    import yaml
+
+    data = yaml.safe_load(
+        (test_data_dir / "geometry.yaml").read_text(encoding="utf-8")
+    )
+    data["side"] = "center"
+    with pytest.raises(ValueError, match="side 'center' is available only"):
+        load_geometry_mapping(data)

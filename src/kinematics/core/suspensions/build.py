@@ -14,6 +14,7 @@ from kinematics.core.enums import (
     PointID,
     ShimType,
 )
+from kinematics.core.primitives.constants import EPS_GEOMETRIC
 from kinematics.core.primitives.geometry import Direction3, Point3
 from kinematics.core.primitives.point_ref import Side
 from kinematics.core.schema.config import CornerConfig, SuspensionConfig
@@ -392,11 +393,30 @@ def _copy_points(points: dict[PointID, Point3]) -> dict[PointID, Point3]:
 
 
 def _validate_side_signs(points: dict[PointID, Point3], side: Side) -> None:
-    """Require the axle-outboard Y sign to match the declared side."""
+    """Require the authored hardpoint handedness to match the declared side.
+
+    A left or right corner must place its hub face on the matching side of the
+    vehicle centreline. A centreline corner has no such side, so the check
+    instead requires the wheel spin axis to have a lateral extent, which is
+    what gives inboard and outboard their meaning within the corner and fixes
+    the direction the wheel offset is applied along.
+    """
     axle_outboard = points.get(PointID.AXLE_OUTBOARD)
     if axle_outboard is None:
         return
     lateral_position = float(axle_outboard.data[1])
+    if side is Side.CENTER:
+        axle_inboard = points.get(PointID.AXLE_INBOARD)
+        if axle_inboard is None:
+            return
+        lateral_span = lateral_position - float(axle_inboard.data[1])
+        if abs(lateral_span) <= EPS_GEOMETRIC:
+            raise ValueError(
+                "Side 'center' requires AXLE_INBOARD and AXLE_OUTBOARD to "
+                "differ in Y so the wheel spin axis has a lateral direction "
+                f"(got a lateral span of {lateral_span})."
+            )
+        return
     if side is Side.LEFT and lateral_position <= 0.0:
         raise ValueError(
             "Side 'left' requires AXLE_OUTBOARD Y > 0 "

@@ -20,12 +20,48 @@ config:
   wheelbase: 2240.00
   axle_position: rear
   driven_axle: rear
-  front_brake_bias: 0.7 
+  front_brake_bias: 0.7
 
+# A centreline trailing arm carries the axle directly, so AXLE_INBOARD is the
+# moving arm point and trailing_arm_outboard is not authored.
 hardpoints:
-  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5} 
-  trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5} 
+  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5}
+  trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5}
   axle_inboard: {x: -2240, y: 70.332, z: 278.5}
   axle_outboard: {x: -2240, y: -23.737, z: 278.5}
-  strut_top: {x: -1901.921, y: 100, z: 546.579} 
+  strut_top: {x: -1901.921, y: 100, z: 546.579}
   strut_bottom: {x: -2135.97, y: 100, z: 329.131}
+
+# Bearings to report misalignment for. The axle ends are not joints: the arm
+# and the carrier are one rigid body there, so nothing articulates and nothing
+# is declared for them.
+joints:
+  # Arm pivots. The bore runs along the pivot axis itself, which is what the
+  # bearing is bored for, and the housing is installed on it.
+  trailing_arm_pivot_a:
+    label: "Arm Front Pivot"
+    type: spherical
+    bore:
+      part: chassis
+      axis: {from: trailing_arm_pivot_a, to: trailing_arm_pivot_b}
+    housing: {part: semi_trailing_arm, axis: centred}
+  trailing_arm_pivot_b:
+    label: "Arm Rear Pivot"
+    type: spherical
+    bore:
+      part: chassis
+      axis: {from: trailing_arm_pivot_a, to: trailing_arm_pivot_b}
+    housing: {part: semi_trailing_arm, axis: centred}
+
+  # Coilover eyes. The damper body is a two-point member, so its spin about
+  # its own axis is undetermined and the housing rides it.
+  strut_top:
+    label: "Damper Upper Mount"
+    type: spherical
+    bore: {part: chassis, axis: {chassis_axis: y}}
+    housing: {part: spring_damper, axis: indeterminate}
+  strut_bottom:
+    label: "Damper Lower Mount"
+    type: spherical
+    bore: {part: semi_trailing_arm, axis: {chassis_axis: y}}
+    housing: {part: spring_damper, axis: indeterminate}

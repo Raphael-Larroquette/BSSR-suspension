@@ -67,12 +67,19 @@ class CornerSuspension(Suspension):
         return (PointID.AXLE_INBOARD, PointID.AXLE_OUTBOARD)
 
     @abstractmethod
-    def steering_axis_points(self) -> tuple[PointID, PointID]:
+    def steering_axis_points(self) -> tuple[PointID, PointID] | None:
         """
-        Steering (kingpin) axis pivots as (lower, upper).
+        Steering (kingpin) axis pivots as (lower, upper), or None.
 
         The lower-to-upper direction convention is load-bearing for caster
         and KPI signs.
+
+        Returning None declares that the corner has no line the shared
+        alignment catalog can measure. A corner that does so must also name
+        the affected identities in
+        :meth:`~kinematics.core.suspensions.base.Suspension.suppressed_metric_keys`,
+        so those columns are removed rather than evaluated against a missing
+        axis.
         """
         ...
 

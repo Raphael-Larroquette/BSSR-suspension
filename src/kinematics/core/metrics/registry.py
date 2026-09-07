@@ -177,7 +177,16 @@ def metric_specs_for_suspension(suspension: "Suspension") -> dict[str, MetricSpe
         state_specs.extend(axle.topology_metric_specs())
     else:
         corner = cast("CornerSuspension", suspension)
-        state_specs = [spec for spec in state_specs if spec.scope is Scope.CORNER]
+        # The shared static specs describe every metric the catalog can emit.
+        # Drop the axle-scoped ones a lone corner cannot produce, then the ones
+        # this architecture declares it cannot define, so the registry and the
+        # exported columns agree on what exists.
+        suppressed = corner.suppressed_metric_keys()
+        state_specs = [
+            spec
+            for spec in state_specs
+            if spec.scope is Scope.CORNER and spec.key not in suppressed
+        ]
         state_specs.extend(corner.topology_metric_specs())
         state_specs.extend(joint_metric_specs(corner.resolved_joints()))
         derivatives.extend(

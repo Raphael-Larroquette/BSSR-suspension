@@ -240,7 +240,7 @@ class Suspension(ABC):
                 unit=coordinate_id.unit,
                 point_keys=endpoints,
                 scope=Scope.CORNER,
-                side=Side.LEFT,
+                side=self.side,
             ),
         )
 
@@ -311,6 +311,25 @@ class Suspension(ABC):
     def topology_metric_specs(self) -> "tuple[MetricSpec, ...]":
         """Return state metric metadata owned by this topology."""
         return ()
+
+    def suppressed_metric_keys(self) -> frozenset[str]:
+        """
+        Return shared metric identities this topology cannot define.
+
+        The shared catalog is deliberately architecture-agnostic, so a few of
+        its columns rest on assumptions a given topology does not satisfy --
+        for example a lateral inboard/outboard datum, which a wheel on the
+        vehicle centreline does not have. Naming those identities here removes
+        them from the exported columns and from the metric specification
+        registry alike, so an undefined quantity is absent rather than
+        reported as a null or an invented value.
+
+        Keys are the unsuffixed metric identities used by the catalog (for
+        example ``"camber"``), which also match the response names of the
+        derivative metrics built from them, so one entry removes both the
+        value column and every derivative taken of it.
+        """
+        return frozenset()
 
     def topology_diagnostics(
         self,
@@ -426,7 +445,7 @@ class Suspension(ABC):
         )
 
         side_policy = sweep_target_side_policy(TargetKind.POINT, point.name.lower())
-        candidate_sides = (None,) if side_policy == "shared" else (Side.LEFT,)
+        candidate_sides = (None,) if side_policy == "shared" else (self.side,)
         resolve_published_target_side(
             f"Sweep target for '{point.name}'",
             candidate_sides,

@@ -1,0 +1,11 @@
+version: 1
+steps: 21
+targets:
+  - type: point
+    point: wheel_center
+    side: center
+    direction:
+      axis: z
+    mode: relative
+    start: -30
+    stop: 50

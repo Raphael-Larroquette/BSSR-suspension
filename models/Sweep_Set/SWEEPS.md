@@ -137,7 +137,7 @@ From `SweepValueSpec`:
 | `mode` | `relative` (default) = offset from the authored design condition. `absolute` = raw chassis-space coordinate (or absolute length for `element_length`). |
 | `start` / `stop` | Endpoints; expanded with `np.linspace(start, stop, steps)`. Both required if `values` is absent. |
 | `values` | Explicit list. Overrides `start`/`stop` and makes `steps` unnecessary. |
-| `side` | `left` or `right`. **`center` is explicitly rejected.** Required for corner-owned coordinates on an axle; omit for shared ones like `rack`. |
+| `side` | The side the geometry publishes the coordinate on. `left` or `right` on an axle, and required there for corner-owned coordinates; `center` for a standalone corner whose wheel is on the vehicle centreline. Omit for shared coordinates like `rack`. |
 | `name` | Cosmetic label used in validation errors. |
 
 ### `direction` (point and actuator targets only)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -13,10 +13,12 @@ from kinematics.core.enums import (
     CornerSpringType,
     HeaveLinkType,
     MountBody,
+    PointID,
     Scope,
     SuspensionType,
     Units,
 )
+from kinematics.core.primitives.constants import EPS_GEOMETRIC
 from kinematics.core.primitives.point_ref import Side
 from kinematics.core.schema.config import (
     AxleConfig,
@@ -56,15 +58,27 @@ class GeometrySpecBase(BaseModel):
 class CornerGeometrySpecBase(GeometrySpecBase):
     """Fields required by every explicitly sided corner geometry."""
 
+    # Whether this architecture can locate a wheel on the vehicle centreline,
+    # as on the single rear wheel of a three-wheel vehicle. Most cannot: a
+    # steered or mirrored corner is defined relative to a lateral datum that
+    # a centreline wheel does not have. An architecture that can must also
+    # suppress the metrics that need that datum; see
+    # ``Suspension.suppressed_metric_keys``.
+    allows_centered: ClassVar[bool] = False
+
     scope: Literal[Scope.CORNER] = Scope.CORNER
     side: SideValue = Side.LEFT
     config: SuspensionConfig
 
     @model_validator(mode="after")
     def check_physical_side(self) -> "CornerGeometrySpecBase":
-        """A corner must be declared as the physical left or right side."""
-        if self.side == Side.CENTER:
-            raise ValueError("Corner geometry side must be 'left' or 'right'.")
+        """Restrict 'center' to architectures that support a centreline wheel."""
+        if self.side == Side.CENTER and not self.allows_centered:
+            raise ValueError(
+                f"Corner geometry of type '{self.type.value}' must use side "
+                "'left' or 'right'; side 'center' is available only to "
+                "architectures that support a wheel on the vehicle centreline."
+            )
         return self
 
 
@@ -151,7 +165,17 @@ def check_trailing_arm_spring(spring: CornerSpringSpec) -> None:
 
 
 class TrailingArmGeometrySpec(CornerGeometrySpecBase):
-    """Unsteered semi-trailing arm with coil or pivot-mounted torsion springing."""
+    """Unsteered semi-trailing arm with coil or pivot-mounted torsion springing.
+
+    Also covers the centreline variant (``side: center``): a single wheel
+    carried on one trailing arm whose spin axis crosses the vehicle
+    centreline, as on the rear of a three-wheel vehicle. The kinematics are
+    identical -- a rigid carrier swinging about the arm-pivot axis -- but the
+    centreline variant is authored differently; see
+    :meth:`check_centered_layout`.
+    """
+
+    allows_centered: ClassVar[bool] = True
 
     type: Literal[SuspensionType.TRAILING_ARM] = SuspensionType.TRAILING_ARM
     spring: CornerSpringSpec
@@ -165,6 +189,52 @@ class TrailingArmGeometrySpec(CornerGeometrySpecBase):
             raise ValueError(
                 "Semi-trailing arm geometry is unsteered; "
                 "config.steering.type must be 'none'"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_centered_layout(self) -> "TrailingArmGeometrySpec":
+        """Apply the authoring rules specific to a centreline trailing arm.
+
+        A centreline arm carries its wheel on the vehicle centreline, which
+        removes the two things a sided arm relies on:
+
+        * There is no separate carrier pickup. On a sided corner
+          ``TRAILING_ARM_OUTBOARD`` is the arm-to-upright joint, distinct from
+          the axle. A centreline arm carries the axle directly, so
+          ``AXLE_INBOARD`` is the arm point and ``TRAILING_ARM_OUTBOARD`` must
+          not be authored: two points at one location would give the solver a
+          duplicate free coordinate.
+        * The pivot axis must be transverse (both mounts at the same X). Plan
+          obliquity is what makes a sided arm a *semi*-trailing arm, and it
+          produces camber and toe change whose sign convention is defined
+          against a vehicle side. A centreline wheel has no side, so an
+          oblique centreline arm is a separate architecture rather than a
+          variation of this one.
+        """
+        if self.side is not Side.CENTER:
+            return self
+        if PointID.TRAILING_ARM_OUTBOARD in self.hardpoints:
+            raise ValueError(
+                "A centreline trailing arm must not author "
+                "TRAILING_ARM_OUTBOARD: the arm carries the axle directly, so "
+                "AXLE_INBOARD is the moving arm point."
+            )
+        if self.spring.type is not CornerSpringType.COILOVER:
+            raise ValueError(
+                "A centreline trailing arm supports only 'coilover' springing; "
+                f"got '{self.spring.type.value}'."
+            )
+        pivot_a = self.hardpoints.get(PointID.TRAILING_ARM_PIVOT_A)
+        pivot_b = self.hardpoints.get(PointID.TRAILING_ARM_PIVOT_B)
+        if pivot_a is None or pivot_b is None:
+            return self
+        if abs(float(pivot_a.data[0] - pivot_b.data[0])) > EPS_GEOMETRIC:
+            raise ValueError(
+                "A centreline trailing arm requires a transverse pivot axis: "
+                "TRAILING_ARM_PIVOT_A and TRAILING_ARM_PIVOT_B must share an "
+                "X. An oblique axis makes it a semi-trailing arm, whose camber "
+                "and toe sign convention is defined against a vehicle side."
             )
         return self
 

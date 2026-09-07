@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_valid
 
 from kinematics.core.enums import Axis, PointID, TargetValueMode
 from kinematics.core.primitives.geometry import Direction3, extract_array
-from kinematics.core.primitives.point_ref import Side
 from kinematics.core.schema.decoding import (
     AxisValue,
     PointIDValue,
@@ -91,12 +90,6 @@ class SweepValueSpec(BaseModel):
     start: float | None = None
     stop: float | None = None
     values: Sequence[float] | None = None
-
-    @model_validator(mode="after")
-    def check_side(self) -> "SweepValueSpec":
-        if self.side == Side.CENTER:
-            raise ValueError("Sweep target side must be 'left' or 'right'.")
-        return self
 
     def expand_values(self, default_steps: int | None) -> list[float]:
         """Expand explicit values or a start-stop range exactly once."""

@@ -1,0 +1,35 @@
+type: trailing_arm
+side: center
+name: "centreline trailing arm"
+version: "0.1.0"
+units: millimeters
+
+spring:
+  type: coilover
+
+# X is forward, Y is left, Z is up. The two fixed mounts define a transverse
+# horizontal pivot, and the arm carries the axle directly: AXLE_INBOARD is the
+# arm point, so no separate TRAILING_ARM_OUTBOARD is authored. The wheel spin
+# axis crosses the vehicle centreline.
+hardpoints:
+  trailing_arm_pivot_a: {x: -1000, y: 150, z: 300}
+  trailing_arm_pivot_b: {x: -1000, y: 0, z: 300}
+  axle_inboard: {x: -1400, y: 60, z: 300}
+  axle_outboard: {x: -1400, y: -60, z: 300}
+  strut_top: {x: -1050, y: 100, z: 700}
+  strut_bottom: {x: -1350, y: 100, z: 350}
+
+config:
+  steering:
+    type: none
+  wheel:
+    offset: 0
+    tire:
+      aspect_ratio: 0.55
+      section_width: 120
+      rim_diameter: 16
+  cg_position: {x: -700, y: 0, z: 350}
+  wheelbase: 2000.0
+  axle_position: rear
+  driven_axle: rear
+  front_brake_bias: 0.7

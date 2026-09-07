@@ -13,11 +13,12 @@
 # form rather than the axle's {left:, right:}, and it is reported by
 # susreport_rear.py rather than susreport.py.
 #
-# A standalone corner geometry is ALWAYS `side: left` - the loader rejects
-# 'right', because a right corner is the mirror of a left one and adds nothing
-# on its own. If the real wheel faces the other way, negate every y in the
-# geometry file; the suspension is identical by mirror symmetry. Sweep targets
-# in sweeps/ therefore also say `side: left`.
+# The rear wheel sits on the vehicle CENTRELINE, so the geometry declares
+# `side: center` and the sweep targets in sweeps/ say `side: center` to match.
+# A centreline wheel has no inboard or outboard, so camber, toe, caster, KPI,
+# scrub radius, mechanical trail, half track and the front-view swing arm are
+# not produced at all - naming them under `plots:` below will not bring them
+# back. What is left is the travel, springing and side-view families.
 # ==========================================================================
 version: 1
 

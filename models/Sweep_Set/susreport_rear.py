@@ -4,12 +4,16 @@ susreport_rear - characteristic report for a SINGLE CORNER (Aurora rear).
 
     uv run python models/Sweep_Set/susreport_rear.py <outputs dir> --out <dir>
 
-Aurora's rear is one trailing-arm corner on the centreline, not an axle, and
-that changes what there is to report:
+Aurora's rear is one trailing-arm corner on the vehicle centreline, not an
+axle, and that changes what there is to report:
 
-  * its CSV columns carry no side suffix - `camber`, not `camber_left`
+  * its CSV columns carry no side suffix - `damper_length`, not
+    `damper_length_left`
   * there is no track, no body roll, no roll centre, no rack and no Ackermann,
     because every one of those is built from two wheels
+  * a wheel on the centreline has no inboard or outboard, so the solver emits
+    no camber, toe, caster, KPI, scrub radius, half track or front-view swing
+    arm for it at all - those columns are absent from the CSV, not blank
   * the side-view family - SVIC, SVSA, anti-squat, anti-lift - finally means
     something, because a trailing arm's side-view instant centre IS its pivot
     axis. On the front's exactly-parallel wishbones those are all undefined.
@@ -44,18 +48,6 @@ TITLE = "Rear corner characteristic report"
 # sided corner needs no change here.
 # ==========================================================================
 CHANNELS: dict[str, Channel] = {c.key: c for c in [
-    # --- alignment ------------------------------------------------------
-    single("camber", "Camber", "camber{side}"),
-    single("caster", "Caster", "caster{side}"),
-    single("kpi", "Kingpin inclination", "kpi{side}"),
-    single("toe", "Toe (positive = toe-in)", "toe_angle{side}"),
-    single("steer_angle", "ISO steer angle", "steer_angle{side}"),
-    single("scrub_signed", "Scrub radius (signed lateral)",
-           "scrub_radius_signed{side}"),
-    single("scrub_iso", "Scrub radius (ISO unsigned)", "scrub_radius{side}"),
-    single("trail", "Mechanical trail", "mechanical_trail{side}"),
-    single("half_track", "Half track", "half_track{side}"),
-
     # --- travel and springing -------------------------------------------
     single("wheel_travel", "Wheel travel", "wheel_travel{side}"),
     single("damper_length", "Damper length", "damper_length{side}"),
@@ -71,18 +63,7 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
     single("anti_lift", "Anti-lift", "anti_lift{side}"),
     single("anti_dive", "Anti-dive", "anti_dive{side}"),
 
-    # --- front view ------------------------------------------------------
-    single("fvic_y", "FVIC lateral (y)", "fvic_y{side}"),
-    single("fvic_z", "FVIC height (z)", "fvic_z{side}"),
-    single("fvsa", "FVSA length", "fvsa_length{side}"),
-
     # --- gradients -------------------------------------------------------
-    single("camber_gain", "Camber gain", "deriv_camber_wrt_hub_z{side}"),
-    single("bump_steer", "Bump steer rate", "deriv_toe_angle_wrt_hub_z{side}"),
-    single("caster_gain", "Caster gain", "deriv_caster_wrt_hub_z{side}"),
-    single("kpi_gain", "KPI gain", "deriv_kpi_wrt_hub_z{side}"),
-    single("half_track_rate", "Half-track change rate",
-           "deriv_half_track_wrt_hub_z{side}"),
     single("recession_rate", "Wheel-centre recession rate",
            "deriv_wheel_center_x_wrt_hub_z{side}"),
     single("damper_rate", "Damper rate vs wheel",
@@ -93,36 +74,22 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
 # Channel lists used when a sweep asks for `report: true` without naming any.
 PRESETS: dict[str, list[str]] = {
     # Wheel travel commanded, damper read. The design reference for the arm.
-    #
-    # Caster, KPI, scrub radius and mechanical trail are deliberately ABSENT.
-    # They are all angles of, or ground intersections of, the "steering axis",
-    # and an unsteered trailing arm has no kingpin: the library returns
-    # TRAILING_ARM_OUTBOARD -> AXLE_INBOARD as a nominal carrier reference line
-    # purely so the shared metric catalogue has something to evaluate (see
-    # TrailingArmSuspension.steering_axis_points). Reporting them would be
-    # reporting a property of an arbitrary construction line. They are still in
-    # CHANNELS, so name them explicitly in run.yaml if you want them.
-    #
-    # Camber and toe are kept because they come from the wheel spin axis, not
-    # from that line, and are physical.
     "heave": [
-        "camber", "toe", "half_track",
         "wheel_travel", "damper_length", "motion_ratio",
-        "camber_gain", "bump_steer", "recession_rate",
+        "recession_rate",
         "svic_x", "svic_z", "svsa", "svsa_angle", "anti_squat", "anti_lift",
     ],
     # Damper length commanded, wheel read. Where the usable travel comes from.
     "damper_stroke": [
         "damper_length", "wheel_travel", "motion_ratio",
     ],
-    "static": ["camber", "caster", "toe", "half_track"],
+    "static": ["wheel_travel", "damper_length", "svsa_angle"],
 }
 
-# Tabulated but never plotted: the instant centres run to +/-10^5 mm through
-# the parallel-link singularity and flatten every other panel. Camber gain is
-# FVSA's bounded equivalent; SVSA angle is SVSA's. Wheel travel is the x-axis.
-NEVER_PLOT = {"fvic_y", "fvic_z", "fvsa", "svic_x", "svic_z", "svsa",
-              "wheel_travel"}
+# Tabulated but never plotted: the instant centres are a fixed point on the
+# pivot axis and plot as flat lines, and SVSA length is SVSA angle's unbounded
+# twin. Wheel travel is the x-axis of every heave plot.
+NEVER_PLOT = {"svic_x", "svic_z", "svsa", "wheel_travel"}
 
 
 # ==========================================================================
@@ -141,8 +108,18 @@ def classify(sw: Sweep) -> None:
     biggest = max(spans.values(), default=0.0)
     threshold = max(1e-2, 0.01 * biggest)
 
-    def varies(col: str) -> bool:
-        return spans.get(col, 0.0) > threshold
+    def varies(coordinate: str) -> bool:
+        """Whether the named target coordinate moves in this sweep.
+
+        Some target columns are exported with the side the geometry publishes
+        the coordinate on appended (`target_damper_length_center`) and some
+        without it, so match on the coordinate name and ignore any suffix.
+        """
+        return any(
+            span > threshold
+            for column, span in spans.items()
+            if column == coordinate or column.startswith(coordinate + "_")
+        )
 
     if varies("target_damper_length"):
         sw.kind = "damper_stroke"
@@ -156,17 +133,11 @@ def classify(sw: Sweep) -> None:
         sw.kind = "heave"
         sw.x_col = "wheel_travel"
         sw.x_label = "wheel travel [mm]"
-    elif varies("target_rack"):
-        sw.kind = "steer"
-        sw.x_col = "target_rack"
-        sw.x_label = "rack position [mm]"
     else:
         sw.kind = "static"
         sw.x_col = "step_index"
         sw.x_label = "step"
 
-    if sw.kind != "steer" and varies("target_rack"):
-        sw.notes.append("The rack moves in this sweep as well as the wheel.")
     if sw.x_col not in d.columns:
         sw.x_col = "step_index"
 
@@ -189,23 +160,25 @@ def add_derived(sw: Sweep, geometry: dict | None = None) -> None:
 
 
 def _add_corner_extras(sw: Sweep) -> None:
+    """Finite-difference the wrt_hub_z gradients a damper-driven sweep lacks."""
+    # Roll-centre migration, Ackermann and the axle steering ratio are all
+    # two-wheel constructions and have no corner equivalent, so nothing is
+    # derived for them here. Motion ratio is handled by the shared corner
+    # derivation. What is left is wheel-centre recession, which the solver
+    # exports analytically only when the sweep is driven by the wheel.
     d = sw.data
-    # Roll-centre migration, camber recovery, Ackermann and the axle steering
-    # ratio are all two-wheel constructions and have no corner equivalent, so
-    # nothing is derived for them here. What a corner can add on its own is the
-    # numerical wheel-travel gradient when the sweep was driven by the damper
-    # and the analytic wrt_hub_z derivatives are therefore absent.
-    if sw.kind == "damper_stroke" and {"wheel_travel", "camber"} <= set(d.columns):
-        z = d["wheel_travel"].to_numpy(float)
-        if np.ptp(z) > 1e-6:
-            for stem, unit in (("camber", "deg/mm"), ("toe_angle", "deg/mm"),
-                               ("caster", "deg/mm"), ("kpi", "deg/mm"),
-                               ("half_track", "mm/mm")):
-                target = f"deriv_{stem}_wrt_hub_z"
-                if stem in d.columns and (
-                        target not in d.columns or d[target].isna().all()):
-                    d[target] = np.gradient(d[stem].to_numpy(float), z)
-                    sw.units[target] = unit
+    if sw.kind != "damper_stroke":
+        return
+    target = "deriv_wheel_center_x_wrt_hub_z"
+    if "wheel_travel" not in d.columns or "wheel_center_x" not in d.columns:
+        return
+    if target in d.columns and not d[target].isna().all():
+        return
+    z = d["wheel_travel"].to_numpy(float)
+    if np.ptp(z) <= 1e-6:
+        return
+    d[target] = np.gradient(d["wheel_center_x"].to_numpy(float), z)
+    sw.units[target] = "mm/mm"
 
 
 # ==========================================================================
@@ -222,27 +195,18 @@ def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
         "omission. On a three-wheel car the rear has no roll centre at all, so "
         "there is no roll axis and the front roll-centre height carries "
         "essentially the whole geometric lateral load transfer.",
-        "- **Half track is measured from the vehicle centreline.** A rear "
-        "wheel sitting on the centreline reports approximately zero, and the "
-        "signs of scrub radius and FVSA follow the declared `side` rather than "
-        "anything physical. Read their magnitudes, not their signs.",
-        "- **Scrub radius** is reported as the signed lateral offset "
-        "(`steering_axis_offset_ground`). The ISO `scrub_radius` column is an "
-        "unsigned distance that includes mechanical trail.",
-        "- **An unsteered trailing arm has no kingpin, so caster, KPI, scrub "
-        "radius and mechanical trail are not reported.** The library returns "
-        "`TRAILING_ARM_OUTBOARD -> AXLE_INBOARD` as a nominal carrier "
-        "reference line so the shared metric catalogue has something to "
-        "evaluate; it is not a physical axis, and any angle measured about it "
-        "is a property of where those two construction points were placed. "
-        "Camber and toe come from the wheel spin axis instead, so they are "
-        "physical and are reported. Name the others explicitly in run.yaml if "
-        "you want them anyway.",
-        "- **A plain transverse arm pivot produces no camber or toe change.** "
-        "If both arm mounts share an X, the wheel swings in a plane and both "
-        "curves are flat. Camber and toe change are what arm-axis obliquity "
-        "in plan buys you, so flat curves here are a design outcome, not a "
-        "solver failure.",
+        "- **The wheel is on the vehicle centreline, so it has no inboard or "
+        "outboard.** Camber, toe, caster, KPI, scrub radius, mechanical trail, "
+        "half track and the front-view swing arm all measure against a lateral "
+        "datum that a centreline wheel does not have, so the solver emits none "
+        "of them: those columns are absent from the CSV rather than blank or "
+        "signed by an arbitrary convention. Naming them in run.yaml will not "
+        "bring them back.",
+        "- **The arm pivot is transverse, so the carrier does not tilt.** Both "
+        "arm mounts share an X, the wheel swings in a plane, and the spin axis "
+        "keeps its design orientation through the whole travel. Camber and toe "
+        "change are what arm-axis obliquity in plan buys you, and this "
+        "geometry deliberately has none.",
     ]
     if C._degenerate_side_view(sweeps):
         out.append(
@@ -258,10 +222,16 @@ def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
             "on the front. Anti-squat additionally needs the driven axle "
             "declared, and anti-lift needs `front_brake_bias`.")
     out.append(
-        "- **FVIC and FVSA are tabulated but not plotted.** They pass through "
-        "a singularity when the links go parallel and swing to 10^5 mm. "
-        "Camber gain is FVSA's bounded equivalent "
-        "(`camber_gain ~ -57.296 / FVSA` in deg/mm); SVSA angle is SVSA's.")
+        "- **Anti-squat is computed for an inboard-sprung drive**, i.e. the "
+        "tractive force reacted along the wheel-centre to SVIC line. A hub "
+        "motor reacts it at the contact patch instead, which gives a much "
+        "larger number for the same geometry, so read this column with the "
+        "drive layout in mind.")
+    out.append(
+        "- **The SVIC and SVSA length are tabulated but not plotted.** On a "
+        "trailing arm the instant centre is the fixed pivot axis, so both plot "
+        "as flat lines. SVSA angle carries the same information in a bounded "
+        "form and is plotted instead.")
     return out
 
 

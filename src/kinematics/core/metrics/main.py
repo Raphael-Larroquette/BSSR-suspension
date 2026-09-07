@@ -20,8 +20,8 @@ from kinematics.core.enums import PointID
 from kinematics.core.joints import joint_metric_values
 from kinematics.core.metrics.axle_metrics import append_axle_state_metrics
 from kinematics.core.metrics.catalog import (
+    get_corner_metrics,
     get_default_corner_derivative_metrics,
-    get_default_corner_metrics,
 )
 from kinematics.core.metrics.context import MetricContext
 from kinematics.core.metrics.derivatives import evaluate_derivative_metrics
@@ -223,7 +223,7 @@ def compute_metrics_for_state(
         road=road,
     )
 
-    catalog = get_default_corner_metrics()
+    catalog = get_corner_metrics(suspension)
     row: MetricRow = OrderedDict()
     for metric in catalog:
         row[metric.column_name] = metric.compute(ctx)

@@ -111,7 +111,15 @@ class MetricContext:
     @cached_property
     def steering_axis_pivots(self) -> tuple[Point3, Point3]:
         """Return lower and upper steering pivots in chassis coordinates."""
-        lower_id, upper_id = self.suspension.steering_axis_points()
+        points = self.suspension.steering_axis_points()
+        if points is None:
+            raise ValueError(
+                f"Suspension type '{self.suspension.reported_type_key()}' "
+                "publishes no steering axis, so no metric measured about one "
+                "is available. Such metrics are named in its "
+                "suppressed_metric_keys and are absent from its output."
+            )
+        lower_id, upper_id = points
         return (self.state.get(lower_id), self.state.get(upper_id))
 
     @cached_property
@@ -142,7 +150,12 @@ class MetricContext:
 
     @cached_property
     def side_sign(self) -> float:
-        """Return the ISO vehicle-side sign: +1 left and -1 right."""
+        """Return the ISO vehicle-side sign: +1 left and -1 right.
+
+        A corner on the vehicle centreline has neither, and raises. Metrics
+        that mirror about a vehicle side are named in that topology's
+        suppressed_metric_keys and are absent from its output.
+        """
         return self.suspension.side.lateral_sign
 
     @cached_property

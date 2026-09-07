@@ -119,13 +119,19 @@ a different amount of one.
 | `reporter` | `susreport` \| `susreport_rear` | `susreport` | which report module builds `report.md` |
 | `side` | `left` \| `right` \| `null` | `left` | which corner the per-corner rows report. **`null` for a corner model**, which has only one |
 
-**A standalone corner geometry is always `side: left`.** The loader rejects
-`right` — *"side 'right' is available only through an axle geometry"* — because
-a right corner is the mirror of a left one and adds nothing on its own. If the
-real wheel faces the other way, negate every `y` in the geometry file: the
-suspension is identical by mirror symmetry, and only the signs of lateral
-quantities (scrub, FVSA, half track) flip, all of which are conventional on a
-centreline wheel anyway. Sweep targets in that set then also take `side: left`.
+**A standalone corner geometry is `side: left` or, for a wheel on the vehicle
+centreline, `side: center`.** The loader rejects `right` — *"side 'right' is
+available only through an axle geometry"* — because a right corner is the mirror
+of a left one and adds nothing on its own. If a sided wheel faces the other way,
+negate every `y` in the geometry file: the suspension is identical by mirror
+symmetry.
+
+`center` is accepted only by architectures that support a centreline wheel
+(today, the trailing arm), and it changes what the model reports: a wheel on the
+centreline has no inboard or outboard, so camber, toe, caster, KPI, scrub
+radius, mechanical trail, half track and the front-view swing arm are not
+produced at all. See CHARACTERISTICS.md. Sweep targets in that set take the same
+`side:` the geometry declares.
 | `jobs` | int \| `auto` | `auto` | parallel solver processes; `auto` = min(8, CPU cores) |
 
 ### `decimals`

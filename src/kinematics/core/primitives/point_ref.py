@@ -23,15 +23,27 @@ from kinematics.core.enums import PointID
 
 class Side(IntEnum):
     """
-    Which corner of the axle a point belongs to.
+    Which lateral position a point or corner belongs to.
 
     Handedness follows the repo-wide ISO 8855 convention (X forward, Y left,
     Z up, right-handed):
 
     - ``LEFT`` is the +Y side.
     - ``RIGHT`` is the -Y side.
-    - ``CENTER`` is for chassis elements shared between the two corners
-      (e.g. the steering rack, the anti-roll-bar axis) that are not mirrored.
+    - ``CENTER`` sits on the vehicle centreline and covers two cases that share
+      one property, having no lateral sign:
+
+      * chassis elements shared between the two corners and therefore not
+        mirrored (the steering rack, the anti-roll-bar axis);
+      * a corner whose wheel sits on the centreline, as on the single rear
+        wheel of a three-wheel vehicle.
+
+      :attr:`lateral_sign` raises for CENTER rather than returning zero,
+      because there is no correct answer: a centreline wheel has no inboard or
+      outboard. Metrics that need a lateral datum -- half track, scrub radius,
+      steering-axis offset, front-view swing-arm sign -- are suppressed for
+      such a corner rather than given an invented sign. See
+      :meth:`~kinematics.core.suspensions.base.Suspension.suppressed_metric_keys`.
 
     Values are ordered ``LEFT < RIGHT < CENTER`` so that :class:`PointRef`
     tuples sort deterministically by side first.

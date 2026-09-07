@@ -14,6 +14,20 @@ The torsion-bar variant models the Porsche 944-style arrangement: pivot A lies
 on a transverse torsion-bar axis, and arm motion about that authored axis drives
 bar twist. The physical reaction plate is part of the load path, not a separate
 kinematic pickup. A separate damper runs from the chassis to the carrier.
+
+Declaring ``side: center`` selects the centreline variant: one wheel on the
+vehicle centreline, as on the rear of a three-wheel vehicle. The kinematics are
+the same rigid carrier on the same hinge, and the two differences are both
+consequences of there being no vehicle side:
+
+* The arm carries the axle directly, so AXLE_INBOARD is the moving arm point
+  and TRAILING_ARM_OUTBOARD is not authored at all. Which rigid point drives
+  the carrier is a bookkeeping choice, not a physical one -- every point on a
+  body rotating about a fixed axis determines every other -- so the results are
+  unchanged by the substitution.
+* The pivot axis is required to be transverse, and the metrics that need a
+  lateral inboard/outboard datum are suppressed rather than given an invented
+  sign. See :data:`CENTERED_SUPPRESSED`.
 """
 
 from __future__ import annotations
@@ -63,7 +77,7 @@ from kinematics.core.primitives.constants import EPS_GEOMETRIC
 from kinematics.core.primitives.dual import DualScalar, DualVec3
 from kinematics.core.primitives.dual import dot as dual_dot
 from kinematics.core.primitives.geometry import Direction3, Point3, extract_array
-from kinematics.core.primitives.point_ref import PointKey
+from kinematics.core.primitives.point_ref import PointKey, Side
 from kinematics.core.primitives.vector_utils.geometric import (
     compute_point_point_distance,
     compute_point_to_line_distance,
@@ -88,9 +102,34 @@ TORSION_BAR_TWIST_SPEC = MetricSpec(
 )
 
 
+CENTERED_SUPPRESSED: frozenset[str] = frozenset(
+    {
+        # Angles of, and ground intersections of, a kingpin axis. An unsteered
+        # arm has none, and the centreline variant publishes no substitute.
+        "caster",
+        "kpi",
+        "scrub_radius",
+        "steering_axis_offset_ground",
+        "mechanical_trail",
+        # Wheel-axis angles whose sign convention mirrors about a vehicle side.
+        # A transverse pivot holds all three at their design values anyway.
+        "camber",
+        "toe_angle",
+        "steer_angle",
+        # Lateral position and the front-view swing arm, both measured from the
+        # centreline the wheel itself sits on.
+        "half_track",
+        "fvic_y",
+        "fvic_z",
+        "fvsa_length",
+    }
+)
+
+
 def _rotate_arm_attached_point(
     positions: dict[PointKey, PositionValue],
     *,
+    moving_point: PointID,
     axis_direction: np.ndarray,
     moving_axis_foot: np.ndarray,
     moving_design_radial: np.ndarray,
@@ -98,7 +137,7 @@ def _rotate_arm_attached_point(
     target_design_radial: np.ndarray,
 ) -> PositionValue:
     """Rotate one authored carrier point with the solved trailing-arm angle."""
-    moving = positions[PointID.TRAILING_ARM_OUTBOARD]
+    moving = positions[moving_point]
     moving_radius_sq = float(np.dot(moving_design_radial, moving_design_radial))
     tangent = np.cross(axis_direction, moving_design_radial)
     target_tangent = np.cross(axis_direction, target_design_radial)
@@ -131,6 +170,9 @@ class TrailingArmSuspension(CornerSuspension):
             PointID.AXLE_OUTBOARD,
         }
     )
+    CENTERED_REQUIRED_POINTS: ClassVar[frozenset[PointID]] = (
+        REQUIRED_POINTS - {PointID.TRAILING_ARM_OUTBOARD}
+    )
     COILOVER_POINTS: ClassVar[frozenset[PointID]] = frozenset(
         {PointID.STRUT_TOP, PointID.STRUT_BOTTOM}
     )
@@ -147,6 +189,10 @@ class TrailingArmSuspension(CornerSuspension):
         PointID.TRAILING_ARM_PIVOT_B,
         PointID.TRAILING_ARM_OUTBOARD,
     )
+    CENTERED_LOCATING_OUTPUT_POINTS: ClassVar[tuple[PointID, ...]] = (
+        PointID.TRAILING_ARM_PIVOT_A,
+        PointID.TRAILING_ARM_PIVOT_B,
+    )
     WHEEL_OUTPUT_POINTS: ClassVar[tuple[PointID, ...]] = (
         PointID.AXLE_INBOARD,
         PointID.AXLE_OUTBOARD,
@@ -157,7 +203,6 @@ class TrailingArmSuspension(CornerSuspension):
         PointID.WHEEL_CONTACT_CENTRE,
     )
     OUTPUT_ONLY_POINTS: ClassVar[tuple[PointID, ...]] = (PointID.WHEEL_CONTACT_CENTRE,)
-    FREE_POINTS: ClassVar[tuple[PointID, ...]] = (PointID.TRAILING_ARM_OUTBOARD,)
 
     spring_type: CornerSpringType = CornerSpringType.COILOVER
 
@@ -176,11 +221,41 @@ class TrailingArmSuspension(CornerSuspension):
             )
         super().__post_init__()
 
+    @property
+    def is_centered(self) -> bool:
+        """Whether this arm carries its wheel on the vehicle centreline."""
+        return self.side is Side.CENTER
+
+    @property
+    def arm_anchor(self) -> PointID:
+        """Return the carrier point solved for, which the rest rotate with.
+
+        A sided arm joins the arm to a separate upright at
+        TRAILING_ARM_OUTBOARD. A centreline arm carries the axle directly, so
+        AXLE_INBOARD is that joint. Either way this is the single free point:
+        the carrier is one rigid body on a fixed hinge, so solving for one of
+        its points places all of them.
+        """
+        return (
+            PointID.AXLE_INBOARD
+            if self.is_centered
+            else PointID.TRAILING_ARM_OUTBOARD
+        )
+
     def required_points(self) -> frozenset[PointID]:
         """Return locating hardpoints plus the selected spring hardware."""
+        locating = (
+            self.CENTERED_REQUIRED_POINTS
+            if self.is_centered
+            else self.REQUIRED_POINTS
+        )
         if self.spring_type is CornerSpringType.COILOVER:
-            return self.REQUIRED_POINTS | self.COILOVER_POINTS
-        return self.REQUIRED_POINTS | self.TORSION_POINTS
+            return locating | self.COILOVER_POINTS
+        return locating | self.TORSION_POINTS
+
+    def suppressed_metric_keys(self) -> frozenset[str]:
+        """Remove the shared metrics a centreline wheel cannot define."""
+        return CENTERED_SUPPRESSED if self.is_centered else frozenset()
 
     def validate_hardpoints(self) -> None:
         """Require a horizontal arm pivot, rearward arm, and valid spring hardware."""
@@ -204,25 +279,32 @@ class TrailingArmSuspension(CornerSuspension):
                 "transverse component (different Y). Equal Y would make the "
                 "axis longitudinal, which is a swing axle, not a trailing arm."
             )
-        arm_x = float(self.hardpoints[PointID.TRAILING_ARM_OUTBOARD][Axis.X])
+        anchor = self.arm_anchor
+        arm_x = float(self.hardpoints[anchor][Axis.X])
         rearmost_pivot_x = min(float(pivot_a[Axis.X]), float(pivot_b[Axis.X]))
         if arm_x >= rearmost_pivot_x - EPS_GEOMETRIC:
             raise ValueError(
-                "TRAILING_ARM_OUTBOARD must lie rearward of the pivot axis "
+                f"{anchor.name} must lie rearward of the pivot axis "
                 "(X less than both pivot-mount X values)."
             )
         pivot_direction = (pivot_b - pivot_a).normalize()
         if (
             compute_point_to_line_distance(
-                self.hardpoints[PointID.TRAILING_ARM_OUTBOARD],
+                self.hardpoints[anchor],
                 pivot_a,
                 pivot_direction,
             )
             <= EPS_GEOMETRIC
         ):
             raise ValueError(
-                "TRAILING_ARM_OUTBOARD must not lie on the trailing-arm pivot axis."
+                f"{anchor.name} must not lie on the trailing-arm pivot axis."
             )
+        if self.is_centered:
+            # The remaining checks below concern the carrier reference line
+            # used for caster and KPI. A centreline arm publishes no such line
+            # and suppresses both metrics, so there is nothing to constrain.
+            self._validate_spring_hardpoints(pivot_a)
+            return
         # TRAILING_ARM_OUTBOARD -> AXLE_INBOARD is the nominal carrier
         # reference line (see steering_axis_points). Caster and KPI are its
         # inclinations in the side and front views, so if the two points differ
@@ -248,7 +330,10 @@ class TrailingArmSuspension(CornerSuspension):
                 "TRAILING_ARM_OUTBOARD its real X and Z: on a physical arm the "
                 "clamp does not sit on the axle axis."
             )
+        self._validate_spring_hardpoints(pivot_a)
 
+    def _validate_spring_hardpoints(self, pivot_a: Point3) -> None:
+        """Require a torsion bar to lie on a transverse axis through pivot A."""
         if self.spring_type is CornerSpringType.TORSION_BAR:
             axis_a = self.hardpoints[PointID.TORSION_BAR_AXIS_A]
             axis_b = self.hardpoints[PointID.TORSION_BAR_AXIS_B]
@@ -276,10 +361,15 @@ class TrailingArmSuspension(CornerSuspension):
 
     def free_points(self) -> Sequence[PointID]:
         """Return the moving arm point; all carrier pickups derive from it."""
-        return self.FREE_POINTS
+        return (self.arm_anchor,)
 
     def output_points(self) -> tuple[PointKey, ...]:
         """Return locating, wheel, and selected spring points for export."""
+        locating = (
+            self.CENTERED_LOCATING_OUTPUT_POINTS
+            if self.is_centered
+            else self.LOCATING_OUTPUT_POINTS
+        )
         if self.spring_type is CornerSpringType.COILOVER:
             spring_points = (PointID.STRUT_TOP, PointID.STRUT_BOTTOM)
         else:
@@ -289,15 +379,21 @@ class TrailingArmSuspension(CornerSuspension):
                 PointID.STRUT_TOP,
                 PointID.STRUT_BOTTOM,
             )
-        return (*self.LOCATING_OUTPUT_POINTS, *self.WHEEL_OUTPUT_POINTS, *spring_points)
+        return (*locating, *self.WHEEL_OUTPUT_POINTS, *spring_points)
 
-    def steering_axis_points(self) -> tuple[PointID, PointID]:
+    def steering_axis_points(self) -> tuple[PointID, PointID] | None:
         """Expose a stable carrier reference line for generic angle metrics.
 
         The architecture does not steer; this is not a physical kingpin axis.
         It merely lets the shared metric catalog evaluate its conventional
         alignment columns for the rigid carrier.
+
+        The centreline variant has no second carrier point to draw that line
+        between, and suppresses the alignment columns instead, so it publishes
+        no line at all.
         """
+        if self.is_centered:
+            return None
         return (PointID.TRAILING_ARM_OUTBOARD, PointID.AXLE_INBOARD)
 
     def rack_attachment_point(self) -> PointID | None:
@@ -332,9 +428,10 @@ class TrailingArmSuspension(CornerSuspension):
                 compute_point_point_distance(positions[point_a], positions[point_b]),
             )
 
+        anchor = self.arm_anchor
         return [
-            distance(PointID.TRAILING_ARM_PIVOT_A, PointID.TRAILING_ARM_OUTBOARD),
-            distance(PointID.TRAILING_ARM_PIVOT_B, PointID.TRAILING_ARM_OUTBOARD),
+            distance(PointID.TRAILING_ARM_PIVOT_A, anchor),
+            distance(PointID.TRAILING_ARM_PIVOT_B, anchor),
         ]
 
     def derived_spec(self) -> DerivedPointsSpec:
@@ -359,25 +456,29 @@ class TrailingArmSuspension(CornerSuspension):
             axis_foot = pivot_a + axis_direction * axial_distance
             return axis_foot, design - axis_foot
 
-        moving_axis_foot, moving_design_radial = decomposition(
-            PointID.TRAILING_ARM_OUTBOARD
-        )
+        anchor = self.arm_anchor
+        moving_axis_foot, moving_design_radial = decomposition(anchor)
         attached_points = [
-            PointID.AXLE_INBOARD,
-            PointID.AXLE_OUTBOARD,
-            PointID.STRUT_BOTTOM,
+            point
+            for point in (
+                PointID.AXLE_INBOARD,
+                PointID.AXLE_OUTBOARD,
+                PointID.STRUT_BOTTOM,
+            )
+            if point is not anchor
         ]
         for point in attached_points:
             target_axis_foot, target_design_radial = decomposition(point)
             functions[point] = partial(
                 _rotate_arm_attached_point,
+                moving_point=anchor,
                 axis_direction=axis_direction,
                 moving_axis_foot=moving_axis_foot,
                 moving_design_radial=moving_design_radial,
                 target_axis_foot=target_axis_foot,
                 target_design_radial=target_design_radial,
             )
-            dependencies[point] = {PointID.TRAILING_ARM_OUTBOARD}
+            dependencies[point] = {anchor}
 
         return DerivedPointsSpec(functions=functions, dependencies=dependencies)
 
@@ -488,10 +589,15 @@ class TrailingArmSuspension(CornerSuspension):
 
     def elements(self) -> tuple[SuspensionElement, ...]:
         """Return renderer-neutral arm, carrier, wheel, and spring hardware."""
-        carrier_hardpoints = (PointID.TRAILING_ARM_OUTBOARD,)
+        anchor = self.arm_anchor
+        carrier_hardpoints = (anchor,)
+        # Draw the carrier from the arm joint out to each axle end. On the
+        # centreline variant the arm joint IS the inboard axle end, so that
+        # segment would be zero length and is left out.
         carrier_segments = [
-            (PointID.TRAILING_ARM_OUTBOARD, PointID.AXLE_INBOARD),
-            (PointID.TRAILING_ARM_OUTBOARD, PointID.AXLE_OUTBOARD),
+            (anchor, point)
+            for point in (PointID.AXLE_INBOARD, PointID.AXLE_OUTBOARD)
+            if point is not anchor
         ]
         elements: tuple[SuspensionElement, ...] = (
             RigidLinkElement(
@@ -499,19 +605,23 @@ class TrailingArmSuspension(CornerSuspension):
                 body_group="Semi-Trailing Arm",
                 type=ElementType.WISHBONE,
                 point_a=PointID.TRAILING_ARM_PIVOT_A,
-                point_b=PointID.TRAILING_ARM_OUTBOARD,
+                point_b=anchor,
             ),
             RigidLinkElement(
                 label="Semi-Trailing Arm Rear Link",
                 body_group="Semi-Trailing Arm",
                 type=ElementType.WISHBONE,
                 point_a=PointID.TRAILING_ARM_PIVOT_B,
-                point_b=PointID.TRAILING_ARM_OUTBOARD,
+                point_b=anchor,
             ),
             UprightElement(
                 label="Semi-Trailing Arm Carrier",
                 hardpoints=carrier_hardpoints,
-                attachments=(PointID.AXLE_INBOARD, PointID.AXLE_OUTBOARD),
+                attachments=tuple(
+                    point
+                    for point in (PointID.AXLE_INBOARD, PointID.AXLE_OUTBOARD)
+                    if point is not anchor
+                ),
                 segments=tuple(carrier_segments),
             ),
             RigidLinkElement(

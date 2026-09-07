@@ -382,12 +382,14 @@ Ackermann geometry is unaffected by the missing wheel.
 undriven axle cannot squat. Aurora drives the rear wheel, so anti-squat belongs
 to the rear model.
 
-### The rear is a corner, and gets its own report
+### The rear is a centreline corner, and gets its own report
 
-Aurora's rear is one trailing-arm corner on the centreline, so it is modelled
-as a standalone corner rather than an axle. Three consequences:
+Aurora's rear is one trailing-arm corner whose wheel sits on the vehicle
+centreline, so it is modelled as a standalone corner declared `side: center`
+rather than as an axle. Three consequences:
 
-1. **Its CSV columns carry no side suffix** — `camber`, not `camber_left`.
+1. **Its CSV columns carry no side suffix** — `damper_length`, not
+   `damper_length_left`.
 2. **Every axle channel is absent by definition**: track, track change, body
    roll, roll-centre height and lateral migration, rack displacement,
    Ackermann, and the axle steering ratio all need two wheels.
@@ -397,54 +399,51 @@ as a standalone corner rather than an axle. Three consequences:
    blank. Anti-squat needs the driven axle declared; anti-lift needs
    `front_brake_bias`.
 
-A fourth, about the arm axis itself: **a plain transverse pivot produces no
-camber or toe change.** If both arm mounts share an X, the carrier rotates about
-an axis parallel to the wheel spin axis, so the wheel rises in a plane and both
-curves are exactly flat. Camber and toe change are what obliquity in plan buys
-you. Flat curves are therefore a design outcome to decide on, not a solver
-failure — and if you want camber gain at the rear, obliquity is the lever.
+#### What a centreline wheel cannot report
 
-Two channels to read carefully on a centreline wheel: **half track** is
-measured from the vehicle centreline and so reports approximately zero, and the
-signs of **scrub radius** and **FVSA** follow the `side:` you declared rather
-than anything physical. Read their magnitudes, not their signs.
+A wheel on the centreline has no inboard and no outboard, so every metric
+measured against a lateral datum has no answer, not a small one:
 
-One more, and it decides what the rear report contains: **an unsteered trailing
-arm has no kingpin.** `TrailingArmSuspension.steering_axis_points()` returns
-`TRAILING_ARM_OUTBOARD → AXLE_INBOARD` and its own docstring says why:
+| absent | because it measures |
+| --- | --- |
+| `camber`, `toe_angle`, `steer_angle` | a wheel-axis angle whose sign mirrors about a vehicle side |
+| `caster`, `kpi`, `mechanical_trail` | an angle of, or an offset along, a kingpin axis — and an unsteered arm has none |
+| `scrub_radius`, `steering_axis_offset_ground` | where that kingpin axis meets the ground, relative to the contact patch |
+| `half_track` | lateral distance from the centreline the wheel is already on |
+| `fvic_y`, `fvic_z`, `fvsa_length` | the front-view swing arm, whose sign follows the vehicle side |
 
-> The architecture does not steer; this is not a physical kingpin axis. It
-> merely lets the shared metric catalog evaluate its conventional alignment
-> columns for the rigid carrier.
+These are removed at the source: `TrailingArmSuspension.suppressed_metric_keys()`
+names them, and both the exported columns and the metric registry drop them
+together. They are **not** in the CSV as blanks, and naming them under `plots:`
+in `run.yaml` will not bring them back. The alternative — inventing a lateral
+sign so the columns exist — would put a number in the report that means nothing,
+which is worse than an absence you can explain.
 
-So **caster, KPI, scrub radius and mechanical trail are properties of that
-construction line**, not of the suspension, and the rear preset omits them.
-Camber and toe are computed from the wheel spin axis instead, so they are
-physical and are kept. The omitted channels are still in `CHANNELS` — name them
-in `run.yaml` if you want them anyway.
+Camber and toe are the two worth dwelling on, because they are physical on a
+sided corner. Here they are doubly gone: the sign convention has no referent,
+**and** a transverse pivot would hold both at their design values anyway. If you
+want camber gain at the rear, plan obliquity is the lever — and an oblique
+centreline arm is a different architecture, because its camber and toe signs
+would need a vehicle side to be defined against.
 
-### Choosing `trailing_arm_outboard` when there is no upright
+#### There is no `trailing_arm_outboard` on a centreline arm
 
-On a hub-motor arm the arm bolts straight to the motor axle, so there is no
-separate upright and no obvious "arm outboard" point. It matters less than it
-looks:
+On a sided corner `TRAILING_ARM_OUTBOARD` is the arm-to-upright joint. On a
+hub-motor arm the arm bolts straight to the motor axle, so no such joint exists,
+and the centreline variant forbids the point: `AXLE_INBOARD` is the arm point
+and the single free coordinate.
 
-The arm is constrained by two distances, `PIVOT_A → OUTBOARD` and
-`PIVOT_B → OUTBOARD`, which together put that point on a circle about the pivot
+Nothing is lost by the substitution. The arm is constrained by two distances
+from the two pivot mounts, which put that one point on a circle about the pivot
 axis; every other carrier point is then rotated rigidly by the same rotation.
 **The motion is one rotation about the pivot axis whatever point you pick**, so
-the wheel path, camber curve and toe curve are unchanged by the choice. What it
-does change is the nominal alignment line above — which is exactly the set of
-channels the rear preset already drops.
+the wheel path is identical. What the choice used to change — the nominal
+alignment line, and the caster and KPI measured about it — is exactly the set of
+channels a centreline wheel does not report.
 
-Two requirements, both cheap: the point must not lie **on** the pivot axis (the
-distances would not define a rotation), and it must be **distinct from
-`AXLE_INBOARD`** (they are the two ends of the nominal line, so coincident
-points make it a zero-length vector and every angle built on it undefined).
-`AXLE_INBOARD` is itself a free construction point — your own `front.yaml` notes
-it need only sit 100–200 mm from `AXLE_OUTBOARD` along the axle axis — so the
-easy resolution is to place `trailing_arm_outboard` at the real clamp and slide
-`axle_inboard` further inboard along the axle.
+Two requirements remain, both on `AXLE_INBOARD`: it must lie rearward of the
+pivot axis, and it must not lie **on** that axis, since two distances to a point
+on the axis do not define a rotation.
 
 The rear report is built by `susreport_rear.py`; the front by `susreport.py`.
 See `RUNNING.md`.

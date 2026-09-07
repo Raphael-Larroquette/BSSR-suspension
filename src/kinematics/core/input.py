@@ -46,10 +46,11 @@ def _validate_geometry(
         spec = definition.spec_type.model_validate(normalized)
     except ValidationError as error:
         raise ValueError(f"Invalid geometry specification: {error}") from error
-    if isinstance(spec, CornerGeometrySpecBase) and spec.side is not Side.LEFT:
+    if isinstance(spec, CornerGeometrySpecBase) and spec.side is Side.RIGHT:
         raise ValueError(
             "Standalone corner geometry must use side 'left'; side 'right' is "
-            "available only through an axle geometry."
+            "available only through an axle geometry, because a right corner "
+            "is the mirror of a left one and adds nothing on its own."
         )
     return spec, definition
 
