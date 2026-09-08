@@ -19,11 +19,7 @@ config:
   cg_position: {x: -1127.778, y: -39.844, z: 320}
   wheelbase: 2240.00
   axle_position: rear
-  driven_axle: rear
-  # Aurora's rear is a hub motor, so the drive torque is reacted through the
-  # trailing arm rather than by the chassis. That puts the anti-squat force
-  # line at the contact patch instead of the wheel centre; see
-  # CHARACTERISTICS.md. Required alongside driven_axle for anti-squat.
+  driven_axle: rear #how its driven
   drive_torque_reaction: unsprung
   front_brake_bias: 0.7
 

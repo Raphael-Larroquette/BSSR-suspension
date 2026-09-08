@@ -76,7 +76,7 @@ sweeps:
     plots: all
     gif: true
     steps: 41
-    travel: [-40, 60]      # corner form: no left/right
+    travel: [-50.8, 50.8]      # corner form: no left/right
 
   # -- 02 damper stroke ----------------------------------------------------
   # Read the usable wheel travel off this, then write it into 01 above.
