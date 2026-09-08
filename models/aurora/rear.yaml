@@ -1,5 +1,5 @@
 type: trailing_arm
-side: left
+side: center
 name: "Aurora Rear Recreated"
 version: "0.1.0" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
 units: millimeters
@@ -11,7 +11,7 @@ config:
   steering:
     type: none
   wheel:
-    offset: -23.737 #ofset must be negative because we have to pick left side but wheel is flipped
+    offset: 23.737 # ofset according to normal convention the facing of the wheel will be determined by the axle positions
     tire:
       aspect_ratio: 0.8
       section_width: 95
@@ -19,12 +19,13 @@ config:
   cg_position: {x: -1127.778, y: -39.844, z: 320}
   wheelbase: 2240.00
   axle_position: rear
+  driven_axle: rear
+  front_brake_bias: 0.7 
 
 hardpoints:
   trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5} 
   trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5} 
-  trailing_arm_outboard: {x: -2240, y: 70.332, z: 278.5}
-  axle_inboard: {x: -2240, y: 69.332, z: 278.5} #y changed from 70.332 from cad to 69.332 to satisfty being destinct from trailing arm outboard
+  axle_inboard: {x: -2240, y: 70.332, z: 278.5}
   axle_outboard: {x: -2240, y: -23.737, z: 278.5}
   strut_top: {x: -1901.921, y: 100, z: 546.579} 
   strut_bottom: {x: -2135.97, y: 100, z: 329.131}
