@@ -7,7 +7,7 @@ import pytest
 
 from kinematics.cli.io.loaders import load_geometry
 from kinematics.cli.io.sweep_loader import load_sweep
-from kinematics.core.enums import Axis, AxlePosition, PointID
+from kinematics.core.enums import Axis, AxlePosition, PointID, TorqueReaction
 from kinematics.core.metrics.angles import calculate_steer, calculate_toe
 from kinematics.core.metrics.anti_geometry import (
     _cg_height_above_road,
@@ -531,6 +531,7 @@ def test_anti_squat_resolves_the_rise_along_a_banked_ground_normal(
         update={
             "axle_position": AxlePosition.REAR,
             "driven_axle": AxlePosition.REAR,
+            "drive_torque_reaction": TorqueReaction.SPRUNG,
         }
     )
     states, _ = solve_sweep(

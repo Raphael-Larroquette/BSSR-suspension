@@ -178,6 +178,29 @@ class AxlePosition(StrEnum):
     REAR = "rear"
 
 
+class TorqueReaction(StrEnum):
+    """Which body a wheel's drive or brake torque is reacted against.
+
+    This is not a kinematic property of the linkage; it selects which force
+    line the anti percentages are built on, and the two differ by a whole tyre
+    radius of leverage.
+
+    ``SPRUNG``
+        The torque is reacted by the chassis, as with an inboard motor or
+        differential driving through halfshafts, or an inboard brake. The
+        linkage carries only the resulting longitudinal force, applied at the
+        wheel centre.
+    ``UNSPRUNG``
+        The torque is reacted through the suspension linkage itself, as with a
+        hub motor or an outboard brake. The linkage carries both the force and
+        the reaction torque, which together act along the line from the tyre
+        contact patch.
+    """
+
+    SPRUNG = "sprung"
+    UNSPRUNG = "unsprung"
+
+
 class ActuationType(StrEnum):
     """Supported corner actuation mechanisms."""
 

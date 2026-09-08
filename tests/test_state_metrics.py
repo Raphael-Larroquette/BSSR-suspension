@@ -6,7 +6,7 @@ import pytest
 
 from kinematics.cli.io.loaders import load_geometry
 from kinematics.cli.io.sweep_loader import load_sweep
-from kinematics.core.enums import AxlePosition, PointID
+from kinematics.core.enums import AxlePosition, PointID, TorqueReaction
 from kinematics.core.metrics.anti_geometry import (
     calculate_anti_dive_pct,
     calculate_anti_lift_pct,
@@ -208,6 +208,7 @@ def _anti_context(
     axle_position: AxlePosition,
     front_brake_bias: float = 0.6,
     driven_axle: AxlePosition | None = None,
+    drive_torque_reaction: TorqueReaction | None = TorqueReaction.SPRUNG,
 ) -> MetricContext:
     """Build the minimal synthetic context consumed by anti metrics."""
     wheel_contact_centre = Point3([0.0, 800.0, 0.0])
@@ -218,6 +219,7 @@ def _anti_context(
                 axle_position=axle_position,
                 front_brake_bias=front_brake_bias,
                 driven_axle=driven_axle,
+                drive_torque_reaction=drive_torque_reaction,
             ),
             road=RoadPlane.horizontal_at(wheel_contact_centre),
             side_view_ic=Point3([svic_x, 800.0, 300.0]),
@@ -259,3 +261,44 @@ def test_anti_squat_requires_the_configured_driven_axle() -> None:
 
     assert calculate_anti_squat_pct(driven_rear) is not None
     assert calculate_anti_squat_pct(non_driven_rear) is None
+
+
+def test_anti_squat_requires_a_declared_drive_torque_reaction() -> None:
+    undeclared = _anti_context(
+        svic_x=500.0,
+        axle_position=AxlePosition.REAR,
+        driven_axle=AxlePosition.REAR,
+        drive_torque_reaction=None,
+    )
+    assert calculate_anti_squat_pct(undeclared) is None
+
+
+def test_an_unsprung_drive_reaction_measures_from_the_contact_patch() -> None:
+    """A hub motor reacts drive torque through the linkage, not the chassis.
+
+    The contact patch sits a tyre radius below the wheel centre, so the same
+    geometry gives a larger rise to the same SVIC and a correspondingly larger
+    anti-squat. Here the SVIC is level with the wheel centre, which makes the
+    sprung case exactly zero and isolates the difference.
+    """
+    sprung = _anti_context(
+        svic_x=500.0,
+        axle_position=AxlePosition.REAR,
+        driven_axle=AxlePosition.REAR,
+        drive_torque_reaction=TorqueReaction.SPRUNG,
+    )
+    unsprung = _anti_context(
+        svic_x=500.0,
+        axle_position=AxlePosition.REAR,
+        driven_axle=AxlePosition.REAR,
+        drive_torque_reaction=TorqueReaction.UNSPRUNG,
+    )
+
+    # SVIC z == wheel-centre z, so the sprung force line is horizontal.
+    assert calculate_anti_squat_pct(sprung) == pytest.approx(0.0)
+
+    # From the contact patch the same SVIC rises its full 300 mm over a 500 mm
+    # run: 100 * (2500 / 450) * (300 / 500).
+    assert calculate_anti_squat_pct(unsprung) == pytest.approx(
+        100.0 * (2500.0 / 450.0) * (300.0 / 500.0)
+    )

@@ -6,7 +6,13 @@ from math import isfinite
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from kinematics.core.enums import ArbType, AxlePosition, HeaveLinkType, SteeringType
+from kinematics.core.enums import (
+    ArbType,
+    AxlePosition,
+    HeaveLinkType,
+    SteeringType,
+    TorqueReaction,
+)
 from kinematics.core.primitives.constants import EPS_GEOMETRIC, MM_PER_INCH
 from kinematics.core.schema.decoding import Direction3Value, Point3Value
 
@@ -80,6 +86,11 @@ class VehicleConfig(BaseModel):
     wheelbase: float
     front_brake_bias: float | None = None
     driven_axle: AxlePosition | None = None
+    # Where the driven wheel's torque is reacted, which selects the force line
+    # anti-squat is built on. There is no default: a hub motor and an inboard
+    # motor give answers a tyre radius of leverage apart, so anti-squat is left
+    # undefined rather than guessed. Required alongside driven_axle.
+    drive_torque_reaction: TorqueReaction | None = None
 
     @field_validator("wheelbase")
     @classmethod

@@ -222,11 +222,14 @@ def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
             "on the front. Anti-squat additionally needs the driven axle "
             "declared, and anti-lift needs `front_brake_bias`.")
     out.append(
-        "- **Anti-squat is computed for an inboard-sprung drive**, i.e. the "
-        "tractive force reacted along the wheel-centre to SVIC line. A hub "
-        "motor reacts it at the contact patch instead, which gives a much "
-        "larger number for the same geometry, so read this column with the "
-        "drive layout in mind.")
+        "- **Anti-squat depends on where the drive torque is reacted**, which "
+        "the geometry declares as `drive_torque_reaction`. A hub motor "
+        "(`unsprung`) reacts it through the arm, so the force line runs from "
+        "the contact patch; an inboard motor through halfshafts (`sprung`) "
+        "leaves only the longitudinal force at the wheel centre. The two "
+        "differ by a tyre radius of leverage and can be hundreds of percent "
+        "apart on the same geometry. The column is blank if the setting is "
+        "absent, rather than guessing one.")
     out.append(
         "- **The SVIC and SVSA length are tabulated but not plotted.** On a "
         "trailing arm the instant centre is the fixed pivot axis, so both plot "

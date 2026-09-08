@@ -1,0 +1,37 @@
+type: trailing_arm
+side: center
+name: "centreline trailing arm with torsion springing"
+version: "0.1.0"
+units: millimeters
+
+spring:
+  type: torsion_bar
+
+# The centreline layout of trailing_arm_centered_geometry.yaml, sprung by a
+# torsion bar instead of a coilover. AXLE_INBOARD is the arm point, so no
+# TRAILING_ARM_OUTBOARD is authored, and the arm pivot is transverse.
+hardpoints:
+  trailing_arm_pivot_a: {x: -1000, y: 150, z: 300}
+  trailing_arm_pivot_b: {x: -1000, y: 0, z: 300}
+  axle_inboard: {x: -1400, y: 60, z: 300}
+  axle_outboard: {x: -1400, y: -60, z: 300}
+  # Pivot A lies on the transverse bar axis. Arm rotation drives bar twist
+  # directly; the physical reaction plate adds no kinematic hardpoint.
+  torsion_bar_axis_a: {x: -1000, y: 250, z: 300}
+  torsion_bar_axis_b: {x: -1000, y: -50, z: 300}
+  # The spring is the torsion bar; this is a separate arm-mounted damper.
+  strut_top: {x: -1050, y: 100, z: 700}
+  strut_bottom: {x: -1350, y: 100, z: 350}
+
+config:
+  steering:
+    type: none
+  wheel:
+    offset: 0
+    tire:
+      aspect_ratio: 0.55
+      section_width: 120
+      rim_diameter: 16
+  cg_position: {x: -700, y: 0, z: 350}
+  wheelbase: 2000.0
+  axle_position: rear

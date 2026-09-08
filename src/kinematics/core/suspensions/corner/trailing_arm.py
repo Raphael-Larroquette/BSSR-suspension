@@ -83,6 +83,7 @@ from kinematics.core.primitives.vector_utils.geometric import (
     compute_point_to_line_distance,
     intersect_line_with_axis_aligned_plane,
     intersect_line_with_vertical_plane,
+    rotate_point_about_axis,
     signed_angle_about_axis,
 )
 from kinematics.core.state import SuspensionState
@@ -508,15 +509,64 @@ class TrailingArmSuspension(CornerSuspension):
             float(state.get(PointID.WHEEL_CENTER)[Axis.X]),
         )
 
-    def _torsion_twist(self, state: SuspensionState) -> float:
-        """Return arm motion projected about the authored torsion-bar axis."""
+    def _torsion_bar_axis(self) -> tuple[Point3, Direction3]:
+        """Return the authored torsion-bar line from the design state."""
         initial = self.initial_state()
         axis_point = initial.get(PointID.TORSION_BAR_AXIS_A)
         axis = (initial.get(PointID.TORSION_BAR_AXIS_B) - axis_point).normalize()
-        return self.side.lateral_sign * degrees(
+        return axis_point, axis
+
+    def _torsion_twist_sign(self) -> float:
+        """Return the factor that fixes which way a reported twist is positive.
+
+        Twist about a line is signed by the right-hand rule about a direction,
+        and neither the authored order of the two bar-axis points nor the
+        vehicle side is a physical fact about the bar, so a convention is
+        required.
+
+        A sided arm uses the ISO vehicle-side sign, which makes a left and a
+        right arm report the same sign for the same physical motion, the same
+        mirroring convention camber and toe follow.
+
+        A centreline arm has no vehicle side, so it uses the convention that
+        positive twist is bump: the factor is chosen so that the reported
+        angle rises as the wheel rises. That is settled here, once, from the
+        design geometry: rotate the carrier about its pivot axis by a small
+        positive angle and see whether the hub and the twist move together.
+        """
+        if not self.is_centered:
+            return self.side.lateral_sign
+
+        initial = self.initial_state()
+        pivot_a = initial.get(PointID.TRAILING_ARM_PIVOT_A)
+        pivot_axis = (
+            initial.get(PointID.TRAILING_ARM_PIVOT_B) - pivot_a
+        ).normalize()
+        axis_point, axis = self._torsion_bar_axis()
+        anchor = initial.get(self.arm_anchor)
+        hub = initial.get(PointID.WHEEL_CENTER)
+
+        probe = EPS_GEOMETRIC
+        rise = float(
+            rotate_point_about_axis(hub, pivot_a, pivot_axis, probe)[Axis.Z]
+        ) - float(hub[Axis.Z])
+        twist = signed_angle_about_axis(
+            anchor,
+            rotate_point_about_axis(anchor, pivot_a, pivot_axis, probe),
+            axis_point,
+            axis,
+        )
+        return 1.0 if rise * twist >= 0.0 else -1.0
+
+    def _torsion_twist(self, state: SuspensionState) -> float:
+        """Return arm motion projected about the authored torsion-bar axis."""
+        initial = self.initial_state()
+        axis_point, axis = self._torsion_bar_axis()
+        anchor = self.arm_anchor
+        return self._torsion_twist_sign() * degrees(
             signed_angle_about_axis(
-                initial.get(PointID.TRAILING_ARM_OUTBOARD),
-                state.get(PointID.TRAILING_ARM_OUTBOARD),
+                initial.get(anchor),
+                state.get(anchor),
                 axis_point,
                 axis,
             )
@@ -545,16 +595,18 @@ class TrailingArmSuspension(CornerSuspension):
         )
         if self.spring_type is CornerSpringType.COILOVER:
             return (damper_definition,)
-        design = extract_array(self.initial_state().get(PointID.TRAILING_ARM_OUTBOARD))
+        anchor = self.arm_anchor
+        design = extract_array(self.initial_state().get(anchor))
         axis_a = extract_array(self.initial_state().get(PointID.TORSION_BAR_AXIS_A))
         axis_b = extract_array(self.initial_state().get(PointID.TORSION_BAR_AXIS_B))
         axis = axis_b - axis_a
         axis /= float((axis**2).sum() ** 0.5)
+        twist_sign = self._torsion_twist_sign()
 
         def torsion_rotation(positions: DualPositions) -> DualScalar:
-            result = self.side.lateral_sign * kernels.rotation_about_fixed_axis_deg(
+            result = twist_sign * kernels.rotation_about_fixed_axis_deg(
                 positions,
-                PointID.TRAILING_ARM_OUTBOARD,
+                anchor,
                 design,
                 axis_a,
                 axis,

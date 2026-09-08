@@ -32,4 +32,5 @@ config:
   wheelbase: 2000.0
   axle_position: rear
   driven_axle: rear
+  drive_torque_reaction: unsprung
   front_brake_bias: 0.7

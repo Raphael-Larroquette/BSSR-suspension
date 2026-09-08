@@ -220,11 +220,6 @@ class TrailingArmGeometrySpec(CornerGeometrySpecBase):
                 "TRAILING_ARM_OUTBOARD: the arm carries the axle directly, so "
                 "AXLE_INBOARD is the moving arm point."
             )
-        if self.spring.type is not CornerSpringType.COILOVER:
-            raise ValueError(
-                "A centreline trailing arm supports only 'coilover' springing; "
-                f"got '{self.spring.type.value}'."
-            )
         pivot_a = self.hardpoints.get(PointID.TRAILING_ARM_PIVOT_A)
         pivot_b = self.hardpoints.get(PointID.TRAILING_ARM_PIVOT_B)
         if pivot_a is None or pivot_b is None:

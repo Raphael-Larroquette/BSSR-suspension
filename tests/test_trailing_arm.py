@@ -413,3 +413,37 @@ def test_only_the_trailing_arm_accepts_a_centreline_side(test_data_dir):
     data["side"] = "center"
     with pytest.raises(ValueError, match="side 'center' is available only"):
         load_geometry_mapping(data)
+
+
+def test_centered_arm_supports_torsion_springing_signed_positive_in_bump():
+    """A centreline arm has no vehicle side to sign its twist against.
+
+    The convention is that positive twist is bump, so the reported angle must
+    rise monotonically with the wheel and be zero at the design pose.
+    """
+    torsion = load_geometry(TEST_DATA / "trailing_arm_centered_torsion_geometry.yaml")
+    assert isinstance(torsion, TrailingArmSuspension)
+    assert torsion.side is Side.CENTER
+    assert torsion.arm_anchor is PointID.AXLE_INBOARD
+
+    sweep = load_sweep(TEST_DATA / "trailing_arm_centered_sweep.yaml", torsion)
+    states, infos = solve_sweep(torsion, sweep)
+    assert all(info.converged for info in infos)
+
+    rows = [
+        _corner_metric_row(row)
+        for row in compute_sweep_metrics(torsion, sweep, states).rows
+    ]
+    twists = [float(row["torsion_bar_twist"]) for row in rows]
+    travel = [float(row["wheel_travel"]) for row in rows]
+
+    assert all(
+        later > earlier for earlier, later in zip(twists, twists[1:])
+    ), "twist must increase monotonically through bump"
+
+    # Positive in bump and negative in droop: the twist and the wheel travel
+    # share a sign at every step, and both pass through zero at the design pose.
+    for twist, height in zip(twists, travel):
+        assert twist * height > 0.0, (
+            f"twist {twist} disagrees in sign with wheel travel {height}"
+        )

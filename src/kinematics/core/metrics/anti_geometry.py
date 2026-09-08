@@ -12,11 +12,25 @@ axle-local road plane. Following the ISO 8855 vehicle and road-plane
 conventions, its normal and forward direction are expressed in chassis
 coordinates. In the supported straight, level environment road space and
 world space are aligned, but the single-axle metric does not infer or predict
-whole-vehicle pitch. The governing line runs from a reaction point
-(wheel contact centre for outboard brakes, wheel center for inboard-sprung
-drive) to the side-view instant center (SVIC). Its inclination, expressed as
-tan(theta), together with the wheelbase L and CG height above ground h, sets
-the anti percentage.
+whole-vehicle pitch. The governing line runs from a reaction point to the
+side-view instant center (SVIC). Its inclination, expressed as tan(theta),
+together with the wheelbase L and CG height above ground h, sets the anti
+percentage.
+
+Which reaction point applies is a question about where the torque is
+reacted, not about the linkage:
+
+- When the chassis reacts the torque, the linkage carries only the
+  longitudinal force, applied at the WHEEL CENTRE. This is an inboard motor
+  or differential driving through halfshafts, or an inboard brake.
+- When the suspension linkage reacts the torque, the force and the reaction
+  torque combine into one line from the tyre CONTACT PATCH. This is a hub
+  motor or an outboard brake.
+
+The two differ by a tyre radius of leverage and can give answers hundreds of
+percent apart on the same geometry. Anti-squat therefore requires an explicit
+``drive_torque_reaction``; the brake metrics currently assume outboard brakes,
+which is stated in each of their docstrings.
 
 Sign conventions follow the ISO 8855 vehicle-axis orientation (X forward,
 Y left, Z up). Every metric returns None when the SVIC is undefined, a
@@ -29,7 +43,7 @@ from __future__ import annotations
 from math import atan, degrees
 from typing import TYPE_CHECKING
 
-from kinematics.core.enums import Axis, AxlePosition
+from kinematics.core.enums import Axis, AxlePosition, TorqueReaction
 from kinematics.core.primitives.constants import EPS_GEOMETRIC
 
 if TYPE_CHECKING:
@@ -203,51 +217,71 @@ def calculate_anti_squat_pct(ctx: "MetricContext") -> float | None:
     expressed in chassis coordinates. World-space presentation is not used.
 
     Only defined when a driven axle is configured AND it is this axle
-    (driven_axle == axle_position, both non-None). With inboard-sprung drive
-    (halfshafts) the tractive force reacts along the WHEEL-CENTER -> SVIC line,
-    not the wheel contact centre line. The full drive torque is carried by
-    the driven axle. With L the wheelbase, h the CG height above ground, and
-    n the road plane's upward normal:
+    (driven_axle == axle_position, both non-None), and when
+    drive_torque_reaction says which body reacts that axle's drive torque. The
+    full drive torque is carried by the driven axle.
 
-        rear axle:  tan_theta = n . (SVIC - WC) / (SVIC_x - WC_x)
-        front axle: tan_theta = n . (SVIC - WC) / (WC_x - SVIC_x)
+    The reaction setting selects where the force line starts, and the two
+    choices differ by a whole tyre radius of leverage:
 
-    Neither endpoint lies on the road plane, so the rise n . (SVIC - WC) is
-    the difference of their signed distances to it; on a level road plane it
-    reduces exactly to SVIC_z - WC_z. tan_theta is positive when the geometry
+    ``SPRUNG`` (inboard motor or differential through halfshafts)
+        The chassis reacts the torque, so the linkage sees only the
+        longitudinal force at the WHEEL CENTRE. The line is WC -> SVIC.
+    ``UNSPRUNG`` (hub motor)
+        The linkage reacts the torque as well as carrying the force, and the
+        two combine into a single line from the tyre CONTACT PATCH. The line
+        is T -> SVIC, the same line anti-lift uses for an outboard brake.
+
+    Writing R for that reaction point, L for the wheelbase, h for the CG
+    height above ground, and n for the road plane's upward normal:
+
+        rear axle:  tan_theta = n . (SVIC - R) / (SVIC_x - R_x)
+        front axle: tan_theta = n . (SVIC - R) / (R_x - SVIC_x)
+
+    The rise n . (SVIC - R) is the difference of the endpoints' signed
+    distances to the road plane, which on a level plane reduces exactly to
+    SVIC_z - R_z, and for an UNSPRUNG reaction to SVIC_z alone, since the
+    contact patch lies on that plane. tan_theta is positive when the geometry
     resists the acceleration pitch (squat at the rear, lift at the front).
     Then:
 
         anti_squat_pct = 100 * (L / h) * tan_theta
 
-    Returns None when no driven axle matches this axle, the SVIC is undefined,
-    the CG is not above ground, or the run is degenerate.
+    Returns None when no driven axle matches this axle, the torque reaction is
+    unset, the SVIC is undefined, the CG is not above ground, or the run is
+    degenerate.
     """
     config = ctx.config
     if config.driven_axle is None or config.axle_position is None:
         return None
     if config.driven_axle != config.axle_position:
         return None
+    if config.drive_torque_reaction is None:
+        return None
 
     svic = ctx.side_view_ic
     if svic is None:
         return None
-    wc = ctx.wheel_center
+    reaction = (
+        ctx.wheel_contact_centre
+        if config.drive_torque_reaction is TorqueReaction.UNSPRUNG
+        else ctx.wheel_center
+    )
 
     # Front (FWD) and rear axles flip the sense of the horizontal run so that
     # positive tan_theta always means "resists the acceleration pitch".
     if config.axle_position is AxlePosition.FRONT:
-        run = float(ctx.road.forward.dot(wc - svic))
+        run = float(ctx.road.forward.dot(reaction - svic))
     else:
-        run = float(ctx.road.forward.dot(svic - wc))
+        run = float(ctx.road.forward.dot(svic - reaction))
     if abs(run) < EPS_GEOMETRIC:
         return None
     height = _cg_height_above_road(ctx)
     if height is None:
         return None
 
-    # Neither endpoint lies on the road plane, so the rise along the road
+    # The endpoints need not lie on the road plane, so the rise along the road
     # normal is the signed-distance difference (the plane offset cancels).
-    rise = ctx.road.signed_distance(svic) - ctx.road.signed_distance(wc)
+    rise = ctx.road.signed_distance(svic) - ctx.road.signed_distance(reaction)
     tan_theta = rise / run
     return 100.0 * (ctx.wheelbase / height) * tan_theta

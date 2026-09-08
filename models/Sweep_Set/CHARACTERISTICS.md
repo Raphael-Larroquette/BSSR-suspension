@@ -382,6 +382,46 @@ Ackermann geometry is unaffected by the missing wheel.
 undriven axle cannot squat. Aurora drives the rear wheel, so anti-squat belongs
 to the rear model.
 
+#### Anti-squat depends on where the drive torque is reacted
+
+All three anti percentages are the inclination of a force line running from a
+reaction point to the SVIC, scaled by `L / h`:
+
+```
+anti % = 100 * (L / h) * tan(theta),    tan(theta) = rise / run  (R -> SVIC)
+```
+
+What changes between them is **R**, and R is decided by which body reacts the
+torque, not by the linkage:
+
+| layout | torque reacted by | R | why |
+| --- | --- | --- | --- |
+| inboard motor / diff through halfshafts | the chassis | wheel centre | the chassis takes the torque, so only the longitudinal force reaches the linkage, applied at the hub |
+| hub motor | the suspension linkage | contact patch | the arm takes the torque as well as the force; together they act along the contact-patch line |
+| outboard brake | the suspension linkage | contact patch | same argument as the hub motor |
+| inboard brake | the chassis | wheel centre | same argument as the halfshaft drive |
+
+The gap between the two rows is a whole tyre radius of leverage, and on Aurora
+it is the difference between **0% and 520%**. At the design pose the SVIC sits
+at the arm pivot, `(-1865, 278.5)`, exactly level with the hub — so the
+wheel-centre line is horizontal and the sprung answer is *zero*. From the
+contact patch the same SVIC rises its full 278.5 mm over a 375 mm run:
+
+```
+tan(theta) = 278.5 / 375 = 0.743      ->  theta = 36.6 deg
+h / L      = 320 / 2240  = 0.143
+anti-squat = 0.743 / 0.143            =  520%
+```
+
+Because the two answers are so far apart, `drive_torque_reaction` has **no
+default**: declare it as `sprung` or `unsprung` alongside `driven_axle`, or
+`anti_squat` stays blank. Aurora's rear is a hub motor, so it declares
+`unsprung`.
+
+Anti-dive and anti-lift currently assume **outboard brakes** and always measure
+from the contact patch. That is right for Aurora. If an inboard brake ever
+appears on the car, they need the same treatment.
+
 ### The rear is a centreline corner, and gets its own report
 
 Aurora's rear is one trailing-arm corner whose wheel sits on the vehicle
@@ -444,6 +484,12 @@ channels a centreline wheel does not report.
 Two requirements remain, both on `AXLE_INBOARD`: it must lie rearward of the
 pivot axis, and it must not lie **on** that axis, since two distances to a point
 on the axis do not define a rotation.
+
+Both spring layouts are available on a centreline arm. A torsion bar reports
+`torsion_bar_twist` as usual, but its sign needs a convention, and the vehicle
+side a sided arm mirrors against does not exist here. **Positive twist is
+bump**: the factor is fixed once from the design geometry so the reported angle
+rises as the wheel rises.
 
 The rear report is built by `susreport_rear.py`; the front by `susreport.py`.
 See `RUNNING.md`.
