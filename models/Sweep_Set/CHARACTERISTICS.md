@@ -419,8 +419,30 @@ default**: declare it as `sprung` or `unsprung` alongside `driven_axle`, or
 `unsprung`.
 
 Anti-dive and anti-lift currently assume **outboard brakes** and always measure
-from the contact patch. That is right for Aurora. If an inboard brake ever
-appears on the car, they need the same treatment.
+from the contact patch. If an inboard brake ever appears on the car, they need
+the same treatment as the drive side.
+
+#### Read the anti percentages at the design pose only
+
+All three scale by `L / h`, and on a single-corner model neither term survives
+away from design:
+
+- `h` is the CG height above the road plane, and a standalone corner places
+  that plane through its own contact patch. Drive the wheel 60 mm into bump and
+  `h` falls 60 mm, as though the whole car sank on one corner. With Aurora's CG
+  roughly half the wheelbase back, the true drop is nearer 30 mm.
+- `L` is held at the authored wheelbase, though the contact patch does move
+  longitudinally as the arm swings. That one is small - about 5 mm, or 0.2% -
+  and it is the lesser of the two errors by a factor of fifty.
+
+The geometric half of the formula, `z_P / x_P`, is right everywhere; it is only
+the load-transfer scaling that is not. So the rear report prints the design
+value and leaves min, max and range blank, and does not plot a curve. If you
+want to see how the geometry itself moves through travel, read **SVSA angle**,
+which is the same line without the scaling.
+
+A real anti-geometry envelope needs a whole-vehicle pitch and heave case, where
+both axles move and `h` and `L` mean what the formula assumes.
 
 ### The rear is a centreline corner, and gets its own report
 

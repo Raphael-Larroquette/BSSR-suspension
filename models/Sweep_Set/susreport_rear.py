@@ -59,9 +59,15 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
     single("svic_z", "SVIC height (z)", "svic_z{side}"),
     single("svsa", "SVSA length", "svsa_length{side}"),
     single("svsa_angle", "SVSA angle", "svsa_angle{side}"),
-    single("anti_squat", "Anti-squat", "anti_squat{side}"),
-    single("anti_lift", "Anti-lift", "anti_lift{side}"),
-    single("anti_dive", "Anti-dive", "anti_dive{side}"),
+    # Design value only. The anti percentages scale by L/h, and on a
+    # single-corner sweep neither term is a physical variation: the road plane
+    # rides this wheel's contact patch, so h falls by the full wheel travel as
+    # though the whole car were sinking, and the wheelbase is held at its
+    # authored value. Both are exact at the design pose and progressively
+    # wrong away from it. See the notes section of the report.
+    single("anti_squat", "Anti-squat", "anti_squat{side}", design_only=True),
+    single("anti_lift", "Anti-lift", "anti_lift{side}", design_only=True),
+    single("anti_dive", "Anti-dive", "anti_dive{side}", design_only=True),
 
     # --- gradients -------------------------------------------------------
     single("recession_rate", "Wheel-centre recession rate",
@@ -88,8 +94,12 @@ PRESETS: dict[str, list[str]] = {
 
 # Tabulated but never plotted: the instant centres are a fixed point on the
 # pivot axis and plot as flat lines, and SVSA length is SVSA angle's unbounded
-# twin. Wheel travel is the x-axis of every heave plot.
-NEVER_PLOT = {"svic_x", "svic_z", "svsa", "wheel_travel"}
+# twin. Wheel travel is the x-axis of every heave plot. The anti percentages
+# are reported at the design pose only, for the reason given in the notes, so
+# there is no curve to draw; SVSA angle is the honest picture of how the
+# geometry actually changes through travel.
+NEVER_PLOT = {"svic_x", "svic_z", "svsa", "wheel_travel",
+              "anti_squat", "anti_lift", "anti_dive"}
 
 
 # ==========================================================================
@@ -221,6 +231,20 @@ def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
             "angle and the anti percentages are all well defined here, unlike "
             "on the front. Anti-squat additionally needs the driven axle "
             "declared, and anti-lift needs `front_brake_bias`.")
+    out.append(
+        "- **The anti percentages are reported at the design pose only.** "
+        "Each is `(z_P/x_P) / (h/L)`, where `z_P` and `x_P` place the "
+        "side-view instant centre relative to the tyre contact patch. The "
+        "first ratio is pure suspension geometry and this model gets it right "
+        "everywhere. The second is not: `h` is the CG height above the road, "
+        "and a single-corner model puts the road plane through this wheel's "
+        "own contact patch, so `h` falls by the full wheel travel as though "
+        "the whole car were sinking on one corner. `L` meanwhile is held at "
+        "the authored wheelbase. Both terms are exact at design and "
+        "progressively wrong away from it, so min, max and range are left "
+        "blank rather than printed as an envelope. A real anti-geometry "
+        "envelope needs a whole-vehicle pitch and heave case, not a "
+        "single-corner sweep.")
     out.append(
         "- **Anti-squat depends on where the drive torque is reacted**, which "
         "the geometry declares as `drive_torque_reaction`. A hub motor "

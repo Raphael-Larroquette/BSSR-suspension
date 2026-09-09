@@ -132,6 +132,12 @@ class Channel:
     kind: str            # "single" | "pair" | "axle"
     column: str          # template; "{side}" is substituted for sided channels
     note: str = ""
+    # Report only the design-condition value, leaving min/max/range blank. For
+    # a channel whose formula depends on quantities the sweep does not command
+    # - vehicle ride height, wheelbase - only the design row is trustworthy,
+    # and printing an envelope invites reading a modelling artefact as a real
+    # variation.
+    design_only: bool = False
 
     def columns(self, side: str) -> list[tuple[str, str, str]]:
         """Return [(column, series label, colour)] for this channel.
@@ -148,9 +154,9 @@ class Channel:
         return [(self.column, self.label, C_N)]
 
 
-def single(key, label, column, note=""):
+def single(key, label, column, note="", design_only=False):
     """A per-corner channel: side-suffixed on an axle, bare on a corner."""
-    return Channel(key, label, "single", column, note)
+    return Channel(key, label, "single", column, note, design_only)
 
 
 def pair(key, label, column, note=""):
@@ -358,17 +364,18 @@ def summarise(sw: Sweep, side: str, keys: list[str],
             name = (f"{channel.label.split(' (left/right)')[0]} ({label})"
                     if channel.kind == "pair" else channel.label)
             at_design = full.iloc[i0] if i0 in full.index else np.nan
+            blank = channel.design_only
             rows.append({
                 "channel": key,
                 "characteristic": name,
                 "column": col,
                 "unit": sw.unit(col),
                 "at_design": at_design,
-                "min": clean.min(),
-                "max": clean.max(),
-                "range": clean.max() - clean.min(),
-                "at_start": full.iloc[0],
-                "at_end": full.iloc[-1],
+                "min": np.nan if blank else clean.min(),
+                "max": np.nan if blank else clean.max(),
+                "range": np.nan if blank else clean.max() - clean.min(),
+                "at_start": np.nan if blank else full.iloc[0],
+                "at_end": np.nan if blank else full.iloc[-1],
             })
 
     out = pd.DataFrame(rows)
