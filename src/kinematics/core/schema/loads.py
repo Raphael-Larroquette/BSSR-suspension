@@ -3,7 +3,7 @@ Validated schema for a force-solve configuration file.
 
 Every key is required. There are no built-in defaults to fall back to, so a
 missing or misspelt key is an error naming it and a dry run is a complete
-configuration check -- the same rule ``models/Sweep_Set/run.yaml`` follows, and
+configuration check -- the same rule ``Working/sweep_sets/run.yaml`` follows, and
 for the same reason: two places holding the same default is two places that can
 disagree.
 """

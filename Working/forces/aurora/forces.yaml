@@ -1,11 +1,11 @@
 # Static suspension force solve - configuration for Aurora.
 #
 # Every key below is REQUIRED. A missing or misspelt key is an error naming it,
-# following the same no-built-in-defaults rule as models/Sweep_Set/run.yaml.
+# following the same no-built-in-defaults rule as Working/sweep_sets/run.yaml.
 # `kinematics forces --dry-run` is therefore a complete configuration check.
 #
 # Precedence: CLI > forces.yaml. Relative paths resolve against this file.
-# See docs/force.md for what each setting means and what it assumes.
+# See ../force.md for what each setting means and what it assumes.
 
 version: "0.1.0"
 
@@ -17,9 +17,10 @@ vehicle:
 
 geometry:
   # Both files are required and must agree on cg_position and wheelbase.
+  # Relative to this file, so a car's configuration travels with it.
   # CLI --front / --rear override these.
-  front: front.yaml
-  rear: rear.yaml
+  front: ../../models/aurora/front.yaml
+  rear: ../../models/aurora/rear.yaml
 
 # Load cases. CLI --cases overrides.
 cases: cases.csv
@@ -92,7 +93,7 @@ output:
   # vehicle - all forces in the ISO 8855 vehicle frame (recommended)
   # part    - right-side parts get Y mirrored, for mirrored CAD
   frame: vehicle
-  # auto | always | never - see docs/force.md
+  # auto | always | never - see ../force.md
   moments: auto
   # Also write one CSV per part, for direct import into an FEA run.
   per_part_files: false

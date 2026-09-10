@@ -10,27 +10,28 @@ flags override run.yaml for one invocation. See RUNNING.md for the full key
 reference and CHARACTERISTICS.md for what the channels mean.
 
 Layout it assumes:
-    models/
-      Sweep_Set/         <- this file, the reporters, and the sweep sets
+    Working/
+      sweep_sets/        <- this file, the reporters, and the sweep sets
         run_all.py  susreport.py  susreport_rear.py  susreport_common.py
         bearings.py
         front/           <- a sweep set: run.yaml + sweeps/
         rear/            <- another one
-      aurora/            <- a car: geometry files, and results per sweep set
-        front.yaml  rear.yaml
-        outputs/front/  outputs/rear/
-        report/front/   report/rear/
+      models/
+        aurora/          <- a car: geometry files, and results per sweep set
+          front.yaml  rear.yaml
+          outputs/front/  outputs/rear/
+          report/front/   report/rear/
 
 A sweep set names itself and its default geometry, and results land beside
 whatever geometry it is pointed at - so the same set runs against another car
 without collisions or reconfiguration.
 
-Usage:
-    uv run python models/Sweep_Set/run_all.py
-    uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
-    uv run python models/Sweep_Set/run_all.py --only 01,02,09
-    uv run python models/Sweep_Set/run_all.py --report-only
-    uv run python models/Sweep_Set/run_all.py --geometry models/gen14/front.yaml
+Usage, with RUNNER = Working/sweep_sets/run_all.py:
+    uv run python RUNNER
+    uv run python RUNNER --config Working/sweep_sets/rear/run.yaml
+    uv run python RUNNER --only 01,02,09
+    uv run python RUNNER --report-only
+    uv run python RUNNER --geometry Working/models/gen14/front.yaml
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ from pathlib import Path
 
 import yaml
 
-HERE = Path(__file__).resolve().parent          # models/Sweep_Set
+HERE = Path(__file__).resolve().parent          # Working/sweep_sets
 RUN_YAML = HERE / "front" / "run.yaml"           # the default sweep set
 
 # Where merged sweep files are written. run.yaml overrides the sweep YAMLs, so

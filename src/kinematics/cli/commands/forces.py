@@ -8,6 +8,7 @@ what to print.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -69,12 +70,21 @@ def resolve_paths(
     rear: Path | None = None,
     cases: Path | None = None,
 ) -> ForcePaths:
-    """Resolve input paths, taking CLI overrides over the configuration file."""
+    """Resolve input paths, taking CLI overrides over the configuration file.
+
+    A configuration file names its geometry relative to itself, so the pair
+    travels together. The joined path is normalized but deliberately not
+    resolved to an absolute one: it goes into the output file's provenance
+    header, where a machine-specific path would make two identical runs on two
+    machines look different.
+    """
     base = config_path.parent
 
     def relative(value: str) -> Path:
         path = Path(value)
-        return path if path.is_absolute() else (base / path)
+        if path.is_absolute():
+            return path
+        return Path(os.path.normpath(base / path))
 
     return ForcePaths(
         config=config_path,

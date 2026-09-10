@@ -29,7 +29,7 @@ name: front
 
 # Default target. --geometry overrides it, which is how you run this same
 # sweep set against a different car.
-geometry: ../../aurora/front.yaml
+geometry: ../../models/aurora/front.yaml
 
 # Relative to this file.
 sweeps_dir: sweeps

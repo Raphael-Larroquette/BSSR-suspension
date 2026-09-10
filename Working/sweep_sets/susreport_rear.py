@@ -2,7 +2,7 @@
 """
 susreport_rear - characteristic report for a SINGLE CORNER (Aurora rear).
 
-    uv run python models/Sweep_Set/susreport_rear.py <outputs dir> --out <dir>
+    uv run python Working/sweep_sets/susreport_rear.py <outputs dir> --out <dir>
 
 Aurora's rear is one trailing-arm corner on the vehicle centreline, not an
 axle, and that changes what there is to report:

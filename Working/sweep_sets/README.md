@@ -18,15 +18,15 @@ CHARACTERISTICS.md     every characteristic the sets produce, with caveats
 ```
 
 Results land beside the geometry they were run against:
-`../aurora/outputs/<set name>/` and `../aurora/report/<set name>/`.
+`../models/aurora/outputs/<set name>/` and `../models/aurora/report/<set name>/`.
 
 ## Run
 
 ```bash
-uv run python models/Sweep_Set/run_all.py                       # the front set
-uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
-uv run python models/Sweep_Set/run_all.py --report-only         # no solving
-uv run python models/Sweep_Set/run_all.py --dry-run             # nothing at all
+uv run python Working/sweep_sets/run_all.py                       # the front set
+uv run python Working/sweep_sets/run_all.py --config Working/sweep_sets/rear/run.yaml
+uv run python Working/sweep_sets/run_all.py --report-only         # no solving
+uv run python Working/sweep_sets/run_all.py --dry-run             # nothing at all
 ```
 
 Ranges, step counts, which sweeps run, which characteristics each one reports,
@@ -38,7 +38,7 @@ Pointing a set at another car needs no reconfiguration — results follow the
 geometry:
 
 ```bash
-uv run python models/Sweep_Set/run_all.py --geometry models/gen14/front.yaml
+uv run python Working/sweep_sets/run_all.py --geometry Working/models/gen14/front.yaml
 ```
 
 ## The front sweeps

@@ -2,7 +2,7 @@
 """
 susreport - characteristic report for a TWO-WHEEL AXLE (Aurora front).
 
-    uv run python models/Sweep_Set/susreport.py <outputs dir> --out <report dir>
+    uv run python Working/sweep_sets/susreport.py <outputs dir> --out <report dir>
 
 Its CSV columns are side-suffixed (`camber_left`) and it carries axle-level
 channels - track, body roll, roll centre, rack, Ackermann - that a single

@@ -45,7 +45,7 @@ tool.
 | Double-wishbone springs   | None, coilover, or torsion bar                                                            | A torsion bar requires pushrod-rocker actuation.                                                                   |
 | Axle mechanisms           | U-bar or T-bar anti-roll mechanism and rocker-to-rocker heave link                        | These mechanisms require a double-wishbone axle with pushrod-rocker actuation.                                     |
 | Setup changes             | Outboard camber shims on double-wishbone corners                                          | Explicit asymmetric axle hardpoints require corresponding side-local setup when a shim is used.                    |
-| Static joint forces       | Force at every suspension joint, per load case, grouped by part                           | Neutral ride position only, and the vertical distribution needs exactly three contact patches. See `docs/force.md`. |
+| Static joint forces       | Force at every suspension joint, per load case, grouped by part                           | Neutral ride position only, and the vertical distribution needs exactly three contact patches. See `Working/forces/force.md`. |
 | Outputs                   | Solved point positions, solver statistics, diagnostics, metrics, in either CSV or Parquet | Plotting and animation require the optional visualization dependencies.                                            |
 
 The calculated metrics include wheel travel, longitudinal wheel-center travel,
@@ -488,6 +488,10 @@ src/kinematics/
     sweep.py               Sweep solving, metrics, and diagnostics
     analysis.py            Structured application-facing result model
   cli/                     YAML, export, terminal, and visualization adapters
+Working/                   Cars, and the workflows run against them
+  models/<car>/            Hardpoints and vehicle configuration
+  sweep_sets/              Kinematic sweeps and their reports
+  forces/<car>/            Static force-solve configuration and load cases
 tests/
   data/                    Valid example geometries, sweeps, and e2e references
 tools/

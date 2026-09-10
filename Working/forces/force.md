@@ -14,7 +14,7 @@ This is a load-path calculation, not a vehicle dynamics model.
 ## Quick start
 
 ```bash
-kinematics forces --config models/aurora/forces.yaml --out forces.csv
+kinematics forces --config Working/forces/aurora/forces.yaml --out forces.csv
 ```
 
 `forces.yaml` names the two geometry files and the case file, so that one
@@ -22,10 +22,10 @@ command covers the whole vehicle. Anything in it can be overridden:
 
 ```bash
 kinematics forces \
-  --config models/aurora/forces.yaml \
-  --front  models/aurora/front.yaml \
-  --rear   models/aurora/rear.yaml \
-  --cases  models/aurora/cases.csv \
+  --config Working/forces/aurora/forces.yaml \
+  --front  Working/models/aurora/front.yaml \
+  --rear   Working/models/aurora/rear.yaml \
+  --cases  Working/forces/aurora/cases.csv \
   --out    forces.csv          # .csv, or .xlsx with the [xlsx] extra
 ```
 
@@ -61,6 +61,36 @@ subsystem 'left' (front), loaded at 'Left Upright'
 the whole vehicle — you cannot find the front/rear split without knowing where
 the rear contact patch is. The individual corner solves are then automatically
 independent (see [Step 4](#step-4--build-the-body-graph)).
+
+---
+
+## Where things live
+
+Everything a run touches sits under `Working/`, which holds the models, the
+sweep sets, and the force configurations as three siblings:
+
+```
+Working/
+  models/
+    aurora/
+      front.yaml  rear.yaml        the car: hardpoints and vehicle config
+  forces/
+    force.md                       this document
+    aurora/
+      forces.yaml                  mass and solver policy for that car
+      cases.csv                    the load cases
+      outputs/                     results, git-ignored
+  sweep_sets/                      kinematic sweeps, a separate workflow
+```
+
+One folder per car under `forces/`, mirroring `models/`. A car's force
+configuration names its geometry **relative to itself**
+(`../../models/aurora/front.yaml`), so the pair travels together and a second
+car is a new folder rather than an edit to an existing one.
+
+Geometry is shared with the sweep sets rather than copied. A hardpoint change
+in `Working/models/aurora/front.yaml` is picked up by the next force run and
+the next sweep alike, which is the point of keeping one copy of it.
 
 ---
 
@@ -314,7 +344,7 @@ One block per part, in the vehicle frame, matching the reference layout:
 ```
 # kinematics forces, format 1 | frame: vehicle ISO 8855 (X fwd, Y left, Z up)
 # units: N, N-mm | sign: force acting ON the named part AT that joint
-# front: models/aurora/front.yaml sha256=a3f1... | rear: ... | cases: ... sha256=...
+# front: Working/models/aurora/front.yaml sha256=a3f1... | rear: ... | cases: ... sha256=...
 # mass: 294.0 kg | g: 9.80665 | pivot_axial: even | moment_reference: centroid
 # rack: grounded | brake_torque_reaction: unsprung
 

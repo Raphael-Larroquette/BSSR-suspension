@@ -205,8 +205,8 @@ def test_front_left_corner_matches_an_independent_solve(suspensions, vehicle):
             assert load.force == pytest.approx(expected, rel=1e-9, abs=1e-6)
 
 
-def test_every_part_is_in_equilibrium(suspensions, aurora_dir):
-    cases = load_cases(aurora_dir / "cases.csv")
+def test_every_part_is_in_equilibrium(suspensions, aurora_forces_dir):
+    cases = load_cases(aurora_forces_dir / "cases.csv")
     run = solve_forces(suspensions, cases, MASS, GRAVITY)
     for block in run.solution.blocks:
         scale = max(
@@ -336,15 +336,15 @@ def test_moment_reference_does_not_change_the_answer(suspensions):
 # --------------------------------------------------------------------------
 # Configuration and input files
 # --------------------------------------------------------------------------
-def test_the_shipped_aurora_configuration_solves(aurora_dir):
-    loaded = load_inputs(aurora_dir / "forces.yaml")
+def test_the_shipped_aurora_configuration_solves(aurora_forces_dir):
+    loaded = load_inputs(aurora_forces_dir / "forces.yaml")
     assert len(loaded.cases) == 4
     assert len(loaded.run.corners) == 3
     assert "coaxial" in describe(loaded)
 
 
-def test_a_missing_configuration_key_is_named(aurora_dir, tmp_path):
-    data = yaml.safe_load((aurora_dir / "forces.yaml").read_text())
+def test_a_missing_configuration_key_is_named(aurora_forces_dir, tmp_path):
+    data = yaml.safe_load((aurora_forces_dir / "forces.yaml").read_text())
     del data["solve"]["rack"]
     path = tmp_path / "forces.yaml"
     path.write_text(yaml.safe_dump(data))
@@ -352,8 +352,8 @@ def test_a_missing_configuration_key_is_named(aurora_dir, tmp_path):
         load_forces_config(path)
 
 
-def test_an_unknown_configuration_key_is_named(aurora_dir, tmp_path):
-    data = yaml.safe_load((aurora_dir / "forces.yaml").read_text())
+def test_an_unknown_configuration_key_is_named(aurora_forces_dir, tmp_path):
+    data = yaml.safe_load((aurora_forces_dir / "forces.yaml").read_text())
     data["solve"]["pivot_axail"] = "even"
     path = tmp_path / "forces.yaml"
     path.write_text(yaml.safe_dump(data))
@@ -361,12 +361,12 @@ def test_an_unknown_configuration_key_is_named(aurora_dir, tmp_path):
         load_forces_config(path)
 
 
-def test_unimplemented_policies_say_so(aurora_dir, tmp_path):
+def test_unimplemented_policies_say_so(aurora_forces_dir, tmp_path):
     for section, key, value, message in (
         ("solve", "rack", "floating", "not implemented"),
         ("solve", "brake_torque_reaction", "sprung", "not implemented"),
     ):
-        data = yaml.safe_load((aurora_dir / "forces.yaml").read_text())
+        data = yaml.safe_load((aurora_forces_dir / "forces.yaml").read_text())
         data[section][key] = value
         path = tmp_path / f"{key}.yaml"
         path.write_text(yaml.safe_dump(data))
@@ -388,13 +388,13 @@ def test_case_files_name_the_offending_row(tmp_path):
         load_cases(path)
 
 
-def test_case_comments_are_ignored_anywhere(aurora_dir):
-    cases = load_cases(aurora_dir / "cases.csv")
+def test_case_comments_are_ignored_anywhere(aurora_forces_dir):
+    cases = load_cases(aurora_forces_dir / "cases.csv")
     assert cases[0] == LoadCase(2, 1, 1)
 
 
-def test_configuration_maps_onto_solver_options(aurora_dir):
-    options = build_options(load_forces_config(aurora_dir / "forces.yaml"))
+def test_configuration_maps_onto_solver_options(aurora_forces_dir):
+    options = build_options(load_forces_config(aurora_forces_dir / "forces.yaml"))
     assert options.axial_default == "even"
     assert options.solve.moment_reference is MomentReference.CENTROID
     assert "Steering Rack" in options.structure.ground

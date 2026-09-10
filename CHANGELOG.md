@@ -20,7 +20,8 @@ All notable changes to this project will be documented in this file.
   is checked square and full rank before it is solved, never least-squares
   fitted. `--describe` prints the structural model and every name `forces.yaml`
   can refer to; `--check` prints per-part equilibrium residuals. Documented in
-  `docs/force.md`, with `models/aurora/forces.yaml` as a worked template.
+  `Working/forces/force.md`, with `Working/forces/aurora/forces.yaml` as a
+  worked template.
 - Added `bodies.py`, holding the rigid-body derivation that `joints.py` used to
   carry. Bearing misalignment and the force solve both build on it, and neither
   is a dependency of the other.

@@ -1,8 +1,8 @@
 # Running a sweep set
 
 ```
-uv run python models/Sweep_Set/run_all.py                                  # front
-uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
+uv run python Working/sweep_sets/run_all.py                                  # front
+uv run python Working/sweep_sets/run_all.py --config Working/sweep_sets/rear/run.yaml
 ```
 
 That solves every enabled sweep, writes a CSV per sweep, renders the requested
@@ -11,8 +11,8 @@ figures and animations, and builds `report.md`.
 ## Sweep sets, cars, and reporters
 
 ```
-models/
-  Sweep_Set/
+Working/
+  sweep_sets/
     run_all.py                 the runner
     susreport.py               reporter: two-wheel axle
     susreport_rear.py          reporter: single corner
@@ -20,10 +20,11 @@ models/
     bearings.py                bearing misalignment, shared
     front/  run.yaml  sweeps/  a sweep set
     rear/   run.yaml  sweeps/  another one
-  aurora/
-    front.yaml  rear.yaml      the car
-    outputs/front/  outputs/rear/
-    report/front/   report/rear/
+  models/
+    aurora/
+      front.yaml  rear.yaml    the car
+      outputs/front/  outputs/rear/
+      report/front/   report/rear/
 ```
 
 A **sweep set** is a `run.yaml` plus a `sweeps/` directory. It names itself
@@ -39,8 +40,8 @@ So the same sweep set runs against a different car with no reconfiguration and
 no collisions:
 
 ```
-uv run python models/Sweep_Set/run_all.py --geometry models/gen14/front.yaml
-                                          # -> models/gen14/outputs/front/
+uv run python Working/sweep_sets/run_all.py --geometry Working/models/gen14/front.yaml
+                                          # -> Working/models/gen14/outputs/front/
 ```
 
 ## Two reporters
@@ -114,7 +115,7 @@ a different amount of one.
 | --- | --- | --- | --- |
 | `version` | int | `1` | configuration format version |
 | `name` | str | `front` | names the `outputs/<name>/` and `report/<name>/` folders |
-| `geometry` | path | `../../aurora/front.yaml` | default geometry, **relative to this file**; `--geometry` overrides |
+| `geometry` | path | `../../models/aurora/front.yaml` | default geometry, **relative to this file**; `--geometry` overrides |
 | `sweeps_dir` | path | `sweeps` | the sweep YAMLs, relative to this file |
 | `reporter` | `susreport` \| `susreport_rear` | `susreport` | which report module builds `report.md` |
 | `side` | `left` \| `right` \| `null` | `left` | which corner the per-corner rows report. **`null` for a corner model**, which has only one |
@@ -246,22 +247,22 @@ and `--only 01_bump_parallel,09_steer_in_roll` are the same thing.
 
 ```bash
 # everything, exactly as run.yaml says
-uv run python models/Sweep_Set/run_all.py
+uv run python Working/sweep_sets/run_all.py
 
 # iterate on the report without re-solving - the fastest loop by far
-uv run python models/Sweep_Set/run_all.py --report-only
+uv run python Working/sweep_sets/run_all.py --report-only
 
 # just the two corner sweeps, with animations, nothing else
-uv run python models/Sweep_Set/run_all.py --only 09,10 --gifs 09,10
+uv run python Working/sweep_sets/run_all.py --only 09,10 --gifs 09,10
 
 # a fast numbers-only pass
-uv run python models/Sweep_Set/run_all.py --no-plots --no-gifs --no-joints
+uv run python Working/sweep_sets/run_all.py --no-plots --no-gifs --no-joints
 
 # check what a config change would actually do before spending the CPU
-uv run python models/Sweep_Set/run_all.py --dry-run
+uv run python Working/sweep_sets/run_all.py --dry-run
 
 # the rear
-uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
+uv run python Working/sweep_sets/run_all.py --config Working/sweep_sets/rear/run.yaml
 ```
 
 ---
@@ -297,11 +298,11 @@ its own, on any folder of CSVs, needing nothing from the `kinematics` package
 except for the bearing-misalignment section:
 
 ```bash
-uv run python models/Sweep_Set/susreport.py models/aurora/outputs/front \
-    --out models/aurora/report/front --config models/Sweep_Set/front/run.yaml
+uv run python Working/sweep_sets/susreport.py Working/models/aurora/outputs/front \
+    --out Working/models/aurora/report/front --config Working/sweep_sets/front/run.yaml
 
-uv run python models/Sweep_Set/susreport_rear.py models/aurora/outputs/rear \
-    --out models/aurora/report/rear --config models/Sweep_Set/rear/run.yaml
+uv run python Working/sweep_sets/susreport_rear.py Working/models/aurora/outputs/rear \
+    --out Working/models/aurora/report/rear --config Working/sweep_sets/rear/run.yaml
 ```
 
 With no `--config` it uses `front/run.yaml`. With no configuration
