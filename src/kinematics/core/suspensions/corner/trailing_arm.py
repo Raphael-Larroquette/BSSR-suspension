@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, ClassVar, Sequence
 
 import numpy as np
 
+from kinematics.core.bodies import RigidAttachment
 from kinematics.core.constraints import Constraint, DistanceConstraint
 from kinematics.core.elements import (
     ElementType,
@@ -171,9 +172,9 @@ class TrailingArmSuspension(CornerSuspension):
             PointID.AXLE_OUTBOARD,
         }
     )
-    CENTERED_REQUIRED_POINTS: ClassVar[frozenset[PointID]] = (
-        REQUIRED_POINTS - {PointID.TRAILING_ARM_OUTBOARD}
-    )
+    CENTERED_REQUIRED_POINTS: ClassVar[frozenset[PointID]] = REQUIRED_POINTS - {
+        PointID.TRAILING_ARM_OUTBOARD
+    }
     COILOVER_POINTS: ClassVar[frozenset[PointID]] = frozenset(
         {PointID.STRUT_TOP, PointID.STRUT_BOTTOM}
     )
@@ -238,17 +239,13 @@ class TrailingArmSuspension(CornerSuspension):
         its points places all of them.
         """
         return (
-            PointID.AXLE_INBOARD
-            if self.is_centered
-            else PointID.TRAILING_ARM_OUTBOARD
+            PointID.AXLE_INBOARD if self.is_centered else PointID.TRAILING_ARM_OUTBOARD
         )
 
     def required_points(self) -> frozenset[PointID]:
         """Return locating hardpoints plus the selected spring hardware."""
         locating = (
-            self.CENTERED_REQUIRED_POINTS
-            if self.is_centered
-            else self.REQUIRED_POINTS
+            self.CENTERED_REQUIRED_POINTS if self.is_centered else self.REQUIRED_POINTS
         )
         if self.spring_type is CornerSpringType.COILOVER:
             return locating | self.COILOVER_POINTS
@@ -271,8 +268,7 @@ class TrailingArmSuspension(CornerSuspension):
         # a design outcome rather than a modelling error.
         if abs(float(pivot_a[Axis.Z] - pivot_b[Axis.Z])) > EPS_GEOMETRIC:
             raise ValueError(
-                "TRAILING_ARM_PIVOT_A/B must define a horizontal axis "
-                "(equal Z)."
+                "TRAILING_ARM_PIVOT_A/B must define a horizontal axis (equal Z)."
             )
         if abs(float(pivot_a[Axis.Y] - pivot_b[Axis.Y])) <= EPS_GEOMETRIC:
             raise ValueError(
@@ -363,6 +359,27 @@ class TrailingArmSuspension(CornerSuspension):
     def free_points(self) -> Sequence[PointID]:
         """Return the moving arm point; all carrier pickups derive from it."""
         return (self.arm_anchor,)
+
+    def rigid_attachments(self) -> tuple[RigidAttachment, ...]:
+        """Fold the spring pickup into the arm that carries it.
+
+        The lower spring mount rides the arm and is placed by rotating it about
+        the pivot axis, but it appears in no element of the arm's own body
+        group. Without this it resolves to a body of its own, which leaves a
+        joint there with only one body meeting it and the spring reacting
+        against nothing.
+        """
+        if self.spring_type is not CornerSpringType.COILOVER:
+            return ()
+        return (
+            RigidAttachment(
+                point=PointID.STRUT_BOTTOM,
+                anchors=(
+                    PointID.TRAILING_ARM_PIVOT_A,
+                    PointID.TRAILING_ARM_PIVOT_B,
+                ),
+            ),
+        )
 
     def output_points(self) -> tuple[PointKey, ...]:
         """Return locating, wheel, and selected spring points for export."""
@@ -539,9 +556,7 @@ class TrailingArmSuspension(CornerSuspension):
 
         initial = self.initial_state()
         pivot_a = initial.get(PointID.TRAILING_ARM_PIVOT_A)
-        pivot_axis = (
-            initial.get(PointID.TRAILING_ARM_PIVOT_B) - pivot_a
-        ).normalize()
+        pivot_axis = (initial.get(PointID.TRAILING_ARM_PIVOT_B) - pivot_a).normalize()
         axis_point, axis = self._torsion_bar_axis()
         anchor = initial.get(self.arm_anchor)
         hub = initial.get(PointID.WHEEL_CENTER)
