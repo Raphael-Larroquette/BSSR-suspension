@@ -438,7 +438,7 @@ Don't guess the `part` names or which points even have two bodies — ask:
 import yaml
 from pathlib import Path
 from kinematics.core.input import build_suspension
-from kinematics.core.joints import build_bodies, resolve_body_modes
+from kinematics.core.bodies import build_bodies, resolve_body_modes
 
 s = build_suspension(yaml.safe_load(Path("models/aurora/front.yaml").read_text()))
 corner = s.corners[min(s.corners)] if s.is_axle else s

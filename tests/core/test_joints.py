@@ -9,22 +9,24 @@ exactly the rotation angle, and a rigid rotation must be recovered exactly.
 import numpy as np
 import pytest
 
-from kinematics.core.joints import (
-    HousingMode,
+from kinematics.core.bodies import (
     RigidBody,
     RotationMode,
     angle_between_deg,
-    circle_directions,
-    fibonacci_directions,
     kabsch_rotation,
-    locked_clocking,
-    misalignment_series,
-    optimize_bore_axis,
     resolve_body_modes,
     rotation_from_rotvec,
     rotvec_from_rotation,
     transport_rotation,
     unit,
+)
+from kinematics.core.joints import (
+    HousingMode,
+    circle_directions,
+    fibonacci_directions,
+    locked_clocking,
+    misalignment_series,
+    optimize_bore_axis,
 )
 
 CENTRED = HousingMode.CENTRED.value

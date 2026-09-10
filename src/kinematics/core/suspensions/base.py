@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Iterable, Sequence
 
 from kinematics.core.assembly import SuspensionAssembly
+from kinematics.core.bodies import RigidAttachment
 from kinematics.core.constraints import Constraint
 from kinematics.core.elements import SuspensionElement
 from kinematics.core.enums import (
@@ -26,7 +27,6 @@ from kinematics.core.enums import (
 )
 from kinematics.core.joints import (
     ResolvedJoint,
-    RigidAttachment,
     describe_joints_for_export,
     resolve_joints,
 )
