@@ -14,6 +14,14 @@ PUBLIC_CORE_MODULES = {
     "kinematics.core.elements",
     "kinematics.core.export",
     "kinematics.core.input",
+    # Static force solve. The distribution, unknown-catalogue and vehicle
+    # modules are deliberately absent: the CLI reaches them through
+    # kinematics.core.loads.main rather than driving them itself.
+    "kinematics.core.loads.cases",
+    "kinematics.core.loads.main",
+    "kinematics.core.loads.results",
+    "kinematics.core.loads.structure",
+    "kinematics.core.loads.system",
     "kinematics.core.metrics.main",
     "kinematics.core.metrics.registry",
     "kinematics.core.enums",
@@ -23,6 +31,7 @@ PUBLIC_CORE_MODULES = {
     "kinematics.core.presentation",
     "kinematics.core.road",
     "kinematics.core.schema.geometry",
+    "kinematics.core.schema.loads",
     "kinematics.core.schema.sweep",
     "kinematics.core.solver",
     "kinematics.core.state",

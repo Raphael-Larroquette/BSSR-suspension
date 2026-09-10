@@ -1,0 +1,14 @@
+# Force cases for the static suspension load solve. See docs/force.md.
+#
+# Each number is an acceleration in g.
+#   bump   - TOTAL vertical load factor, gravity included. 1 is static, and the
+#            value must be greater than zero.
+#   brake  - positive is deceleration; negative is acceleration.
+#   corner - positive is a right-hand turn, so load moves to the left wheels.
+#
+# Example: 2,1,1 is twice static vertical load, 1 g braking, 1 g right-hand turn.
+bump,brake,corner
+2,1,1
+2,1,-1
+4,1,1
+6,0,0
