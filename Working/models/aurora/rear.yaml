@@ -16,7 +16,7 @@ config:
       aspect_ratio: 0.8
       section_width: 95
       rim_diameter: 16
-  cg_position: {x: -1127.778, y: -39.844, z: 320}
+  cg_position: {x: -627.2, y: -39.844, z: 320}
   wheelbase: 2240.00
   axle_position: rear
   driven_axle: rear #how its driven
