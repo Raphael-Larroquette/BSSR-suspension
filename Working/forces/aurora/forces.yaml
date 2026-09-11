@@ -74,6 +74,8 @@ structure:
   # Drop entirely. Nothing on Aurora needs this.
   ignore: []
 
+# A run writes forces.csv and load_transfer.csv into outputs/ beside this
+# file, unless --out says otherwise. That folder is git-ignored.
 output:
   # vehicle - all forces in the ISO 8855 vehicle frame (recommended)
   # part    - right-side parts get Y mirrored, for mirrored CAD

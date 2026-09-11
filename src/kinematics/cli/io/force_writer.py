@@ -16,13 +16,28 @@ import numpy as np
 
 from kinematics.core.enums import MomentReporting, OutputFrame
 from kinematics.core.loads.cases import format_g
-from kinematics.core.loads.results import ForceSolution, PartBlock
+from kinematics.core.loads.results import WHEEL_LIFT, ForceSolution, PartBlock
 from kinematics.core.primitives.point_ref import Side
 
 CASE_COLUMNS = ("bump", "brake", "corner", "side")
-FORCE_COMPONENTS = ("x", "y", "z")
-MOMENT_COMPONENTS = ("mx", "my", "mz")
+# Each vector is written as its components followed by its resultant, so a
+# joint reads left to right as x, y, z, magnitude.
+FORCE_COMPONENTS = ("x", "y", "z", "mag")
+MOMENT_COMPONENTS = ("mx", "my", "mz", "mmag")
 FLAGS_COLUMN = "flags"
+
+LOAD_TRANSFER_COLUMNS = (
+    "bump",
+    "brake",
+    "corner",
+    "wheel",
+    "normal_load_N",
+    "effective_mass_kg",
+    "percent_of_case",
+    "percent_of_static_weight",
+    "transfer_from_baseline_N",
+    "flags",
+)
 
 # Relative size below which a moment counts as zero rather than as a result.
 MOMENT_EPSILON = 1e-6
@@ -227,20 +242,77 @@ def _data_rows(
             if load is None:
                 cells.extend([None] * len(components))
                 continue
-            force = _mirrored(load.force, mirror)
-            cells.extend(round(float(value), 3) for value in force)
+            cells.extend(_vector_cells(_mirrored(load.force, mirror)))
             if len(components) > len(FORCE_COMPONENTS):
                 moment = load.moment
                 if moment is None:
                     cells.extend([None] * len(MOMENT_COMPONENTS))
                 else:
-                    cells.extend(
-                        round(float(value), 3)
-                        for value in _mirrored_moment(moment, mirror)
-                    )
+                    cells.extend(_vector_cells(_mirrored_moment(moment, mirror)))
         cells.append(" ".join(row.flags))
         rows.append(cells)
     return rows
+
+
+def _vector_cells(vector: np.ndarray) -> list[float]:
+    """Return one vector's components followed by its resultant magnitude.
+
+    The magnitude is written rather than left to a spreadsheet formula so that
+    the number an FEA run is sized against is the same number in every copy of
+    the file, and so sorting a column by worst case is a sort rather than a
+    recalculation.
+    """
+    return [
+        *(round(float(value), 3) for value in vector),
+        round(float(np.linalg.norm(vector)), 3),
+    ]
+
+
+def write_load_transfer(
+    solution: ForceSolution,
+    output_path: Path,
+    options: ForceWriteOptions = ForceWriteOptions(),
+) -> None:
+    """
+    Write the per-wheel vertical load for every case.
+
+    Two share columns rather than one, because "percent of the vehicle" is
+    ambiguous the moment ``bump`` is not 1: ``percent_of_case`` is the wheel's
+    fraction of that case's own total and sums to 100 across the wheels, while
+    ``percent_of_static_weight`` is its fraction of ``m g`` and sums to
+    100 x bump.
+    """
+    transfer = solution.load_transfer
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8", newline="") as handle:
+        for line in _header_lines(solution, options):
+            handle.write(f"# {line}\n")
+        handle.write(
+            "# normal_load_N is the vertical force the road applies to that tyre; "
+            "effective_mass_kg is that force divided by g\n"
+        )
+        handle.write(
+            "# transfer_from_baseline_N is measured against the same case with "
+            "brake and corner set to zero, so a pure bump case reads zero\n"
+        )
+        handle.write("#\n")
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(LOAD_TRANSFER_COLUMNS)
+        for share in transfer.shares:
+            writer.writerow(
+                [
+                    format_g(share.case.bump),
+                    format_g(share.case.brake),
+                    format_g(share.case.corner),
+                    share.wheel,
+                    round(share.normal, 3),
+                    round(share.effective_mass, 4),
+                    round(100.0 * share.share_of_case, 4),
+                    round(100.0 * share.share_of_weight, 4),
+                    round(share.transfer, 3),
+                    WHEEL_LIFT if share.lifted else "",
+                ]
+            )
 
 
 def _mirrored(force: np.ndarray, mirror: bool) -> np.ndarray:

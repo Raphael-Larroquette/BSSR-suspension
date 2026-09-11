@@ -13,9 +13,18 @@ import numpy as np
 import pytest
 import yaml
 
-from kinematics.cli.commands.forces import build_options, describe, load_inputs
+from kinematics.cli.commands.forces import (
+    build_options,
+    describe,
+    load_inputs,
+    run_force_files,
+)
 from kinematics.cli.io.cases_loader import load_cases
-from kinematics.cli.io.force_writer import ForceWriteOptions, write_forces
+from kinematics.cli.io.force_writer import (
+    ForceWriteOptions,
+    write_forces,
+    write_load_transfer,
+)
 from kinematics.cli.io.forces_loader import load_forces_config
 from kinematics.cli.io.loaders import load_geometry
 from kinematics.core.enums import AxlePosition, OutputFrame, WheelLiftPolicy
@@ -437,3 +446,113 @@ def test_unsupported_output_format_is_rejected(suspensions, tmp_path):
     run = solve_forces(suspensions, [LoadCase(1, 0, 0)], MASS, GRAVITY)
     with pytest.raises(ValueError, match="Unsupported force output format"):
         write_forces(run.solution, tmp_path / "forces.txt")
+
+
+# --------------------------------------------------------------------------
+# Load transfer
+# --------------------------------------------------------------------------
+def test_shares_of_a_case_sum_to_the_whole_car(suspensions, aurora_forces_dir):
+    cases = load_cases(aurora_forces_dir / "cases.csv")
+    run = solve_forces(suspensions, cases, MASS, GRAVITY)
+    by_case: dict[str, list] = {}
+    for share in run.solution.load_transfer.shares:
+        by_case.setdefault(share.case.label, []).append(share)
+
+    for case_shares in by_case.values():
+        case = case_shares[0].case
+        assert sum(s.share_of_case for s in case_shares) == pytest.approx(1.0)
+        # Against static weight the shares sum to the vertical load factor,
+        # which is the whole reason both columns are written.
+        assert sum(s.share_of_weight for s in case_shares) == pytest.approx(case.bump)
+
+
+def test_transfer_moves_load_between_wheels_without_creating_any(suspensions):
+    run = solve_forces(
+        suspensions, [LoadCase(2, 1, 1), LoadCase(6, 0, 0)], MASS, GRAVITY
+    )
+    by_case: dict[str, list] = {}
+    for share in run.solution.load_transfer.shares:
+        by_case.setdefault(share.case.label, []).append(share)
+
+    # Transfer is a redistribution, so it nets to zero across the wheels.
+    for case_shares in by_case.values():
+        assert sum(s.transfer for s in case_shares) == pytest.approx(0.0, abs=1e-6)
+
+    # And a case with no braking or cornering transfers nothing at all, however
+    # large its bump factor is.
+    for share in by_case["6,0,0"]:
+        assert share.transfer == pytest.approx(0.0, abs=1e-9)
+
+
+def test_effective_mass_is_the_normal_load_over_g(suspensions):
+    run = solve_forces(suspensions, [LoadCase(2, 1, 1)], MASS, GRAVITY)
+    for share in run.solution.load_transfer.shares:
+        assert share.effective_mass * GRAVITY == pytest.approx(share.normal)
+    total = sum(s.effective_mass for s in run.solution.load_transfer.shares)
+    assert total == pytest.approx(2 * MASS)
+
+
+def test_load_transfer_agrees_with_the_solved_contact_patch(suspensions):
+    run = solve_forces(suspensions, [LoadCase(2, 1, -1)], MASS, GRAVITY)
+    shares = {s.wheel: s.normal for s in run.solution.load_transfer.shares}
+    for corner in run.corners:
+        row = next(
+            row
+            for block in run.solution.blocks
+            for row in block.rows
+            if block.part == corner.loaded_body.base_name
+            and row.side is corner.loaded_body.side
+        )
+        applied = next(load for load in row.loads if load.applied)
+        assert applied.force[2] == pytest.approx(shares[corner.patch.name])
+
+
+def test_load_transfer_csv_carries_both_share_columns(suspensions, tmp_path):
+    run = solve_forces(suspensions, [LoadCase(2, 0, 1)], MASS, GRAVITY)
+    path = tmp_path / "load_transfer.csv"
+    write_load_transfer(run.solution, path)
+    rows = [
+        line.split(",")
+        for line in path.read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    header, data = rows[0], rows[1:]
+    assert header[:4] == ["bump", "brake", "corner", "wheel"]
+    assert "percent_of_case" in header and "percent_of_static_weight" in header
+    assert {row[3] for row in data} == {"front_left", "front_right", "rear"}
+
+    case_column = header.index("percent_of_case")
+    assert sum(float(row[case_column]) for row in data) == pytest.approx(100.0)
+
+
+# --------------------------------------------------------------------------
+# Resultants and output location
+# --------------------------------------------------------------------------
+def test_every_joint_reports_its_resultant(suspensions, tmp_path):
+    run = solve_forces(suspensions, [LoadCase(2, 1, 1)], MASS, GRAVITY)
+    path = tmp_path / "forces.csv"
+    write_forces(run.solution, path)
+    lines = [line for line in path.read_text().splitlines() if line]
+
+    units = next(line for line in lines if line.startswith("bump,brake,corner,side"))
+    assert units.split(",")[4:8] == ["x", "y", "z", "mag"]
+
+    data = next(line for line in lines if line.startswith("2,1,1,left"))
+    cells = data.split(",")
+    components = np.array([float(value) for value in cells[4:7]])
+    assert float(cells[7]) == pytest.approx(np.linalg.norm(components), abs=1e-3)
+
+
+def test_a_run_writes_into_the_cars_outputs_folder(aurora_forces_dir, tmp_path):
+    config = tmp_path / "forces.yaml"
+    source = yaml.safe_load((aurora_forces_dir / "forces.yaml").read_text())
+    root = aurora_forces_dir.resolve()
+    source["geometry"]["front"] = str(root / source["geometry"]["front"])
+    source["geometry"]["rear"] = str(root / source["geometry"]["rear"])
+    source["cases"] = str(root / "cases.csv")
+    config.write_text(yaml.safe_dump(source))
+
+    run = run_force_files(config)
+    assert run.output_path == tmp_path / "outputs" / "forces.csv"
+    assert run.load_transfer_path == tmp_path / "outputs" / "load_transfer.csv"
+    assert run.output_path.exists() and run.load_transfer_path.exists()

@@ -21,7 +21,11 @@ All notable changes to this project will be documented in this file.
   fitted. `--describe` prints the structural model and every name `forces.yaml`
   can refer to; `--check` prints per-part equilibrium residuals. Documented in
   `Working/forces/force.md`, with `Working/forces/aurora/forces.yaml` as a
-  worked template.
+  worked template. Each joint reports its resultant alongside its components,
+  and a run also writes `load_transfer.csv`: every wheel's vertical load per
+  case, as a force, an effective mass, a share of that case's total and a
+  share of static weight. Both files land in `outputs/` beside the
+  configuration that produced them.
 - Added `bodies.py`, holding the rigid-body derivation that `joints.py` used to
   carry. Bearing misalignment and the force solve both build on it, and neither
   is a dependency of the other.

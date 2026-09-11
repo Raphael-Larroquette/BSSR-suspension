@@ -21,7 +21,9 @@ from kinematics.core.loads.results import (
     WHEEL_LIFT,
     ForceSolution,
     JointLoad,
+    LoadTransfer,
     PartCaseLoads,
+    WheelShare,
     build_blocks,
     disambiguate_part_names,
 )
@@ -169,12 +171,14 @@ def solve_forces(
 
     rows: list[PartCaseLoads] = []
     diagnostics: list[str] = []
+    solved_patches: list[tuple[LoadCase, dict[str, PatchLoad]]] = []
     worst_condition = 0.0
 
     for case in cases:
         patch_loads = {
             load.patch.name: load for load in solve_patch_loads(vehicle, case)
         }
+        solved_patches.append((case, patch_loads))
         for corner in corners:
             load = patch_loads[corner.patch.name]
             if load.lifted:
@@ -213,11 +217,56 @@ def solve_forces(
             vehicle=vehicle,
             cases=tuple(cases),
             blocks=build_blocks(rows),
+            load_transfer=build_load_transfer(vehicle, solved_patches),
             diagnostics=tuple(diagnostics),
             max_condition=worst_condition,
         ),
         vehicle=vehicle,
         corners=corners,
+    )
+
+
+def build_load_transfer(
+    vehicle: VehicleModel,
+    solved: Sequence[tuple[LoadCase, Mapping[str, PatchLoad]]],
+) -> LoadTransfer:
+    """
+    Tabulate every wheel's vertical load for every solved case.
+
+    The baseline each case is measured against is that same case with its
+    braking and cornering removed. Measuring against the 1 g static condition
+    instead would fold the vertical scaling into the reported transfer and make
+    a pure bump case look like one.
+    """
+    shares: list[WheelShare] = []
+    baselines: dict[float, dict[str, float]] = {}
+
+    for case, patch_loads in solved:
+        if case.bump not in baselines:
+            baselines[case.bump] = {
+                load.patch.name: load.normal
+                for load in solve_patch_loads(vehicle, LoadCase(case.bump, 0.0, 0.0))
+            }
+        baseline = baselines[case.bump]
+        case_total = sum(load.normal for load in patch_loads.values())
+        for patch in vehicle.patches:
+            load = patch_loads[patch.name]
+            shares.append(
+                WheelShare(
+                    case=case,
+                    wheel=patch.name,
+                    normal=load.normal,
+                    baseline=baseline[patch.name],
+                    case_total=case_total,
+                    weight=vehicle.weight,
+                    gravity=vehicle.gravity,
+                    lifted=load.lifted,
+                )
+            )
+    return LoadTransfer(
+        weight=vehicle.weight,
+        gravity=vehicle.gravity,
+        shares=tuple(shares),
     )
 
 

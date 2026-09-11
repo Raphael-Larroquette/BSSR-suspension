@@ -76,12 +76,64 @@ class PartBlock:
 
 
 @dataclass(frozen=True)
+class WheelShare:
+    """
+    One wheel's vertical load under one case, and what share of the car it is.
+
+    ``baseline`` is the same case with its braking and cornering removed but
+    its ``bump`` kept. Comparing against that rather than against the 1 g
+    static condition is what makes ``transfer`` the load moved *between*
+    wheels, separate from the vertical scaling ``bump`` applies to all of them
+    at once.
+    """
+
+    case: LoadCase
+    wheel: str
+    normal: float
+    baseline: float
+    case_total: float
+    weight: float
+    gravity: float
+    lifted: bool
+
+    @property
+    def effective_mass(self) -> float:
+        """Return the mass whose weight this wheel is carrying, in kg."""
+        return self.normal / self.gravity
+
+    @property
+    def transfer(self) -> float:
+        """Return the load braking and cornering moved onto this wheel."""
+        return self.normal - self.baseline
+
+    @property
+    def share_of_case(self) -> float:
+        """Return this wheel's fraction of the case's own total vertical load."""
+        return self.normal / self.case_total if self.case_total else 0.0
+
+    @property
+    def share_of_weight(self) -> float:
+        """Return this wheel's load as a fraction of static vehicle weight."""
+        return self.normal / self.weight if self.weight else 0.0
+
+
+@dataclass(frozen=True)
+class LoadTransfer:
+    """Every wheel's vertical load, for every case."""
+
+    weight: float
+    gravity: float
+    shares: tuple[WheelShare, ...]
+
+
+@dataclass(frozen=True)
 class ForceSolution:
     """The complete result of a force solve."""
 
     vehicle: VehicleModel
     cases: tuple[LoadCase, ...]
     blocks: tuple[PartBlock, ...]
+    load_transfer: LoadTransfer
     diagnostics: tuple[str, ...] = ()
     max_condition: float = 0.0
 

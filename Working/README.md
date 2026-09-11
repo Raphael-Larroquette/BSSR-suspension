@@ -20,7 +20,9 @@ adding a car is a new folder rather than a change to an existing one.
 
 Results are written beside the thing they came from — `models/<car>/outputs/`
 for sweeps, `forces/<car>/outputs/` for force runs — and are git-ignored, since
-all of it is reproducible from the inputs.
+all of it is reproducible from the inputs. A force run writes `forces.csv`
+(joint loads, grouped by part) and `load_transfer.csv` (each wheel's vertical
+load, per case).
 
 | I want to | Start at |
 | --- | --- |

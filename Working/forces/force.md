@@ -14,8 +14,20 @@ This is a load-path calculation, not a vehicle dynamics model.
 ## Quick start
 
 ```bash
-kinematics forces --config Working/forces/aurora/forces.yaml --out forces.csv
+kinematics forces --config Working/forces/aurora/forces.yaml
 ```
+
+That writes two files into `Working/forces/aurora/outputs/`:
+
+| File | What it is |
+| --- | --- |
+| `forces.csv` | the force at every joint, grouped by part |
+| `load_transfer.csv` | each wheel's vertical load, per case |
+
+Results land beside the configuration that produced them, in a folder the
+repository ignores, so a run never scatters files into whatever directory it
+was invoked from. `--out` overrides the location, and the load-transfer table
+follows it.
 
 `forces.yaml` names the two geometry files and the case file, so that one
 command covers the whole vehicle. Anything in it can be overridden:
@@ -26,7 +38,7 @@ kinematics forces \
   --front  Working/models/aurora/front.yaml \
   --rear   Working/models/aurora/rear.yaml \
   --cases  Working/forces/aurora/cases.csv \
-  --out    forces.csv          # .csv, or .xlsx with the [xlsx] extra
+  --out    somewhere/else.csv  # .csv, or .xlsx with the [xlsx] extra
 ```
 
 | Flag | Meaning |
@@ -35,7 +47,7 @@ kinematics forces \
 | `--front PATH` / `--rear PATH` | Override the geometry files. |
 | `--cases PATH` | Override the load-case file. |
 | `--mass FLOAT` | Override the vehicle mass in kg. |
-| `--out PATH` | Output file, `.csv` or `.xlsx`. Required unless one of the three flags below is given. |
+| `--out PATH` | Output file, `.csv` or `.xlsx`. Defaults to `<config dir>/outputs/forces.csv`. |
 | `--per-part-files DIR` | Also write one flat CSV per part. |
 | `--describe` | Print the structural model -- parts, joints, coaxial pairs, and the size of each subsystem -- and stop. |
 | `--check` | Print per-part equilibrium residuals and stop. Exits non-zero if any part fails to close. |
@@ -348,21 +360,25 @@ One block per part, in the vehicle frame, matching the reference layout:
 # mass: 294.0 kg | g: 9.80665 | pivot_axial: even | moment_reference: centroid
 # rack: grounded | brake_torque_reaction: unsprung
 
-PART:,Upper Wishbone,,,,,,,,,,,,
-Case,,,,upper_wishbone_inboard_front,,,upper_wishbone_inboard_rear,,,upper_wishbone_outboard,,,flags
-bump,brake,corner,side,x,y,z,x,y,z,x,y,z,
+PART:,Upper Wishbone
+Case,,,,upper_wishbone_inboard_front,,,,upper_wishbone_inboard_rear,,,,upper_wishbone_outboard,,,,flags
+bump,brake,corner,side,x,y,z,mag,x,y,z,mag,x,y,z,mag,
 2,1,1,left,...
 2,1,1,right,...
 2,1,-1,left,...
 
-PART:,Upright,,,,,,,,,,,,,,,
-Case,,,,upper_wishbone_outboard,,,lower_wishbone_outboard,,,trackrod_outboard,,,wheel_contact_centre (applied),,,flags
-bump,brake,corner,side,x,y,z,x,y,z,x,y,z,x,y,z,
+PART:,Upright
+Case,,,,upper_wishbone_outboard,,,,lower_wishbone_outboard,,,,trackrod_outboard,,,,wheel_contact_centre (applied),,,,flags
+bump,brake,corner,side,x,y,z,mag,x,y,z,mag,x,y,z,mag,x,y,z,mag,
 ...
 ```
 
 Notes on the layout:
 
+- Each joint is **four columns**: `x, y, z, mag`. The resultant is written
+  rather than left to a spreadsheet formula, so the number a part is sized
+  against is the same in every copy of the file, and finding the worst case is
+  a sort rather than a recalculation.
 - **`side`** is a fourth case column rather than a separate block, so there is
   one block per part rather than two. With `corner ≠ 0` the two sides are
   genuinely different and both are needed.
@@ -374,6 +390,41 @@ Notes on the layout:
 - **`flags`** carries per-case diagnostics, most importantly `WHEEL_LIFT`.
 - `output.frame: part` mirrors Y for right-side parts, for mirrored CAD. The
   header always records which frame was used.
+
+### `load_transfer.csv`
+
+One row per wheel per case, flat rather than blocked:
+
+```
+bump,brake,corner,wheel,normal_load_N,effective_mass_kg,percent_of_case,percent_of_static_weight,transfer_from_baseline_N,flags
+2,1,1,front_left,2404.010,245.1408,41.6906,83.3812,1225.731,
+2,1,1,front_right,871.903,88.9093,15.1206,30.2413,-812.951,
+2,1,1,rear,2490.397,253.9499,43.1888,86.3775,-412.780,
+```
+
+| Column | Meaning |
+| --- | --- |
+| `normal_load_N` | the vertical force the road applies to that tyre |
+| `effective_mass_kg` | that force divided by `g` -- the mass whose weight the wheel is carrying |
+| `percent_of_case` | share of **this case's** total vertical load; sums to 100 |
+| `percent_of_static_weight` | share of `m g`; sums to 100 x `bump` |
+| `transfer_from_baseline_N` | load that braking and cornering moved onto this wheel |
+
+**Two share columns, because "percent of the vehicle" is ambiguous the moment
+`bump` is not 1.** At `bump: 2` the car carries twice its own weight, so a
+wheel can be at 41.7% of what is on the ground *and* 83.4% of what the car
+statically weighs. Both readings are useful and they are different numbers.
+
+**The baseline is that same case with `brake` and `corner` set to zero**, not
+the 1 g static condition. Measuring against 1 g would fold the vertical
+scaling into the reported transfer and make a pure bump case look like a
+transfer; measuring this way, `6,0,0` correctly reads zero across the board,
+and the transfer column sums to zero over the wheels because a transfer moves
+load rather than creating it.
+
+`normal_load_N` is the same number as the `wheel_contact_centre (applied)` z
+component in `forces.csv` -- the two files are two views of one solve, not two
+calculations.
 
 ### Moments
 

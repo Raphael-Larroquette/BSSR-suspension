@@ -80,7 +80,10 @@ def forces(
     cases: Path | None = typer.Option(
         None, exists=True, help="Override the load-case CSV"
     ),
-    out: Path | None = typer.Option(None, help="Output path (.csv or .xlsx)"),
+    out: Path | None = typer.Option(
+        None,
+        help="Output path (.csv or .xlsx). Defaults to <config dir>/outputs/forces.csv",
+    ),
     mass: float | None = typer.Option(None, help="Override the vehicle mass in kg"),
     per_part_files: Path | None = typer.Option(
         None, help="Also write one CSV per part into this directory"
@@ -102,7 +105,8 @@ def forces(
     whole-vehicle statement; the individual corner solves are independent.
 
     Example:
-        kinematics forces --config=forces.yaml --out=forces.csv
+        kinematics forces --config=forces.yaml
+        kinematics forces --config=forces.yaml --out=somewhere/else.csv
         kinematics forces --config=forces.yaml --describe
     """
     from kinematics.cli.commands.forces import (
@@ -129,17 +133,10 @@ def forces(
             )
         return
 
-    if out is None:
-        typer.echo(
-            "Error: --out is required unless --describe, --check, or "
-            "--dry-run is given.",
-            err=True,
-        )
-        raise typer.Exit(1)
-
     run = run_force_files(config, front, rear, cases, out, mass, per_part_files)
     _report_diagnostics(run.run.solution.diagnostics)
-    typer.echo(f"wrote {out}")
+    typer.echo(f"wrote {run.output_path}")
+    typer.echo(f"wrote {run.load_transfer_path}")
     for path in run.per_part_paths:
         typer.echo(f"wrote {path}")
 

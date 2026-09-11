@@ -18,6 +18,7 @@ from kinematics.cli.io.cases_loader import load_cases
 from kinematics.cli.io.force_writer import (
     ForceWriteOptions,
     write_forces,
+    write_load_transfer,
     write_per_part_files,
 )
 from kinematics.cli.io.forces_loader import load_forces_config
@@ -38,6 +39,13 @@ from kinematics.core.schema.loads import ForcesConfig
 from kinematics.core.suspensions.base import Suspension
 
 DEFAULT_CONFIG_NAME = "forces.yaml"
+
+# Results land beside the configuration that produced them, in a folder the
+# repository ignores, so a run never scatters files into whatever directory it
+# happened to be invoked from.
+DEFAULT_OUTPUT_DIR = "outputs"
+DEFAULT_OUTPUT_NAME = "forces.csv"
+LOAD_TRANSFER_NAME = "load_transfer.csv"
 
 
 @dataclass(frozen=True)
@@ -60,6 +68,7 @@ class ForceCommandRun:
     cases: tuple[LoadCase, ...]
     run: ForceRun
     output_path: Path | None = None
+    load_transfer_path: Path | None = None
     per_part_paths: tuple[Path, ...] = ()
 
 
@@ -170,7 +179,12 @@ def run_force_files(
     mass: float | None = None,
     per_part_dir: Path | None = None,
 ) -> ForceCommandRun:
-    """Load, solve, and write one force run."""
+    """Load, solve, and write one force run.
+
+    ``out`` defaults to ``<config dir>/outputs/forces.csv``. The load-transfer
+    table is written beside whatever that resolves to, since the two are read
+    together and a run should produce one self-contained folder.
+    """
     loaded = load_inputs(config_path, front, rear, cases, mass)
     options = ForceWriteOptions(
         frame=loaded.config.output.frame,
@@ -178,13 +192,16 @@ def run_force_files(
         metadata=_provenance(loaded.paths),
     )
 
-    if out is not None:
-        write_forces(loaded.run.solution, out, options)
+    destination = out or default_output_path(config_path)
+    write_forces(loaded.run.solution, destination, options)
+
+    transfer_path = destination.parent / LOAD_TRANSFER_NAME
+    write_load_transfer(loaded.run.solution, transfer_path, options)
 
     written: tuple[Path, ...] = ()
     directory = per_part_dir
-    if directory is None and loaded.config.output.per_part_files and out is not None:
-        directory = out.parent / f"{out.stem}_parts"
+    if directory is None and loaded.config.output.per_part_files:
+        directory = destination.parent / f"{destination.stem}_parts"
     if directory is not None:
         written = write_per_part_files(loaded.run.solution, directory, options)
 
@@ -194,9 +211,15 @@ def run_force_files(
         suspensions=loaded.suspensions,
         cases=loaded.cases,
         run=loaded.run,
-        output_path=out,
+        output_path=destination,
+        load_transfer_path=transfer_path,
         per_part_paths=written,
     )
+
+
+def default_output_path(config_path: Path) -> Path:
+    """Return where a run writes when no output path is given."""
+    return config_path.parent / DEFAULT_OUTPUT_DIR / DEFAULT_OUTPUT_NAME
 
 
 def describe(loaded: ForceCommandRun) -> str:
