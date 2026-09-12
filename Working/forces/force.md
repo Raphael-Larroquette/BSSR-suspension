@@ -14,8 +14,13 @@ This is a load-path calculation, not a vehicle dynamics model.
 ## Quick start
 
 ```bash
-kinematics forces --config Working/forces/aurora/forces.yaml
+uv run kinematics forces --config Working/forces/aurora/forces.yaml
 ```
+
+`uv run python Working/run_all.py` runs this as its last stage, after the
+kinematic sweeps, because both read the same geometry — see
+[`../README.md`](../README.md). `--no-sweeps` there is the quick force-only
+re-run.
 
 That writes two files into `Working/forces/aurora/outputs/`:
 

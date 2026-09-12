@@ -1,7 +1,12 @@
 # Aurora kinematics workspace
 
+> **Start at [`../README.md`](../README.md)** for the whole workflow — the model
+> files, these sweeps, and the force solve, with the CLI for each. This page is
+> the sweep sets themselves: what each one is for, and why two are off.
+
 ```
-run_all.py             solve a sweep set, render, build the report
+runner.py              solve a sweep set, render, build the report.
+                       A LIBRARY - the command is ../run_all.py
 susreport.py           reporter: two-wheel axle   (Aurora front)
 susreport_rear.py      reporter: single corner    (Aurora rear)
 susreport_common.py    what the two reporters share
@@ -23,10 +28,11 @@ Results land beside the geometry they were run against:
 ## Run
 
 ```bash
-uv run python Working/sweep_sets/run_all.py                       # the front set
-uv run python Working/sweep_sets/run_all.py --config Working/sweep_sets/rear/run.yaml
-uv run python Working/sweep_sets/run_all.py --report-only         # no solving
-uv run python Working/sweep_sets/run_all.py --dry-run             # nothing at all
+uv run python Working/run_all.py                     # every set, then the force solve
+uv run python Working/run_all.py --sets front        # the front set, then forces
+uv run python Working/run_all.py --sets rear --no-forces
+uv run python Working/run_all.py --report-only --no-forces   # no solving
+uv run python Working/run_all.py --dry-run                   # nothing at all
 ```
 
 Ranges, step counts, which sweeps run, which characteristics each one reports,
@@ -38,7 +44,7 @@ Pointing a set at another car needs no reconfiguration — results follow the
 geometry:
 
 ```bash
-uv run python Working/sweep_sets/run_all.py --geometry Working/models/gen14/front.yaml
+uv run python Working/run_all.py --sets front --geometry Working/models/gen14/front.yaml
 ```
 
 ## The front sweeps

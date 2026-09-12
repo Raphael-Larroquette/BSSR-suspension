@@ -1,7 +1,8 @@
 # ==========================================================================
 # rear/run.yaml - the rear sweep set
 #
-#   uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
+#   uv run python Working/run_all.py --sets rear         this set, then the force solve
+#   uv run python Working/run_all.py --sets rear --no-forces       this set alone
 #
 # PRECEDENCE, highest first:
 #

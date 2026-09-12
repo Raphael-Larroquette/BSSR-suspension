@@ -32,10 +32,10 @@ solve:
   # Overrides are keyed by part name and given as a bare, side-agnostic point name, so one entry covers both corners of an axle.
   pivot_axial:
     default: even
-    overrides:  
+    overrides: {}
       #Lower Wishbone: lower_wishbone_inboard_front
       #Upper Wishbone: upper_wishbone_inboard_front
-      Semi-Trailing Arm: trailing_arm_pivot_a
+      #Semi-Trailing Arm: trailing_arm_pivot_a
 
   # Steering rack treatment.
   #   grounded - rack held by the steering column; front corners solve independently. Correct for a static case.

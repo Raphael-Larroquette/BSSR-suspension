@@ -1,19 +1,28 @@
 # Running a sweep set
 
 ```
-uv run python Working/sweep_sets/run_all.py                                  # front
-uv run python Working/sweep_sets/run_all.py --config Working/sweep_sets/rear/run.yaml
+uv run python Working/run_all.py                     every sweep set, then forces
+uv run python Working/run_all.py --sets front        just the front set, then forces
+uv run python Working/run_all.py --sets rear --no-forces
 ```
 
 That solves every enabled sweep, writes a CSV per sweep, renders the requested
 figures and animations, and builds `report.md`.
 
+**There is one command.** `Working/run_all.py` is the only entry point under
+`Working/`; it defines every flag below and calls `runner.py` for each sweep
+set it was asked to run. `--sets` names a set by its folder, `--config` names
+one by path. See [`../README.md`](../README.md) for the whole workflow,
+including the force solve that runs after the sweeps unless you pass
+`--no-forces`.
+
 ## Sweep sets, cars, and reporters
 
 ```
 Working/
+  run_all.py                   the one entry point
   sweep_sets/
-    run_all.py                 the runner
+    runner.py                  the sweep-set solver - a library, not a command
     susreport.py               reporter: two-wheel axle
     susreport_rear.py          reporter: single corner
     susreport_common.py        what the two reporters share
@@ -40,9 +49,13 @@ So the same sweep set runs against a different car with no reconfiguration and
 no collisions:
 
 ```
-uv run python Working/sweep_sets/run_all.py --geometry Working/models/gen14/front.yaml
-                                          # -> Working/models/gen14/outputs/front/
+uv run python Working/run_all.py --sets front --geometry Working/models/gen14/front.yaml
+                                # -> Working/models/gen14/outputs/front/
 ```
+
+`--geometry` describes one set, so it needs `--sets` or `--config` to say
+which. Running several sets against one geometry would put every result in the
+same output folder, and the script refuses rather than doing it.
 
 ## Two reporters
 
@@ -97,7 +110,7 @@ hash lands in the CSV provenance header and you can read exactly what ran.
 Those files are regenerated every run — never edit them.
 
 A range key in `run.yaml` must match a target that already exists in the sweep
-file. If it does not, `run_all` stops with an error naming the sweep and the
+file. If it does not, the run stops with an error naming the sweep and the
 key rather than silently inventing a target.
 
 So in practice: **hardpoint ranges live in `run.yaml`; the sweep files define
@@ -219,14 +232,23 @@ other curve in the figure. See `NEVER_PLOT` in `susreport.py`.
 
 ## Command-line overrides
 
-Every flag overrides `run.yaml` for that invocation only.
+All of these are flags of `Working/run_all.py`, and each overrides `run.yaml`
+for that invocation only.
+
+**Choosing which sets run:**
 
 | flag | effect |
 | --- | --- |
-| `--config PATH` | **which sweep set to run** (default: `front/run.yaml`) |
-| `--geometry PATH` | run this sweep set against a different car |
-| `--sweeps-dir PATH` | an alternative directory of sweep YAMLs |
-| `--side left\|right` | reported corner |
+| *(none)* | every sweep set under `sweep_sets/` |
+| `--sets A,B` | only these sets, by folder name |
+| `--config PATH` | one set by path to its `run.yaml`, for a set outside `sweep_sets/<name>/`. Not with `--sets` |
+| `--no-forces` | skip the force solve that otherwise follows the sweeps |
+| `--no-sweeps` | skip the sweeps entirely |
+
+**Inside each set that runs:**
+
+| flag | effect |
+| --- | --- |
 | `--only A,B` | run only these sweeps; everything else is off |
 | `--skip A,B` | run everything except these |
 | `--plots A,B` | only these sweeps get a figure |
@@ -239,30 +261,38 @@ Every flag overrides `run.yaml` for that invocation only.
 | `--solve-only` | solve and stop, no report |
 | `--on-bad-solve MODE` | `off`, `warn` or `fail` |
 | `--dry-run` | resolve the configuration, write the merged sweep files, print the commands, solve nothing |
+| `--geometry PATH` † | run the set against a different car |
+| `--sweeps-dir PATH` † | an alternative directory of sweep YAMLs |
+| `--side left\|right` † | reported corner |
+
+† describes a single set, so it requires `--sets` or `--config`.
 
 Sweep selectors accept the numeric prefix or the full stem, so `--only 01,09`
-and `--only 01_bump_parallel,09_steer_in_roll` are the same thing.
+and `--only 01_bump_parallel,09_steer_in_roll` are the same thing. A selector
+applies to **every set being run**, so pair it with `--sets` when it only
+makes sense for one of them — `--only 04` with both sets selected fails on the
+rear, which has no `04`.
 
 ### Worked examples
 
 ```bash
-# everything, exactly as run.yaml says
-uv run python Working/sweep_sets/run_all.py
+# everything, exactly as the run.yamls say, plus the force solve
+uv run python Working/run_all.py
 
 # iterate on the report without re-solving - the fastest loop by far
-uv run python Working/sweep_sets/run_all.py --report-only
+uv run python Working/run_all.py --report-only --no-forces
 
-# just the two corner sweeps, with animations, nothing else
-uv run python Working/sweep_sets/run_all.py --only 09,10 --gifs 09,10
+# just the two corner sweeps of the front set, with animations, nothing else
+uv run python Working/run_all.py --sets front --only 09,10 --gifs 09,10 --no-forces
 
 # a fast numbers-only pass
-uv run python Working/sweep_sets/run_all.py --no-plots --no-gifs --no-joints
+uv run python Working/run_all.py --no-plots --no-gifs --no-joints
 
 # check what a config change would actually do before spending the CPU
-uv run python Working/sweep_sets/run_all.py --dry-run
+uv run python Working/run_all.py --dry-run
 
-# the rear
-uv run python Working/sweep_sets/run_all.py --config Working/sweep_sets/rear/run.yaml
+# the rear only
+uv run python Working/run_all.py --sets rear
 ```
 
 ---
@@ -270,7 +300,7 @@ uv run python Working/sweep_sets/run_all.py --config Working/sweep_sets/rear/run
 ## How the parallelism works
 
 Each sweep is an independent `uv run kinematics sweep` subprocess: one geometry
-file in, one CSV out, nothing shared. `run_all` submits them to a pool of
+file in, one CSV out, nothing shared. `runner` submits them to a pool of
 `jobs` workers, so they cannot race and there is nothing to synchronise. Since
 the work happens in subprocesses rather than in Python, the GIL is not
 involved; the limit is CPU cores and the solver's own memory.
@@ -289,7 +319,7 @@ setting.
 
 ## Calling the report builder directly
 
-`run_all` **imports** the reporter its `run.yaml` names and calls `run_report()` directly — one
+`runner` **imports** the reporter its `run.yaml` names and calls `run_report()` directly — one
 process, so a traceback or a breakpoint in `susreport.py` lands in the run you
 started. The import is lazy, so a `--solve-only` run never pays for matplotlib.
 
@@ -308,7 +338,7 @@ uv run python Working/sweep_sets/susreport_rear.py Working/models/aurora/outputs
 With no `--config` it uses `front/run.yaml`. With no configuration
 available at all it stops — there are no defaults to fall back on.
 
-`run_all` hands it `<geometry folder>/report/<name>/_resolved_run.json` instead: the
+`runner` hands it `<geometry folder>/report/<name>/_resolved_run.json` instead: the
 configuration after the command-line overrides, written before solving. That
 file is the authoritative record of what actually ran, including the list of
 sweeps — which is how a sweep you switched off does not sneak back into the
@@ -317,7 +347,7 @@ gitignored.
 
 ### Where each setting is validated
 
-`run_all` checks the keys it reads (`name`, `geometry`, `sweeps_dir`,
+`runner` checks the keys it reads (`name`, `geometry`, `sweeps_dir`,
 `reporter`, `side`, `jobs`, `report.plots`, `report.gifs`, `gif.*`, and every
 sweep's `run`). The reporter checks the rest
 (`decimals`, `solver`, each sweep's `report` and `plots`) when the resolved

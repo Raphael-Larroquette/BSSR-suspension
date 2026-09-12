@@ -1,4 +1,4 @@
-# Force cases for the static suspension load solve. See docs/force.md.
+# Force cases for the static suspension load solve. See ../force.md.
 #
 # Each number is an acceleration in g.
 #   bump   - TOTAL vertical load factor, gravity included. 1 is static, and the
