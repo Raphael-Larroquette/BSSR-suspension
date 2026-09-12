@@ -9,7 +9,6 @@ parameters.
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import time
 from abc import ABC, abstractmethod
@@ -22,6 +21,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from kinematics.cli.io.provenance import compute_file_hash
 from kinematics.core.metrics.registry import MetricSpec
 from kinematics.core.solver import SolverInfo
 
@@ -63,23 +63,6 @@ class SupportedFormat(Enum):
 FORMAT_VERSION = "3"
 PACKAGE_NAME = "kinematics"
 METADATA_KEY = b"kinematics_meta"  # Need bytes for pyarrow.
-
-
-def compute_file_hash(path: str | Path) -> str:
-    """
-    Compute SHA-256 hash of a file for provenance tracking.
-
-    Args:
-        path: Path to the file to hash.
-
-    Returns:
-        Hexadecimal hash string, or empty string if file cannot be read.
-    """
-    try:
-        with open(path, "rb") as f:
-            return hashlib.file_digest(f, "sha256").hexdigest()
-    except Exception:
-        return ""
 
 
 @dataclass

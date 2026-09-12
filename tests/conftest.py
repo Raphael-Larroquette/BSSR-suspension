@@ -11,3 +11,18 @@ def test_data_dir() -> Path:
 @pytest.fixture
 def double_wishbone_geometry_file(test_data_dir: Path) -> Path:
     return test_data_dir / "geometry.yaml"
+
+
+@pytest.fixture
+def working_dir() -> Path:
+    return Path(__file__).resolve().parents[1] / "Working"
+
+
+@pytest.fixture
+def aurora_dir(working_dir: Path) -> Path:
+    return working_dir / "models" / "aurora"
+
+
+@pytest.fixture
+def aurora_forces_dir(working_dir: Path) -> Path:
+    return working_dir / "forces" / "aurora"

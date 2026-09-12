@@ -62,7 +62,7 @@ def _joint_column(sweep: Sweep, stem: str, side: str) -> str | None:
 
 def _relative_rotations(sweep: Sweep, name: str, side: str) -> np.ndarray | None:
     """Rebuild the per-step relative rotation stack for one joint."""
-    from kinematics.core.joints import rotation_from_rotvec
+    from kinematics.core.bodies import rotation_from_rotvec
 
     columns = [
         _joint_column(sweep, f"joint_{name}_r{axis}", side) for axis in "xyz"

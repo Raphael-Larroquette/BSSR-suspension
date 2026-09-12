@@ -1,8 +1,9 @@
 # ==========================================================================
 # run.yaml - the single place to configure a sweep run
 #
-#   uv run python models/Sweep_Set/run_all.py
-#   uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/front/run.yaml
+#   uv run python Working/run_all.py                     every set, then the force solve
+#   uv run python Working/run_all.py --sets front        this set, then the force solve
+#   uv run python Working/run_all.py --sets front --no-forces      this set alone
 #
 # PRECEDENCE, highest first:
 #
@@ -29,7 +30,7 @@ name: front
 
 # Default target. --geometry overrides it, which is how you run this same
 # sweep set against a different car.
-geometry: ../../aurora/front.yaml
+geometry: ../../models/aurora/front.yaml
 
 # Relative to this file.
 sweeps_dir: sweeps

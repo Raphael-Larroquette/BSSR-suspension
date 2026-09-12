@@ -1,7 +1,8 @@
 # ==========================================================================
 # rear/run.yaml - the rear sweep set
 #
-#   uv run python models/Sweep_Set/run_all.py --config models/Sweep_Set/rear/run.yaml
+#   uv run python Working/run_all.py --sets rear         this set, then the force solve
+#   uv run python Working/run_all.py --sets rear --no-forces       this set alone
 #
 # PRECEDENCE, highest first:
 #
@@ -28,7 +29,7 @@ version: 1
 #   <geometry folder>/outputs/<name>/   and   <geometry folder>/report/<name>/
 name: rear
 
-geometry: ../../aurora/rear.yaml   # default target; --geometry overrides
+geometry: ../../models/aurora/rear.yaml   # default target; --geometry overrides
 sweeps_dir: sweeps                 # relative to this file
 reporter: susreport_rear           # susreport = axle, susreport_rear = corner
 side: null                         # a corner has only one; null for a corner

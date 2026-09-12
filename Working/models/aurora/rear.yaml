@@ -16,7 +16,7 @@ config:
       aspect_ratio: 0.8
       section_width: 95
       rim_diameter: 16
-  cg_position: {x: -1127.778, y: -39.844, z: 320}
+  cg_position: {x: -627.2, y: -39.844, z: 320}
   wheelbase: 2240.00
   axle_position: rear
   driven_axle: rear #how its driven
@@ -26,9 +26,9 @@ config:
 # A centreline trailing arm carries the axle directly, so AXLE_INBOARD is the
 # moving arm point and trailing_arm_outboard is not authored.
 hardpoints:
-  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5}
+  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5} #check weheel radius
   trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5}
   axle_inboard: {x: -2240, y: 70.332, z: 278.5}
   axle_outboard: {x: -2240, y: -23.737, z: 278.5}
   strut_top: {x: -1901.921, y: 100, z: 546.579}
-  strut_bottom: {x: -2135.97, y: 100, z: 329.131}
+  strut_bottom: {x: -2139, y: 100, z: 309.5}

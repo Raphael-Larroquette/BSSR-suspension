@@ -234,7 +234,7 @@ from pathlib import Path
 from kinematics.core.input import build_suspension
 from kinematics.core.analysis import initial_pose
 
-s = build_suspension(yaml.safe_load(Path("models/aurora/front.yaml").read_text()))
+s = build_suspension(yaml.safe_load(Path("Working/models/aurora/front.yaml").read_text()))
 for dc in initial_pose(s).drive_coordinates:
     print(dc.id, dc.type, dc.scope, dc.side, dc.unit)
 ```
@@ -438,9 +438,9 @@ Don't guess the `part` names or which points even have two bodies — ask:
 import yaml
 from pathlib import Path
 from kinematics.core.input import build_suspension
-from kinematics.core.joints import build_bodies, resolve_body_modes
+from kinematics.core.bodies import build_bodies, resolve_body_modes
 
-s = build_suspension(yaml.safe_load(Path("models/aurora/front.yaml").read_text()))
+s = build_suspension(yaml.safe_load(Path("Working/models/aurora/front.yaml").read_text()))
 corner = s.corners[min(s.corners)] if s.is_axle else s
 neutral = corner.initial_state().positions
 asm = corner.assembly()

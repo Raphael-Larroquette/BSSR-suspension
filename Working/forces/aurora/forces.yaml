@@ -1,0 +1,86 @@
+# Precedence: CLI > forces.yaml. Relative paths resolve against this file.
+# See ../force.md for what each setting means and what it assumes.
+
+version: "0.1.0"
+
+vehicle:
+  # Total as-raced vehicle mass, including driver. Not split into sprung and unsprung: the whole mass is treated as a point mass at cg_position.
+  mass: 285.0 # kg
+  g: 9.80665 # m/s^2
+
+geometry:
+  # Both files are required and must agree on cg_position and wheelbase.
+  # CLI --front / --rear override these.
+  front: ../../models/aurora/front.yaml
+  rear: ../../models/aurora/rear.yaml
+
+# Load cases. CLI --cases overrides.
+cases: cases.csv
+
+solve:
+  # Point each part's moment equations are taken about.
+  #   centroid  - mean of that part's own joint positions
+  #   origin    - global (0, 0, 0), easiest to hand-check
+  #   {x,y,z}   - an explicit point, the same for every part
+  # All three are mathematically equivalent given the force rows.
+  moment_reference: origin
+
+  # Two joints connecting the same pair of parts are a coaxial redundancy:
+  # statics cannot split the load along the line joining them. This says how to close that one degree of freedom.
+  #   even          - both joints carry an equal share (adds one constraint row)
+  #   <point name>  - that joint carries all of it, the other carries none
+  # Overrides are keyed by part name and given as a bare, side-agnostic point name, so one entry covers both corners of an axle.
+  pivot_axial:
+    default: even
+    overrides: {}
+      #Lower Wishbone: lower_wishbone_inboard_front
+      #Upper Wishbone: upper_wishbone_inboard_front
+      #Semi-Trailing Arm: trailing_arm_pivot_a
+
+  # Steering rack treatment.
+  #   grounded - rack held by the steering column; front corners solve independently. Correct for a static case.
+  #   floating - zero steering torque. NOT IMPLEMENTED.
+  rack: grounded
+
+  # Where brake torque is reacted, using the same vocabulary as the geometry
+  # file's drive_torque_reaction.
+  #   unsprung - caliper on the upright, torque internal to the upright/hub
+  #              assembly. This is an outboard brake, as fitted to Aurora.
+  #   sprung   - reacted to the chassis. An inboard brake. NOT IMPLEMENTED.
+  brake_torque_reaction: unsprung
+
+  # A load case can drive a tyre normal load negative, meaning that wheel has
+  # lifted and the vehicle is past its tip-over threshold.
+  #   report - keep the negative value, flag the case, solve every corner
+  #   fail   - stop on the first negative normal load
+  on_wheel_lift: report
+
+  tolerances:
+    # Relative tolerance for the rank check on the assembled system.
+    rank: 1.0e-9
+    # Per-part equilibrium residual, relative to the largest force on that part. Exceeding it is an error, not a warning.
+    residual: 1.0e-8
+
+# Body-graph filter. The kinematic model contains bodies that are not separate structural parts; these operations turn it into a force model. The values below are the built-in defaults written out explicitly.
+structure:
+  # Merge listed parts into one. The FIRST entry names the merged part and must be present for the group to apply, so a rule written for one architecture is simply inert on another.
+  weld:
+    - ["Upright", "Axle", "Wheel"]
+    - ["Semi-Trailing Arm", "Semi-Trailing Arm Carrier", "Axle", "Wheel"]
+  # Fold a loose point into whichever part already carries all of its anchors.
+  attach: []
+  # Treat as chassis: no equations, absorbs whatever is applied to it.
+  ground: ["Steering Rack"]
+  # Drop entirely. Nothing on Aurora needs this.
+  ignore: []
+
+# A run writes forces.csv and load_transfer.csv into outputs/ beside this
+# file, unless --out says otherwise. That folder is git-ignored.
+output:
+  # vehicle - all forces in the ISO 8855 vehicle frame (recommended)
+  # part    - right-side parts get Y mirrored, for mirrored CAD
+  frame: vehicle
+  # auto | always | never - see ../force.md
+  moments: auto
+  # Also write one CSV per part, for direct import into an FEA run.
+  per_part_files: false

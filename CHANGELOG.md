@@ -6,6 +6,31 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Added a static suspension force solve: `kinematics forces` takes a front and
+  a rear geometry file, a `cases.csv` of `(bump, brake, corner)` load factors,
+  and a `forces.yaml` of solver policy, and writes the force at every joint
+  grouped by part. Contact-patch loads come from a determinate three-patch
+  rigid-body solve that reproduces the classical transfer formulas exactly and
+  additionally accounts for a laterally offset centre of gravity; the linkage
+  is then solved per corner from equilibrium alone. Corners are found by
+  deleting the ground bodies and taking connected components, so an element
+  that couples them produces one larger system with no special handling.
+  Two-force members and coaxial joint pairs are detected geometrically rather
+  than declared: the `joints:` block is not read at all. The assembled system
+  is checked square and full rank before it is solved, never least-squares
+  fitted. `--describe` prints the structural model and every name `forces.yaml`
+  can refer to; `--check` prints per-part equilibrium residuals. Documented in
+  `Working/forces/force.md`, with `Working/forces/aurora/forces.yaml` as a
+  worked template. Each joint reports its resultant alongside its components,
+  and a run also writes `load_transfer.csv`: every wheel's vertical load per
+  case, as a force, an effective mass, a share of that case's total and a
+  share of static weight. Both files land in `outputs/` beside the
+  configuration that produced them.
+- Added `bodies.py`, holding the rigid-body derivation that `joints.py` used to
+  carry. Bearing misalignment and the force solve both build on it, and neither
+  is a dependency of the other.
+
+
 - Added opt-in bearing misalignment analysis. A geometry file's `joints:` block
   declares, per joint, the part each of the bore and housing directions is
   fixed to and the direction itself; sweeps then export the two bodies'
@@ -64,6 +89,16 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `TrailingArmSuspension` did not declare its lower spring mount as a rigid
+  attachment. The mount is a derived point that rides the arm but appears in no
+  element of the arm's body group, so it resolved to a body of its own: a joint
+  declared there failed with "needs exactly two bodies meeting at its point",
+  and a force solve found the spring reacting against nothing.
+- `AxleSuspension` dropped its corners' rigid attachments instead of
+  side-qualifying them. An axle keys every point on a side, so a corner
+  attachment named points that do not exist at axle scope and the pickup it
+  places fell out of the body carrying it. Axle-scope body derivation
+  mis-assigned any mechanism pickup as a result.
 - Absolute or resolved element lengths below the geometric tolerance are
   rejected before solving with a target-indexed error. Coincident endpoints at
   an intermediate solver iterate use the finite zero derivative of the soft

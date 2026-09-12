@@ -299,3 +299,58 @@ class SteeringType(StrEnum):
 
     NONE = "none"
     RACK = "rack"
+
+
+class RackTreatment(StrEnum):
+    """How a steering rack is held during a static force solve.
+
+    ``GROUNDED``
+        The rack is held by the steering column, so it cannot translate and it
+        reacts into the chassis. The two front corners are then independent.
+    ``FLOATING``
+        Zero steering torque, so the rack is free along its axis and the two
+        front corners become one coupled system. Not implemented.
+    """
+
+    GROUNDED = "grounded"
+    FLOATING = "floating"
+
+
+class WheelLiftPolicy(StrEnum):
+    """What to do when a load case drives a tyre normal load negative."""
+
+    REPORT = "report"
+    FAIL = "fail"
+
+
+class OutputFrame(StrEnum):
+    """Which frame solved forces are reported in.
+
+    ``VEHICLE``
+        The ISO 8855 vehicle frame, for every part on both sides.
+    ``PART``
+        Right-side parts get Y mirrored, so the numbers apply directly to a
+        mirrored CAD model of the left-hand part.
+    """
+
+    VEHICLE = "vehicle"
+    PART = "part"
+
+
+class MomentReporting(StrEnum):
+    """When joint moment columns appear in force output.
+
+    ``AUTO``
+        Per part block, whenever any joint on that part carries a moment in any
+        case. Every unknown in the current model is a pure force, so today this
+        emits none.
+    ``ALWAYS``
+        Always, freezing the column schema at the cost of columns of zeros.
+    ``NEVER``
+        Never, which silently discards real results once a moment-carrying
+        joint model exists.
+    """
+
+    AUTO = "auto"
+    ALWAYS = "always"
+    NEVER = "never"

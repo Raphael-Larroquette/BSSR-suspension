@@ -11,6 +11,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar, Sequence, cast
 
+from kinematics.core.bodies import RigidAttachment
 from kinematics.core.constraints import (
     AngleConstraint,
     Constraint,
@@ -31,7 +32,6 @@ from kinematics.core.enums import (
     SteeringType,
     SuspensionType,
 )
-from kinematics.core.joints import RigidAttachment
 from kinematics.core.points.derived.definitions import build_wheel_derived_spec
 from kinematics.core.points.derived.manager import (
     DerivedPointsManager,

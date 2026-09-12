@@ -67,6 +67,90 @@ def sweep(
 
 
 @app.command()
+def forces(
+    config: Path = typer.Option(
+        Path("forces.yaml"), exists=True, help="Path to the force configuration YAML"
+    ),
+    front: Path | None = typer.Option(
+        None, exists=True, help="Override the front geometry YAML"
+    ),
+    rear: Path | None = typer.Option(
+        None, exists=True, help="Override the rear geometry YAML"
+    ),
+    cases: Path | None = typer.Option(
+        None, exists=True, help="Override the load-case CSV"
+    ),
+    out: Path | None = typer.Option(
+        None,
+        help="Output path (.csv or .xlsx). Defaults to <config dir>/outputs/forces.csv",
+    ),
+    mass: float | None = typer.Option(None, help="Override the vehicle mass in kg"),
+    per_part_files: Path | None = typer.Option(
+        None, help="Also write one CSV per part into this directory"
+    ),
+    describe_only: bool = typer.Option(
+        False, "--describe", help="Print the structural model and stop"
+    ),
+    check_only: bool = typer.Option(
+        False, "--check", help="Print per-part equilibrium residuals and stop"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Validate every input and stop"
+    ),
+):
+    """
+    Solve static suspension forces for every load case and write them per part.
+
+    Front and rear are solved together because the load distribution is a
+    whole-vehicle statement; the individual corner solves are independent.
+
+    Example:
+        kinematics forces --config=forces.yaml
+        kinematics forces --config=forces.yaml --out=somewhere/else.csv
+        kinematics forces --config=forces.yaml --describe
+    """
+    from kinematics.cli.commands.forces import (
+        check,
+        describe,
+        load_inputs,
+        run_force_files,
+    )
+
+    if describe_only or check_only or dry_run:
+        loaded = load_inputs(config, front, rear, cases, mass)
+        _report_diagnostics(loaded.run.solution.diagnostics)
+        if describe_only:
+            typer.echo(describe(loaded))
+        elif check_only:
+            report, passed = check(loaded)
+            typer.echo(report)
+            if not passed:
+                raise typer.Exit(1)
+        else:
+            typer.echo(
+                f"configuration valid: {len(loaded.cases)} case(s), "
+                f"{len(loaded.run.corners)} corner(s)"
+            )
+        return
+
+    run = run_force_files(config, front, rear, cases, out, mass, per_part_files)
+    _report_diagnostics(run.run.solution.diagnostics)
+    typer.echo(f"wrote {run.output_path}")
+    typer.echo(f"wrote {run.load_transfer_path}")
+    for path in run.per_part_paths:
+        typer.echo(f"wrote {path}")
+
+
+def _report_diagnostics(diagnostics: tuple[str, ...]) -> None:
+    """Print solve warnings to stderr, so piped output stays clean."""
+    if not diagnostics:
+        return
+    typer.echo("Diagnostics:", err=True)
+    for issue in diagnostics:
+        typer.secho(f"WARNING: {issue}", err=True, fg=typer.colors.YELLOW)
+
+
+@app.command()
 def visualize(
     geometry: Path = typer.Option(..., exists=True, help="Path to geometry YAML."),
     output: Path = typer.Option(

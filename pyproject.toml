@@ -21,6 +21,7 @@ package = true
 
 [project.optional-dependencies]
 viz = ["matplotlib>=3.8"]
+xlsx = ["openpyxl>=3.1"]
 cli = ["pyarrow>=21.0.0", "pyyaml>=6.0.2", "typer>=0.19.2"]
 
 [dependency-groups]

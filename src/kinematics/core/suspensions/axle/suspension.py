@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar, Sequence
 
+from kinematics.core.bodies import RigidAttachment
 from kinematics.core.constraints import Constraint, DistanceConstraint
 from kinematics.core.elements import (
     ElementType,
@@ -523,6 +524,25 @@ class AxleSuspension(Suspension):
             self,
             self.config,
             tangents,
+        )
+
+    def rigid_attachments(self) -> tuple[RigidAttachment, ...]:
+        """Side-qualify and forward both corners' declared attachments.
+
+        A corner declares its attachments on bare corner points. An axle keys
+        everything on side-qualified points, so without requalifying them here
+        an attachment would name points that do not exist at axle scope, and
+        the pickup it places would fall out of the body that carries it.
+        """
+        return tuple(
+            RigidAttachment(
+                point=side_qualified(side, attachment.point),
+                anchors=tuple(
+                    side_qualified(side, anchor) for anchor in attachment.anchors
+                ),
+            )
+            for side, corner in self.corners.items()
+            for attachment in corner.rigid_attachments()
         )
 
     def joint_export_metadata(self) -> list[dict[str, object]]:
