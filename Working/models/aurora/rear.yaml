@@ -1,7 +1,7 @@
 type: trailing_arm
 side: center
 name: "Aurora Rear Recreated"
-version: "0.1.0" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
+version: "0.1.0"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
 spring:
@@ -11,22 +11,22 @@ config:
   steering:
     type: none
   wheel:
-    offset: 23.737 # ofset according to normal convention the facing of the wheel will be determined by the axle positions
+    offset: 23.737   # ET: wheel centreline to hub face, along the axle axis
     tire:
       aspect_ratio: 0.8
       section_width: 95
-      rim_diameter: 16
+      rim_diameter: 16   # inches
   cg_position: {x: -627.2, y: -39.844, z: 320}
   wheelbase: 2240.00
   axle_position: rear
-  driven_axle: rear #how its driven
-  drive_torque_reaction: unsprung
-  front_brake_bias: 0.7
+  driven_axle: rear
+  drive_torque_reaction: unsprung   # hub motor
+  front_brake_bias: 0.7             # anti-dive geometry only; the force solve ignores it
 
-# A centreline trailing arm carries the axle directly, so AXLE_INBOARD is the
-# moving arm point and trailing_arm_outboard is not authored.
+# Centreline arm: it carries the axle directly, so axle_inboard IS the moving arm
+# point and trailing_arm_outboard must not be authored. Pivot axis must be transverse.
 hardpoints:
-  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5} #check weheel radius
+  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5}
   trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5}
   axle_inboard: {x: -2240, y: 70.332, z: 278.5}
   axle_outboard: {x: -2240, y: -23.737, z: 278.5}

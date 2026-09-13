@@ -1,10 +1,7 @@
-# 08 - DRIVEN BY DAMPER LENGTH, NOT WHEEL TRAVEL
-# Uses the `element_length` target type. Instead of commanding the wheel and
-# reading the damper, this commands the damper and reads the wheel — which is
-# how you sweep to real bump-stop / droop-stop limits set by damper hardware.
-# Both sides driven together, so this is a heave sweep in damper coordinates.
-# Gives: wheel travel per unit damper travel (the inverse motion ratio) and
-#        the usable wheel travel for a given damper stroke.
+# 08 - DRIVEN BY DAMPER LENGTH, NOT WHEEL TRAVEL. Commands the damper and reads the
+# wheel, which is how you find the travel limits real damper hardware allows.
+# No hub_z target, so the analytic deriv_*_wrt_hub_z columns are all NaN here.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 65
 targets:

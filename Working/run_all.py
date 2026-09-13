@@ -9,36 +9,23 @@ working directory.
     uv run python Working/run_all.py --no-forces         sweeps only
     uv run python Working/run_all.py --no-sweeps         forces only
 
-    uv run python Working/run_all.py --config Working/sweep_sets/front/run.yaml --no-plots
-
-THIS IS THE ONLY COMMAND. There is deliberately no per-set runner to remember
-or to drift out of sync: `sweep_sets/runner.py` is a library this file calls,
-and every flag the sweep sets understand is defined below. A sweep set is
-chosen with `--sets` (by folder name) or `--config` (by path); everything else
-narrows what runs inside the sets you chose.
-
     sweep_sets/*/run.yaml     -> sweep_sets/runner.run_sweep_set(), in process
     forces/*/forces.yaml      -> `kinematics forces --config ...`
 
-Both lists are DISCOVERED rather than listed here, so adding Gen14's sweep set
-or a second car's force configuration is a new folder and nothing else.
+THIS IS THE ONLY COMMAND; `sweep_sets/runner.py` is a library this file calls.
+A sweep set is chosen with --sets (folder name) or --config (path); every other
+flag narrows what runs inside the sets chosen. Both lists are DISCOVERED, so
+adding a sweep set or a car's force configuration is a new folder and nothing else.
 
-Why forces are in the same command: a sweep set and a force configuration read
-the SAME geometry files, so a hardpoint edit invalidates both. A force solve
-you have to remember separately is how forces.csv ends up describing a car you
-no longer have. It is on by default for that reason, and `--no-forces` is
-there because the solve is only worth repeating when the geometry moved.
+Forces are in the same command, and on by default, because a sweep set and a
+force configuration read the SAME geometry: a hardpoint edit invalidates both.
+Sweeps run first because the force solve is seconds and cheap to re-run alone.
 
-Order is sweeps then forces: the force solve is seconds and the sweeps are
-minutes, so a failed force solve is cheap to re-run alone with `--no-sweeps`,
-while the reverse is not.
-
-Stages run independently. One set failing says nothing about the others - they
-read different geometry - so every stage is attempted and the exit code names
+Stages run independently: every stage is attempted, and the exit code names
 everything that failed.
 
-See README.md for the whole workflow, sweep_sets/RUNNING.md for what each
-sweep flag does to a run.yaml, and forces/force.md for the force solve.
+See the repository README.md for the workflow, sweep_sets/RUNNING.md for the
+run.yaml keys, and forces/force.md for the force solve.
 """
 
 from __future__ import annotations
@@ -54,8 +41,7 @@ SWEEP_SETS_DIR = HERE / "sweep_sets"
 FORCES_DIR = HERE / "forces"
 
 # A sweep set is a folder with a run.yaml; a car's force configuration is a
-# folder with a forces.yaml. Both conventions are already enforced by the code
-# that reads them, so globbing for them cannot disagree with what they accept.
+# folder with a forces.yaml.
 SWEEP_SET_GLOB = "*/run.yaml"
 FORCES_GLOB = "*/forces.yaml"
 
@@ -84,9 +70,8 @@ def label(config: Path) -> str:
 def select(configs: list[Path], wanted: list[str] | None, kind: str) -> list[Path]:
     """Filter discovered configurations by folder name.
 
-    An unmatched name is an error rather than an empty run: asking for a set
-    that does not exist and getting a clean "nothing to do" is how a typo
-    turns into a report you think is fresh.
+    An unmatched name is an error, not an empty run: a typo must not look like
+    a clean "nothing to do".
     """
     if wanted is None:
         return configs
@@ -113,9 +98,8 @@ def parse_list(value: str | None) -> list[str] | None:
 def import_runner():
     """Import the sweep-set library that lives beside the sets.
 
-    Lazy, and by path rather than as a package, because `--help` and `--list`
-    should not pay for yaml, and because sweep_sets/ is a working directory
-    rather than an installed module.
+    Lazy and by path: --help and --list should not pay for yaml, and
+    sweep_sets/ is a working directory rather than an installed module.
     """
     if str(SWEEP_SETS_DIR) not in sys.path:
         sys.path.insert(0, str(SWEEP_SETS_DIR))
@@ -127,16 +111,14 @@ def import_runner():
 def force_command(config: Path, dry_run: bool) -> list[str]:
     """Build the command for one car's force solve.
 
-    A subprocess, unlike the sweep sets, because `kinematics forces` is a real
-    console script of the installed package with its own diagnostics and exit
-    codes - it is a published entry point, not a working script that happened
-    to grow a CLI. Running it here is the same command force.md documents.
+    A subprocess, unlike the sweep sets, because `kinematics forces` is an
+    installed console script with its own diagnostics and exit codes. Running
+    it here is the same command force.md documents.
     """
     cmd = ["uv", "run", "kinematics", "forces", "--config", str(config)]
     if dry_run:
         # The force CLI's own --dry-run validates every input and solves
-        # without writing, so forwarding it makes this script's --dry-run a
-        # complete configuration check rather than a list of commands.
+        # without writing, so forwarding it keeps --dry-run a complete check.
         cmd.append("--dry-run")
     return cmd
 
@@ -319,9 +301,8 @@ def main() -> None:
             "forces/."
         )
 
-    # A geometry, a sweeps directory and a reported side each describe one
-    # set. Applying them to several would quietly run every set against the
-    # same car, into the same output folder.
+    # These each describe one set; applying them to several would run every
+    # set against the same car, into the same output folder.
     conflicting = [
         flag for flag in PER_SET_FLAGS if getattr(args, flag, None) is not None
     ]

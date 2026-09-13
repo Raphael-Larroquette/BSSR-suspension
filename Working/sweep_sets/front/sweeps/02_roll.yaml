@@ -1,7 +1,5 @@
-# 02 - PURE ROLL
-# Equal and opposite wheel travel, rack centred, zero net heave.
-# Gives: camber vs roll (camber recovery), roll-centre migration in roll
-#        (height AND lateral), track change in roll, roll steer.
+# 02 - ROLL. Equal and opposite wheel travel, rack centred, zero net heave.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 65
 targets:
@@ -10,15 +8,15 @@ targets:
     side: left
     direction: {axis: z}
     mode: relative
-    start: -25 #Define Roll Range in mm
-    stop: 25 #Define Roll Range in mm
+    start: -25
+    stop: 25
   - type: point
     point: wheel_center
     side: right
     direction: {axis: z}
     mode: relative
-    start:  25 #Define Roll Range in mm
-    stop: -25 #Define Roll Range in mm
+    start: 25
+    stop: -25
   - type: actuator_position
     actuator: rack
     direction: {axis: y}

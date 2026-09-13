@@ -1,8 +1,6 @@
-# 03 - SINGLE WHEEL BUMP
-# Left wheel only; right held at design height. This is the real one-wheel
-# road input, and it is neither pure heave nor pure roll.
-# Gives: the coupled heave+roll response, asymmetric roll-centre behaviour,
-#        and the honest single-corner camber/toe curve.
+# 03 - SINGLE WHEEL BUMP. Left wheel only, right held at design height.
+# Off by default: adds nothing 01 does not already give. See ../../SWEEPS.md section 9.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 22
 targets:
@@ -11,8 +9,8 @@ targets:
     side: left
     direction: {axis: z}
     mode: relative
-    start: -55 #Define Droop in mm from neutral
-    stop: 50 #Define Bump in mm from neutral
+    start: -55
+    stop: 50
   - type: point
     point: wheel_center
     side: right

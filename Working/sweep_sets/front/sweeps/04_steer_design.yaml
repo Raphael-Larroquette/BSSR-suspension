@@ -1,7 +1,5 @@
-# 04 - STEERING AT DESIGN RIDE HEIGHT
-# Rack swept lock to lock, both wheels held at design height.
-# Gives: Ackermann (left vs right steer pairing), steering ratio,
-#        camber/caster/KPI change with steer, scrub and trail vs steer.
+# 04 - STEERING AT DESIGN RIDE HEIGHT. Rack lock to lock, both wheels at design.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 65
 targets:
@@ -23,5 +21,5 @@ targets:
     actuator: rack
     direction: {axis: y}
     mode: relative
-    start: -35 #Define Steering Rack Range in mm
-    stop: 35 #Define Steering Rack Range in mm
+    start: -35
+    stop: 35

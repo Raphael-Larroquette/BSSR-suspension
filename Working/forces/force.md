@@ -1,155 +1,73 @@
-# Static suspension force solve
+# Static joint-force solve
 
-Solves the force at every suspension joint, for every load case, on a full
-vehicle. Output is a CSV grouped by part, intended to be used directly as the
-load input for a per-part FEA run.
+Solves the force at every suspension joint, for every load case, on the whole vehicle.
+Output is a CSV grouped by part, meant to be used directly as the load input for a
+per-part FEA run.
 
-The solve is **static and at the neutral ride position**. The suspension never
-moves, so there is no body roll, no anti-dive/squat/lift, no spring or damper
-rate, and no bump steer. Springs and dampers are rigid links of fixed length.
-This is a load-path calculation, not a vehicle dynamics model.
+**Static, at the neutral ride position.** The suspension never moves: no body roll, no
+anti-dive/squat/lift, no spring or damper rate, no bump steer. Springs and dampers are
+rigid links of fixed length. This is a load-path calculation, not a vehicle dynamics model.
+
+Front and rear solve **together** — you cannot find the front/rear split without knowing
+where the rear contact patch is.
 
 ---
 
-## Quick start
+## Running it
 
 ```bash
+uv run python Working/run_all.py --no-sweeps          # forces only
 uv run kinematics forces --config Working/forces/aurora/forces.yaml
 ```
 
-`uv run python Working/run_all.py` runs this as its last stage, after the
-kinematic sweeps, because both read the same geometry — see
-[`../README.md`](../README.md). `--no-sweeps` there is the quick force-only
-re-run.
+`run_all.py` runs this as its last stage after the sweeps, because both read the same
+geometry — a hardpoint edit invalidates both.
 
-That writes two files into `Working/forces/aurora/outputs/`:
-
-| File | What it is |
-| --- | --- |
-| `forces.csv` | the force at every joint, grouped by part |
-| `load_transfer.csv` | each wheel's vertical load, per case |
-
-Results land beside the configuration that produced them, in a folder the
-repository ignores, so a run never scatters files into whatever directory it
-was invoked from. `--out` overrides the location, and the load-transfer table
-follows it.
-
-`forces.yaml` names the two geometry files and the case file, so that one
-command covers the whole vehicle. Anything in it can be overridden:
-
-```bash
-kinematics forces \
-  --config Working/forces/aurora/forces.yaml \
-  --front  Working/models/aurora/front.yaml \
-  --rear   Working/models/aurora/rear.yaml \
-  --cases  Working/forces/aurora/cases.csv \
-  --out    somewhere/else.csv  # .csv, or .xlsx with the [xlsx] extra
-```
+Two files are written to `<config dir>/outputs/`: **`forces.csv`** (force at every joint,
+grouped by part) and **`load_transfer.csv`** (each wheel's vertical load, per case). Both
+are git-ignored.
 
 | Flag | Meaning |
 | --- | --- |
-| `--config PATH` | Configuration file. Defaults to `./forces.yaml`. |
-| `--front PATH` / `--rear PATH` | Override the geometry files. |
-| `--cases PATH` | Override the load-case file. |
-| `--mass FLOAT` | Override the vehicle mass in kg. |
-| `--out PATH` | Output file, `.csv` or `.xlsx`. Defaults to `<config dir>/outputs/forces.csv`. |
-| `--per-part-files DIR` | Also write one flat CSV per part. |
-| `--describe` | Print the structural model -- parts, joints, coaxial pairs, and the size of each subsystem -- and stop. |
-| `--check` | Print per-part equilibrium residuals and stop. Exits non-zero if any part fails to close. |
-| `--dry-run` | Validate every input, solve, and stop. |
+| `--config PATH` | configuration file; defaults to `./forces.yaml` |
+| `--front PATH` / `--rear PATH` | override the geometry files |
+| `--cases PATH` | override the load-case file |
+| `--mass FLOAT` | override the vehicle mass, kg |
+| `--out PATH` | output file, `.csv` or `.xlsx` |
+| `--per-part-files DIR` | also write one flat CSV per part |
+| `--describe` | print the structural model — parts, joints, coaxial pairs, system size — and stop |
+| `--check` | print per-part equilibrium residuals and stop; non-zero exit if a part fails to close |
+| `--dry-run` | validate every input, solve, write nothing |
 
-Paths inside `forces.yaml` are resolved relative to that file, so a model
-directory is self-contained.
+Paths inside `forces.yaml` resolve relative to that file, so a model directory is
+self-contained.
 
-**Run `--describe` first on any new model.** It prints the exact part and joint
-names `forces.yaml` refers to, so you never have to guess them:
+**Run `--describe` first on any new model.** It prints the exact part and joint names
+`forces.yaml` refers to:
 
 ```
 subsystem 'left' (front), loaded at 'Left Upright'
   part Left Lower Wishbone (4 joints)
   part Left Spring/Damper (two-force member)
-  ...
   coaxial left_lower_wishbone_inboard_front / left_lower_wishbone_inboard_rear
       between 'Chassis' and 'Left Lower Wishbone': even
   system: 20 equations, 20 unknowns (2 constraint row(s))
 ```
 
-**Front and rear run together, in one command.** The load distribution needs
-the whole vehicle — you cannot find the front/rear split without knowing where
-the rear contact patch is. The individual corner solves are then automatically
-independent (see [Step 4](#step-4--build-the-body-graph)).
-
----
-
-## Where things live
-
-Everything a run touches sits under `Working/`, which holds the models, the
-sweep sets, and the force configurations as three siblings:
-
-```
-Working/
-  models/
-    aurora/
-      front.yaml  rear.yaml        the car: hardpoints and vehicle config
-  forces/
-    force.md                       this document
-    aurora/
-      forces.yaml                  mass and solver policy for that car
-      cases.csv                    the load cases
-      outputs/                     results, git-ignored
-  sweep_sets/                      kinematic sweeps, a separate workflow
-```
-
-One folder per car under `forces/`, mirroring `models/`. A car's force
-configuration names its geometry **relative to itself**
-(`../../models/aurora/front.yaml`), so the pair travels together and a second
-car is a new folder rather than an edit to an existing one.
-
-Geometry is shared with the sweep sets rather than copied. A hardpoint change
-in `Working/models/aurora/front.yaml` is picked up by the next force run and
-the next sweep alike, which is the point of keeping one copy of it.
-
----
-
-## Coordinate system, units, and signs
-
-Everything follows the repo-wide ISO 8855 convention, unchanged from the rest
-of the tool:
-
-- **+X forward, +Y left, +Z up.** Left-side hardpoints have positive Y.
-- Lengths in **mm**, forces in **N**, moments in **N·mm**.
-- The origin is the front axle centreline at design ride height; the rear
-  contact patch therefore sits at `x = -wheelbase`, which the solver checks.
-- Centre-of-gravity height is measured from the **road plane**, which is where
-  the contact patches actually are, not from `z = 0`. The two differ by a
-  fraction of a millimetre on Aurora because the contact patch is constructed
-  from the tyre radius and the axle position, and measuring from the road is
-  what makes the closed-form transfer formulas reproduce the solved answer
-  exactly.
-
-A reported force is **the force acting on the named part, at that joint**,
-expressed in the vehicle frame. That is what you apply in FEA, and it means
-every part's block sums to zero — a check you can do in a spreadsheet.
-
 ---
 
 ## Inputs
 
-### 1. Geometry files
+### Geometry files
 
-Ordinary geometry YAML — the same files the sweep uses. The solver reads
-hardpoints, elements, the vehicle configuration, and the derived wheel contact
-centres straight from the design condition. **No sweep is required, and the
-`joints:` block is not read at all.** That block exists only for bearing
-misalignment reporting and has no effect here.
+The same YAML the sweeps use. The solver reads hardpoints, elements, vehicle configuration
+and the derived contact centres from the design condition. **No sweep is required, and the
+`joints:` block is not read at all.** `cg_position` and `wheelbase` must be identical in
+both files.
 
-`cg_position` and `wheelbase` must be identical in both files; a mismatch is an
-error naming both values.
+### `cases.csv`
 
-### 2. `cases.csv`
-
-Comment lines beginning with `#` are ignored. One header row, then one row per
-case:
+`#` comment lines ignored. One header row, then one row per case:
 
 ```csv
 bump,brake,corner
@@ -159,209 +77,147 @@ bump,brake,corner
 6,0,0
 ```
 
-Each number is an acceleration expressed in **g**:
+Each number is an acceleration in **g**:
 
-| Column | Symbol | Meaning |
-| --- | --- | --- |
-| `bump` | $A_z$ | **Total** vertical load factor, gravity included. `1` is static. Must be greater than zero. |
-| `brake` | $A_x$ | `+1` = 1 g deceleration. Negative is acceleration/traction. |
-| `corner` | $A_y$ | `+1` = the inertial force at the CG acts to the **left** (+Y), i.e. a right-hand turn. |
+| Column | Meaning |
+| --- | --- |
+| `bump` | **total** vertical load factor, gravity included. `1` is static. Must be > 0 |
+| `brake` | `+1` = 1 g deceleration. Negative is acceleration/traction |
+| `corner` | `+1` = inertial force at the CG acts **left** (+Y), i.e. a right-hand turn |
 
-Worked example — `2,1,1` means twice static vertical load, 1 g of braking, and
-1 g of cornering in a right-hand turn.
+Signs in full: for `brake = +1` the d'Alembert force at the CG points **forward** (+X),
+load transfers **forward**, and the contact-patch force on the car points **rearward**
+(−X). For `corner = +1` the CG force points **left** (+Y), load transfers to the **left**
+wheels, and the patch force points **right** (−Y).
 
-Signs in full, because this is the easiest place to get it backwards. For
-`brake = +1`, the d'Alembert inertial force at the CG points **forward** (+X),
-load transfers to the **front**, and the contact-patch force on the car points
-**rearward** (−X). For `corner = +1`, the inertial force at the CG points
-**left** (+Y), load transfers to the **left** wheels, and the contact-patch
-force points **right** (−Y).
+`bump` includes gravity, so `0,0,1` is meaningless and is rejected by row.
 
-`bump` includes gravity, so a row like `0,0,1` is meaningless — zero vertical
-load with a lateral demand. The solver rejects it and names the row.
+### `forces.yaml`
 
-### 3. `forces.yaml`
+Mass, structure filter, and every solver policy. **Every key is required**, so `--dry-run`
+is a complete configuration check.
 
-Mass, the structure filter, and every solver policy. Fully commented in the
-shipped template. **Every key is required**; a missing or misspelt key is an
-error naming it, so `--dry-run` is a complete configuration check.
+| Key | Values |
+| --- | --- |
+| `vehicle.mass`, `vehicle.g` | kg, m/s² |
+| `geometry.front` / `.rear` | paths, relative to this file |
+| `cases` | path to the case CSV |
+| `solve.moment_reference` | `centroid` \| `origin` \| `{x,y,z}` — all mathematically equivalent; `centroid` is far better conditioned, `origin` is easier to hand-check |
+| `solve.pivot_axial.default` | `even`, or a bare point name that takes the whole axial load |
+| `solve.pivot_axial.overrides` | keyed by part name, side-agnostic point name |
+| `solve.rack` | `grounded` only (`floating` not implemented) |
+| `solve.brake_torque_reaction` | `unsprung` only (`sprung` = inboard brake, not implemented) |
+| `solve.on_wheel_lift` | `report` (keep the negative load, flag the case) \| `fail` |
+| `solve.tolerances.rank` | relative tolerance for the rank check |
+| `solve.tolerances.residual` | per-part equilibrium residual, relative to the largest force on that part |
+| `structure.weld` | merge parts into one; the **first entry names the merged part and must be present** for the group to apply |
+| `structure.attach` | fold a loose point into the part carrying all its anchors |
+| `structure.ground` | treat as chassis: no equations |
+| `structure.ignore` | drop entirely |
+| `output.frame` | `vehicle` (ISO 8855) \| `part` (Y mirrored for right-side parts, for mirrored CAD) |
+| `output.moments` | `auto` \| `always` \| `never` |
+| `output.per_part_files` | bool |
 
 ---
 
 ## How it works
 
-### Step 1 — assemble the vehicle
+**1 — Assemble the vehicle.** Load both geometry files, cross-check `cg_position` and
+`wheelbase`, collect the contact patches. Track width is **derived** from the front
+`wheel_contact_centre` Y coordinates, not authored. Aurora: three patches — front left,
+front right, and one on the centreline at the rear.
 
-Load both geometry files, cross-check `cg_position` and `wheelbase`, and
-collect the contact patches. Track width is **derived** from the front
-`wheel_contact_centre` Y coordinates rather than authored, so there is one
-source of truth. Aurora: three contact patches — front left, front right, and
-one on the centreline at the rear.
-
-### Step 2 — contact-patch normal loads
-
-With three contact patches the vertical loads are **statically determinate**:
-three unknowns, three equations. No roll-stiffness distribution is needed or
-assumed. Writing $W = m g$ for the vehicle weight, and taking moments about the
-origin with each patch at its own $(x_i, y_i, z_i)$:
+**2 — Contact-patch normal loads.** With three patches the vertical loads are statically
+determinate — three unknowns, three equations, no roll-stiffness split needed. With
+$W = mg$ and each patch at $(x_i, y_i, z_i)$:
 
 $$\sum_i N_i = A_z W$$
+$$\sum_i N_i \left( y_i - z_i \tfrac{A_y}{A_z} \right) = y_{cg} A_z W + z_{cg} A_y W$$
+$$\sum_i N_i \left( x_i - z_i \tfrac{A_x}{A_z} \right) = x_{cg} A_z W + z_{cg} A_x W$$
 
-$$\sum_i N_i \left( y_i - z_i \frac{A_y}{A_z} \right)
-  = y_{cg} A_z W + z_{cg} A_y W$$
+The $z_i$ terms are there because a patch's horizontal force is a fixed multiple of its own
+normal load and does not act at $z = 0$; dropping them is a 0.4% error on Aurora.
 
-$$\sum_i N_i \left( x_i - z_i \frac{A_x}{A_z} \right)
-  = x_{cg} A_z W + z_{cg} A_x W$$
+With $h$ the CG height **above the road plane** this reproduces
+$\Delta W_x = hWA_x/l$ and $\Delta W_y = hWA_y/t$ exactly, and picks up two things they
+cannot express: on a three-wheeler $t$ must be the **front** track and the entire lateral
+transfer lands on the front pair (a centreline rear wheel has no moment arm about X); and
+Aurora's CG is 39.844 mm off centre, so even the static left/right split is not 50/50.
 
-The $z_i$ terms are there because a patch's horizontal force is a fixed
-multiple of its own normal load and does not act at $z = 0$. Dropping them is a
-0.4 % error on Aurora and grows with however far the contact-patch construction
-lands from the origin.
+**If a normal load comes out negative** that wheel has lifted and the vehicle is past
+tip-over. Under `on_wheel_lift: report` the value is kept, the case is flagged, and every
+corner is still solved — the loaded corner gets a *higher* load this way, so it is the
+conservative number for the corner you are sizing. **The flagged corner's own numbers are
+physically impossible and must not be used.**
 
-With $h$ the centre-of-gravity height **above the road plane**, this
-reproduces the classical load-transfer formulas exactly, to every digit:
+**3 — Contact-patch horizontal forces.** Distributed in proportion to normal load, i.e.
+equal friction coefficient everywhere:
 
-$$\Delta W_x = \frac{h}{l} W A_x \qquad \Delta W_y = \frac{h}{t} W A_y$$
+$$F_{ix} = -\tfrac{N_i}{\sum_k N_k} A_x W \qquad F_{iy} = -\tfrac{N_i}{\sum_k N_k} A_y W$$
 
-and picks up two things they cannot express. First, on a three-wheeler $t$ must
-be the **front** track and the entire lateral transfer lands on the front pair —
-a centreline rear wheel has no moment arm about X, so its normal load is
-completely unaffected by cornering. Second, Aurora's CG is 39.844 mm right of
-centre, so even the static left/right split is 0.2043 / 0.2922 rather than
-50/50; $\Delta W_y = hWA_y/t$ assumes a centred CG and misses it.
+This is **ideal brake bias by definition**; `front_brake_bias` is deliberately not used.
 
-**If a normal load comes out negative**, that wheel has lifted and the vehicle
-is past its tip-over threshold. Under the default `on_wheel_lift: report` the
-negative value is kept, the case is flagged in the output and in a terminal
-warning, and every corner is still solved. This is deliberate: the loaded
-corner gets a *higher* load this way than it would if the lifted wheel were
-clamped to zero and the rest re-solved, so it is the conservative number for the
-corner you are actually sizing. **The flagged corner's own numbers are
-physically impossible and must not be used** — a negative normal load means the
-tyre pulling down on the road.
+**4 — Build the body graph.** Bodies come from `build_bodies()`, grouped by declared
+`body_group`, plus a `Chassis` ground body from every fixed point. Two bodies are jointed
+wherever they share a point. The `structure:` block then filters the kinematic model into a
+structural one. Aurora's defaults need no overrides:
 
-### Step 3 — contact-patch horizontal forces
+- `Axle` and `Wheel` are **welded** into the upright — physically one rigid assembly.
+  Without this you get a fictitious joint and a singular system.
+- Rear `Semi-Trailing Arm` and `Semi-Trailing Arm Carrier` are one weldment, welded.
+- `Steering Rack` is **grounded** — the driver holds the wheel.
 
-Horizontal force is distributed in proportion to normal load, which is the
-same as assuming an equal friction coefficient at every tyre:
-
-$$F_{ix} = -\frac{N_i}{\sum_k N_k} A_x W \qquad
-  F_{iy} = -\frac{N_i}{\sum_k N_k} A_y W$$
-
-This is **ideal brake bias by definition**. The `front_brake_bias: 0.7` in
-`rear.yaml` is deliberately **not used** — see [Limitations](#limitations).
-
-### Step 4 — build the body graph
-
-Bodies come from `build_bodies()`, which groups elements by their declared
-`body_group` and appends a `Chassis` ground body built from every fixed point.
-Two bodies are jointed wherever they share a point. Both facts come from the
-geometry alone.
-
-The kinematic model contains bodies that are not separate structural parts, so
-the `structure:` block filters it with four operations — `weld`, `attach`,
-`ground`, `ignore`. The defaults handle Aurora with no overrides:
-
-- `Axle` and `Wheel` come out as bodies sharing the axle points with the
-  upright; physically they are one rigid assembly, so they are **welded** into
-  it. Without this you get a fictitious joint and a singular system.
-- On the rear, `Semi-Trailing Arm` and `Semi-Trailing Arm Carrier` are two
-  bodies at the same anchor point — one weldment, welded together.
-- `Steering Rack` is **grounded**, which is what `rack: grounded` means: the
-  driver holds the wheel, so the rack cannot translate.
-
-A weld group's **first entry names the merged part and must be present for the
-group to apply**, so the rule written for a double wishbone is simply inert on
-a trailing arm and vice versa. If two axles end up with a part of the same
-name, the output qualifies both with their axle -- `Front Spring/Damper` and
-`Rear Spring/Damper` -- and leaves every unambiguous name alone.
-
-> **A note on names.** `Semi-Trailing Arm` is the generic label the
-> `trailing_arm` topology gives its elements; it is not a claim about the
-> geometry. On Aurora both pivots sit at the same X and differ only in Y, so
-> the pivot axis is transverse and the part is a **pure trailing arm**.
-
-Corners are then found generically: delete the ground bodies and take the
-connected components of what is left. Aurora gives three independent
-subsystems — front left, front right, rear. Add an anti-roll bar or set
-`rack: floating` and the two front components merge into one larger system
-automatically, with no special-casing anywhere.
-
-After the filter, Aurora's parts are:
+Corners are then found generically: delete the ground bodies, take the connected
+components. Aurora gives three independent subsystems. Add an ARB or set `rack: floating`
+and the two front components merge automatically, with no special-casing.
 
 | Subsystem | Parts | Two-force members |
 | --- | --- | --- |
 | Front left / right | Upper Wishbone, Lower Wishbone, Upright | Track Rod, Spring/Damper |
 | Rear | Rear Arm | Spring/Damper |
 
-A body is treated as a **two-force member** when it has exactly two joints and
-no external load. Its unknown collapses from three components to one axial
-magnitude along the line joining its ends.
+A body with exactly two joints and no external load is a **two-force member**: its unknown
+collapses from three components to one axial magnitude.
 
-### Step 5 — assemble and solve
+> `Semi-Trailing Arm` is the generic label the `trailing_arm` topology gives its elements,
+> not a claim about the geometry. On Aurora both pivots share an X, so the part is a pure
+> trailing arm.
 
-Each body that is not ground and not a two-force member contributes six
-equations. With $s_{bj} = \pm 1$ carrying Newton's third law and $\mathbf c_b$
-the body's moment reference:
+**5 — Assemble and solve.** Each non-ground, non-two-force body contributes six equations,
+with $s_{bj} = \pm 1$ carrying Newton's third law and $\mathbf c_b$ the moment reference:
 
 $$\sum_j s_{bj}\,\mathbf F_j + \mathbf F^{\text{ext}}_b = \mathbf 0$$
+$$\sum_j s_{bj}\,(\mathbf r_j - \mathbf c_b) \times \mathbf F_j + (\mathbf r^{\text{ext}} - \mathbf c_b) \times \mathbf F^{\text{ext}}_b = \mathbf 0$$
 
-$$\sum_j s_{bj}\,(\mathbf r_j - \mathbf c_b) \times \mathbf F_j
-  + (\mathbf r^{\text{ext}} - \mathbf c_b) \times \mathbf F^{\text{ext}}_b
-  = \mathbf 0$$
+$\mathbf F^{\text{ext}}$ is non-zero only on the part carrying the wheel, where the
+contact-patch force acts at `wheel_contact_centre`. The system is built **M × N and then
+checked**, not assumed square: if $M \neq N$ or the rank is short it stops and names the
+body. It never falls back to a pseudo-inverse.
 
-$\mathbf F^{\text{ext}}$ is non-zero only on the part carrying the wheel — the
-upright at the front, the arm at the rear — where the contact-patch force acts
-at `wheel_contact_centre`. The cross product is assembled as the skew-symmetric
-matrix of $(\mathbf r_j - \mathbf c_b)$, and a two-force member's column is its
-unit direction $\hat u$ rather than an identity block.
+**Coaxial pivot pairs.** Two joints connecting the same pair of bodies are a redundancy
+statics cannot resolve: with $\hat u$ the direction between them,
+$\mathbf r_F \times \hat u = \mathbf r_R \times \hat u$, so the two axial components enter
+every row only as their sum. Found automatically by counting joints per body pair; affects
+both front wishbones and the rear trailing-arm pivots. `pivot_axial: even` adds one
+constraint row, $\hat u \cdot \mathbf F_F - \hat u \cdot \mathbf F_R = 0$ — the best
+estimate for two identical bushings. Naming a joint instead gives it the whole axial load;
+running `front` then `rear` brackets what `even` splits.
 
-The result is $[A]\{x\} = \{B\}$, built as **M × N and then checked**, not
-assumed square. If $M \neq N$, or the rank is short, the solver stops and names
-the offending body. It never falls back to a least-squares pseudo-inverse: that
-would silently return the minimum-norm answer to a badly posed model, and those
-numbers would look perfectly reasonable in a CSV.
-
-#### Coaxial pivot pairs
-
-Two joints connecting the same pair of bodies are a redundancy that statics
-cannot resolve. If $\hat u$ is the direction between them, then
-$(\mathbf r_F - \mathbf r_R) \parallel \hat u$, so
-
-$$\mathbf r_F \times \hat u \;=\; \mathbf r_R \times \hat u$$
-
-and the two axial components enter *every* row — force and moment alike — only
-as their sum. This is the classic locating-bearing / floating-bearing problem.
-It affects both wishbones at the front and the trailing-arm pivots at the rear,
-and it is found automatically by counting joints per body pair; nothing has to
-be declared.
-
-`pivot_axial` closes it. The default `even` adds one constraint row per pair,
-
-$$\hat u \cdot \mathbf F_F - \hat u \cdot \mathbf F_R = 0$$
-
-which is the best estimate for two identical bushings. Naming a joint instead
-gives it the whole axial load and the other none, which bounds the answer.
-Running `front` and `rear` in turn brackets what `even` splits.
-
-#### Conditioning
-
-`moment_reference: centroid` matters more than it looks. On the rear arm, whose
-joints sit around 2000 mm from the global origin, moving the reference to the
-body's own centroid takes the condition number from **6.5 × 10⁴ to 2.8 × 10²**.
-All three options are mathematically equivalent given the force rows; `origin`
-is kept because it is easier to check by hand.
+**Conditioning.** On the rear arm, whose joints sit ~2000 mm from the origin,
+`moment_reference: centroid` takes the condition number from 6.5 × 10⁴ to 2.8 × 10².
 
 ---
 
 ## Output
 
-One block per part, in the vehicle frame, matching the reference layout:
+### `forces.csv`
+
+One block per part, in the vehicle frame:
 
 ```
 # kinematics forces, format 1 | frame: vehicle ISO 8855 (X fwd, Y left, Z up)
 # units: N, N-mm | sign: force acting ON the named part AT that joint
-# front: Working/models/aurora/front.yaml sha256=a3f1... | rear: ... | cases: ... sha256=...
+# front: .../front.yaml sha256=a3f1... | rear: ... | cases: ... sha256=...
 # mass: 294.0 kg | g: 9.80665 | pivot_axial: even | moment_reference: centroid
 # rack: grounded | brake_torque_reaction: unsprung
 
@@ -369,115 +225,80 @@ PART:,Upper Wishbone
 Case,,,,upper_wishbone_inboard_front,,,,upper_wishbone_inboard_rear,,,,upper_wishbone_outboard,,,,flags
 bump,brake,corner,side,x,y,z,mag,x,y,z,mag,x,y,z,mag,
 2,1,1,left,...
-2,1,1,right,...
-2,1,-1,left,...
-
-PART:,Upright
-Case,,,,upper_wishbone_outboard,,,,lower_wishbone_outboard,,,,trackrod_outboard,,,,wheel_contact_centre (applied),,,,flags
-bump,brake,corner,side,x,y,z,mag,x,y,z,mag,x,y,z,mag,x,y,z,mag,
-...
 ```
 
-Notes on the layout:
-
-- Each joint is **four columns**: `x, y, z, mag`. The resultant is written
-  rather than left to a spreadsheet formula, so the number a part is sized
-  against is the same in every copy of the file, and finding the worst case is
-  a sort rather than a recalculation.
-- **`side`** is a fourth case column rather than a separate block, so there is
-  one block per part rather than two. With `corner ≠ 0` the two sides are
-  genuinely different and both are needed.
-- The part carrying the wheel gets a **`wheel_contact_centre (applied)`**
-  column group. It is the external load, not a joint, and including it is what
-  makes every part block sum to zero.
-- A two-force member still gets full XYZ vectors at both ends — equal and
-  opposite — because that is what you paste into FEA.
+- A reported force is **the force acting on the named part, at that joint** — what you
+  apply in FEA. Every part's block therefore sums to zero, which you can check in a
+  spreadsheet.
+- Each joint is **four columns**: `x, y, z, mag`. The resultant is written out so finding
+  the worst case is a sort, not a recalculation.
+- **`side`** is a fourth case column rather than a separate block, so there is one block
+  per part.
+- The part carrying the wheel gets a **`wheel_contact_centre (applied)`** column group —
+  the external load, not a joint. Including it is what makes the block sum to zero.
+- A two-force member still gets full XYZ at both ends, equal and opposite.
 - **`flags`** carries per-case diagnostics, most importantly `WHEEL_LIFT`.
-- `output.frame: part` mirrors Y for right-side parts, for mirrored CAD. The
-  header always records which frame was used.
+
+**Moments.** Every joint in the current model is a pure force, so joint moments are zero
+by construction and under `output.moments: auto` the `mx,my,mz` columns never appear. The
+decision is made per **part block**, so a block's column set is stable across a file.
+**Absent moment columns mean the model assumed the moment away, not that the real joint
+carries none** — a real bushing does carry moment. `never` would silently discard real
+results once a moment-carrying joint exists; do not use it.
 
 ### `load_transfer.csv`
 
-One row per wheel per case, flat rather than blocked:
+One row per wheel per case:
 
 ```
 bump,brake,corner,wheel,normal_load_N,effective_mass_kg,percent_of_case,percent_of_static_weight,transfer_from_baseline_N,flags
 2,1,1,front_left,2404.010,245.1408,41.6906,83.3812,1225.731,
-2,1,1,front_right,871.903,88.9093,15.1206,30.2413,-812.951,
-2,1,1,rear,2490.397,253.9499,43.1888,86.3775,-412.780,
 ```
 
 | Column | Meaning |
 | --- | --- |
-| `normal_load_N` | the vertical force the road applies to that tyre |
-| `effective_mass_kg` | that force divided by `g` -- the mass whose weight the wheel is carrying |
+| `normal_load_N` | vertical force the road applies to that tyre |
+| `effective_mass_kg` | that force ÷ g |
 | `percent_of_case` | share of **this case's** total vertical load; sums to 100 |
-| `percent_of_static_weight` | share of `m g`; sums to 100 x `bump` |
+| `percent_of_static_weight` | share of `mg`; sums to 100 × `bump` |
 | `transfer_from_baseline_N` | load that braking and cornering moved onto this wheel |
 
-**Two share columns, because "percent of the vehicle" is ambiguous the moment
-`bump` is not 1.** At `bump: 2` the car carries twice its own weight, so a
-wheel can be at 41.7% of what is on the ground *and* 83.4% of what the car
-statically weighs. Both readings are useful and they are different numbers.
+Two share columns because "percent of the vehicle" is ambiguous once `bump` ≠ 1: at
+`bump: 2` a wheel can be at 41.7% of what is on the ground *and* 83.4% of static weight.
 
-**The baseline is that same case with `brake` and `corner` set to zero**, not
-the 1 g static condition. Measuring against 1 g would fold the vertical
-scaling into the reported transfer and make a pure bump case look like a
-transfer; measuring this way, `6,0,0` correctly reads zero across the board,
-and the transfer column sums to zero over the wheels because a transfer moves
-load rather than creating it.
+**The baseline is the same case with `brake` and `corner` zeroed**, not 1 g static — so
+`6,0,0` correctly reads zero across the board and the transfer column sums to zero.
 
-`normal_load_N` is the same number as the `wheel_contact_centre (applied)` z
-component in `forces.csv` -- the two files are two views of one solve, not two
-calculations.
-
-### Moments
-
-Every joint in the current model is a pure force, so joint moments are
-identically zero *by construction*. Under `output.moments: auto` (the default)
-the `mx,my,mz` columns therefore never appear today. The decision is made per
-**part block**, not per joint or per case, so a block's column set is stable
-across a whole file. `always` freezes the schema at the cost of dead columns;
-`never` would silently discard real results once a moment-carrying joint exists,
-and should not be used.
-
-**Absent moment columns mean the model assumed the moment away, not that the
-real joint carries none.** A real bushing does carry moment. Adding that is a
-modelling change, described under [Extending](#extending).
+`normal_load_N` is the same number as the `wheel_contact_centre (applied)` z component in
+`forces.csv`; the two files are two views of one solve.
 
 ---
 
 ## Assumptions
 
-Every one of these is a real limitation on how far you should trust the output.
-
 **Vehicle and loading**
 
-- Quasi-static equilibrium; no dynamic amplification factor is applied.
-- The whole vehicle mass is a point mass at `cg_position`. No sprung/unsprung
-  split, so unsprung inertia is not accounted for.
-- Load factors are applied simultaneously as if independent.
-- No aerodynamic load, no gyroscopic effects, no drivetrain reaction torque.
+- Quasi-static equilibrium; no dynamic amplification factor.
+- Whole vehicle mass as a point mass at `cg_position`; no sprung/unsprung split, so
+  unsprung inertia is not accounted for.
+- Load factors applied simultaneously as if independent.
+- No aerodynamic load, gyroscopic effects, or drivetrain reaction torque.
 
 **Tyres**
 
-- Point contact at `wheel_contact_centre`. No contact patch extent, no
-  pneumatic trail, no self-aligning moment, no camber thrust.
-- Horizontal force distributed by normal load, i.e. one friction coefficient
-  for every tyre — perfect grip, ideal brake bias.
-- No friction-ellipse interaction between longitudinal and lateral force: a
-  case may demand more total grip than a real tyre could produce.
+- Point contact at `wheel_contact_centre`. No patch extent, pneumatic trail, self-aligning
+  moment or camber thrust.
+- One friction coefficient for every tyre — perfect grip, ideal brake bias.
+- No friction-ellipse interaction: a case may demand more total grip than a real tyre could
+  produce.
 
 **Geometry and structure**
 
-- Neutral ride height, zero steer, zero roll, pitch and heave. The geometry
-  never moves, so no jacking, anti-dive/squat/lift, or bump-steer effects
-  appear anywhere in the result.
-- All links and the chassis are rigid; zero compliance everywhere.
+- Neutral ride height, zero steer, roll, pitch and heave.
+- All links and the chassis rigid; zero compliance.
 - Springs and dampers are fixed-length two-force members.
 - Every joint transmits force only, no moment.
-- The steering rack is held (`rack: grounded`), so the front corners are
-  independent.
+- The rack is held (`rack: grounded`), so the front corners are independent.
 
 ---
 
@@ -485,114 +306,72 @@ Every one of these is a real limitation on how far you should trust the output.
 
 | Condition | Behaviour |
 | --- | --- |
-| `bump` ≤ 0 in a case row | Error naming the row. Zero vertical load has no meaningful solution. |
-| Negative tyre normal load | Case flagged `WHEEL_LIFT`, terminal warning, solve continues (`on_wheel_lift: report`). |
-| `cg_position` / `wheelbase` disagree between files | Error naming both values. |
-| Rear contact patch not at `x = -wheelbase` | Error. Usually means the two files are not in a common frame. |
-| System not square | Error naming the body and its joint count. |
-| System rank-deficient | Error naming the coaxial pair and the `pivot_axial` key that would close it. |
-| Per-body equilibrium residual over tolerance | Error. This should be impossible and indicates a bug. |
-| `brake_torque_reaction: sprung`, or `rack: floating` | Error: not implemented, naming the reason. |
-| Missing or misspelt `forces.yaml` key | Error naming the key. |
+| `bump` ≤ 0 in a case row | error naming the row |
+| negative tyre normal load | case flagged `WHEEL_LIFT`, warning, solve continues |
+| `cg_position` / `wheelbase` disagree between files | error naming both values |
+| rear contact patch not at `x = -wheelbase` | error — usually the two files are not in a common frame |
+| system not square | error naming the body and its joint count |
+| system rank-deficient | error naming the coaxial pair and the `pivot_axial` key that closes it |
+| per-body residual over tolerance | error; should be impossible, indicates a bug |
+| `brake_torque_reaction: sprung`, `rack: floating` | error: not implemented |
+| missing or misspelt `forces.yaml` key | error naming the key |
 
-`--check` prints per-part $\sum \mathbf F$ and $\sum \mathbf M$ residuals plus
-the whole-corner closure (the chassis-side joint forces must sum to the
-contact-patch force) instead of writing output.
+`--check` prints per-part $\sum \mathbf F$ and $\sum \mathbf M$ residuals plus whole-corner
+closure instead of writing output.
 
 ---
 
 ## Limitations
 
-**Four-wheel vehicles are not supported for the normal-load step.** Step 2 is
-determinate only because Aurora has three contact patches. With four, the
-vertical distribution is indeterminate by one and needs a roll-stiffness split
-between the axles — which requires spring and anti-roll rates this solver does
-not model. The solver detects four patches and stops with an explanation rather
-than guessing. Everything downstream of Step 2 is already general.
+**Four-wheel vehicles are not supported for the normal-load step.** Step 2 is determinate
+only with three patches; with four the vertical distribution is indeterminate by one and
+needs a roll-stiffness split, which requires spring and ARB rates this solver does not
+model. It detects four patches and stops. Everything downstream of step 2 is already
+general.
 
-**Inboard brakes are not implemented.** `brake_torque_reaction` uses the same
-vocabulary as the geometry file's `drive_torque_reaction`. `unsprung` is an
-outboard brake: the caliper is on the upright and the disc on the hub, so the
-brake torque is an internal couple inside the upright/hub assembly and the
-linkage sees the contact-patch force applied at the ground. `sprung` is an
-inboard brake, whose torque is reacted straight to the chassis, leaving the
-upright to see the longitudinal force at **wheel-centre height** instead.
+**Inboard brakes are not implemented.** `unsprung` is an outboard brake — the caliper is on
+the upright, so the brake torque is an internal couple and the linkage sees the patch force
+at the ground. `sprung` would leave the upright seeing the longitudinal force at
+**wheel-centre height**. On Aurora $r_{tyre} = 279.2$ mm, so at 1 g braking on a loaded
+front wheel the difference is ≈900 N·m, which across the 336 mm between the ball joints is
+a fore-aft couple of roughly ±2900 N that **reverses sign** between the two models. Not a
+refinement.
 
-On Aurora, $r_{\text{tyre}} = 279.2$ mm, so at 1 g braking on a heavily loaded
-front wheel the difference is of order 900 N·m — which across the 336 mm
-between the ball joints is a fore-aft couple of roughly ±2900 N that
-**reverses sign** between the two models. It is not a refinement. All Aurora
-brakes are outboard, so only `unsprung` is implemented; `sprung` raises an
-error naming the reason.
+**A floating steering rack is not implemented.** It would chain three two-force members
+through a single joint, which the unknown catalogue cannot express, and would couple the
+two front corners.
 
-**A floating steering rack is not implemented.** `rack: floating` would chain
-three two-force members — both track rods and the rack — through a single
-joint, which the unknown catalogue cannot express, and would couple the two
-front corners into one system. Only `grounded` is implemented.
+**`front_brake_bias` is ignored.** Step 3 distributes longitudinal force by normal load.
+Honouring the authored 0.7 would change the front/rear split and every wishbone load under
+braking.
 
-**`front_brake_bias` is ignored.** Step 3 distributes longitudinal force by
-normal load, which is ideal bias. The `front_brake_bias: 0.7` authored in
-`rear.yaml` is not read. Honouring it would change the front/rear split of
-longitudinal force and, through it, every wishbone load under braking.
+**`driven_axle` is ignored.** A negative `brake` is treated as load-proportional traction
+at all wheels rather than sent to the driven axle.
 
-**`driven_axle` is ignored.** A negative `brake` value is treated as
-load-proportional traction at all wheels rather than being sent entirely to the
-driven axle.
-
-**A floating steering rack is not implemented.** `rack: floating` would chain
-three two-force members -- both track rods and the rack -- through a single
-joint, which the unknown catalogue cannot express, and would couple the two
-front corners into one system. Only `grounded` is implemented.
-
-**Anti-roll bars and heave links are not handled.** Neither is fitted to
-Aurora. Adding one couples the two corners, which the connected-component
-partitioning already handles, but the element itself needs a torsional force
-model.
+**Anti-roll bars and heave links are not handled.** The connected-component partitioning
+already copes with the coupling; the element itself needs a torsional force model.
 
 ---
 
 ## Extending
 
-**A new suspension topology** needs nothing here. Bodies and joints come from
-`elements()`, so a topology that declares its elements correctly is solved
-without changes to the force code. Check with `--describe` before trusting it.
-
-**A moment-carrying joint** — a rocker as a true revolute, or a bushing with
-rotational stiffness — is the one change that touches the solver core: the
-joint's unknown grows from three force components to force plus moment. The
-results type already carries an optional moment per joint and the writer
-already knows how to emit it, so the change is confined to the unknown
-catalogue and the matrix assembly.
-
-**Four-wheel support** means replacing Step 2 with a roll-stiffness
-distribution, and therefore giving the geometry a spring rate and a motion
-ratio. Nothing else in the pipeline changes.
-
----
+- **A new suspension topology** needs nothing here — bodies and joints come from
+  `elements()`. Check with `--describe`.
+- **A moment-carrying joint** (a true revolute rocker, or a bushing with rotational
+  stiffness) is the one change touching the solver core: the joint's unknown grows from
+  three force components to force plus moment. The results type and the writer already
+  handle it, so the change is confined to the unknown catalogue and matrix assembly.
+- **Four-wheel support** means replacing step 2 with a roll-stiffness distribution, and
+  therefore giving the geometry a spring rate and a motion ratio.
 
 ## Verification
 
-The solve checks itself on every run: the assembled system must be square and
-full rank, and the residual of every subsystem is compared against
-`solve.tolerances.residual` before any number is reported.
+Every run checks itself: the assembled system must be square and full rank, and every
+subsystem's residual is compared against `solve.tolerances.residual` before any number is
+reported.
 
-`tests/test_forces.py` covers:
-
-- **Load transfer**, against the closed forms $\Delta W_x = hWA_x/l$ and
-  $\Delta W_y = hWA_y/t_f$, and against the rear normal load being untouched by
-  cornering. Written this way deliberately: comparing against a formula rather
-  than against the code's own output is what caught a sign error on the
-  contact-patch height term during development.
-- **An independent linkage solve.** The Aurora front-left corner, against a
-  separately assembled 20x20 system, to nine significant figures.
-- **Per-part equilibrium** across the whole shipped case set, and closure of
-  the chassis reactions onto the contact-patch force.
-- **Mirror symmetry.** The two front corners fed the same force, mirrored in
-  Y, must produce mirrored joint loads. This catches sign errors nothing else
-  will.
-- **Policy invariance.** Switching `pivot_axial` between `even` and a named
-  carrier changes only the component along that pivot axis; switching
-  `moment_reference` changes nothing but the condition number.
-- **Both regression fixes** that this feature required: the trailing arm
-  carrying its own spring pickup, and an axle forwarding its corners' rigid
-  attachments.
+`tests/test_forces.py` covers load transfer against the closed forms; an independently
+assembled 20×20 Aurora front-left solve to nine significant figures; per-part equilibrium
+and chassis-reaction closure across the whole case set; mirror symmetry between the two
+front corners; and policy invariance (`pivot_axial` changes only the component along that
+pivot axis, `moment_reference` changes nothing but the condition number).

@@ -1,608 +1,460 @@
-<p align="center">
-  <img
-    src="docs/logo-wordmark-paper.svg#gh-dark-mode-only"
-    alt="Suspension Explorer"
-    width="420"
-  >
-  <img
-    src="docs/logo-wordmark-ink.svg#gh-light-mode-only"
-    alt="Suspension Explorer"
-    width="420"
-  >
-</p>
+# Suspension Explorer — Blue Sky Solar Racing branch
 
-# `suspension-explorer-core`
+A geometric constraint solver for suspension kinematics, plus a static joint-force
+solver, wrapped in a one-command workflow for the Gen13 car.
 
-> [!WARNING]
-> Suspension Explorer is experimental and under active development. If using it for any
-> real-world project, please validate its results independently before using them for
-> design decisions.
+You describe a car once, in a YAML geometry file. The tool then (a) solves it through
+whatever ranges of motion you ask for and reports the resulting suspension
+characteristics, (b) reports how much misalignment each declared bearing has to absorb,
+and (c) solves the force at every joint for a set of load cases, in a form you can paste
+straight into FEA.
 
-Suspension Explorer is a geometric constraint solver for vehicle suspension
-kinematics. This repository contains the open-core Python solver and its CLI
-adapter. It can validate suspension geometry, solve coordinated bump, roll, and
-steering sweeps, calculate suspension metrics, export results, and render simple
-plots or animations.
+This is a fork of [suspension-explorer-core](https://github.com/suspension-explorer/suspension-explorer-core)
+(AGPL-3.0-only — see `LICENSE`). The solver is upstream's; `Working/` is ours.
 
-The solver models ideal rigid parts and joints. It calculates geometry and
-motion; it is not a compliance, load, or structural analysis
-tool.
+> Results are only as good as the geometry you feed it. Validate anything that drives a
+> design decision — the tool has no pass/fail on anything.
 
-<p align="center">
-  <img src="images/plot.png" alt="Design condition visualization" width="80%">
-  <br>
-  <em>A double-wishbone suspension at its design condition.</em>
-</p>
+---
 
-## What is supported
+## 1. What is supported
 
-| Area                      | Supported                                                                                 | Important limits                                                                                                   |
-| ------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Locating architectures    | Double wishbone and MacPherson strut                                                      | Each may be built as one corner or a composed two-corner axle.                                                     |
-| Axle geometry             | Mirrored or explicitly authored left and right corners                                    | If `hardpoints.right` is omitted, the complete left geometry and side-local setup are mirrored through `Y = 0`.    |
-| Wheel-heading control     | Translating steering rack or fixed toe link                                               | Select `steering.type: rack` or `steering.type: none`; front/rear position does not select steering automatically. |
-| Double-wishbone actuation | Direct or pushrod-rocker, mounted to the lower wishbone or upright                        | Direct actuation cannot be combined with a torsion bar.                                                            |
-| Double-wishbone springs   | None, coilover, or torsion bar                                                            | A torsion bar requires pushrod-rocker actuation.                                                                   |
-| Axle mechanisms           | U-bar or T-bar anti-roll mechanism and rocker-to-rocker heave link                        | These mechanisms require a double-wishbone axle with pushrod-rocker actuation.                                     |
-| Setup changes             | Outboard camber shims on double-wishbone corners                                          | Explicit asymmetric axle hardpoints require corresponding side-local setup when a shim is used.                    |
-| Static joint forces       | Force at every suspension joint, per load case, grouped by part                           | Neutral ride position only, and the vertical distribution needs exactly three contact patches. See `Working/forces/force.md`. |
-| Outputs                   | Solved point positions, solver statistics, diagnostics, metrics, in either CSV or Parquet | Plotting and animation require the optional visualization dependencies.                                            |
+"Exercised" = used on Aurora and cross-checked against SUSProg / hand calcs.
+"Untested here" = implemented upstream, never run on one of our cars — assume nothing.
 
-The calculated metrics include wheel travel, longitudinal wheel-center travel,
-half-track, ISO track, track change, toe angle, ISO steer angle, camber, caster,
-kingpin inclination, scrub radius, mechanical trail, instant-center geometry,
-roll center, heave, suspension roll, ride-height change, anti-pitch geometry,
-damper and mechanism travel, and applicable motion ratios. Metric availability
-depends on the architecture and installed mechanisms.
+| Area | Supported | Status |
+| --- | --- | --- |
+| Double wishbone, direct-acting coilover | corner or mirrored two-corner axle | **Exercised** (Aurora front) |
+| Trailing arm, centreline wheel | single corner, transverse pivot | **Exercised** (Aurora rear) |
+| Steering | translating rack, or fixed toe link (`type: none`) | **Exercised** |
+| Kinematic sweeps | bump, roll, steer, held-attitude, ramp, damper-driven | **Exercised** |
+| Characteristics | camber, toe, caster, KPI, scrub, trail, track, ICs/swing arms, roll centre, motion ratio, anti-geometry, analytic gradients | **Exercised** |
+| Bearing misalignment | per declared joint, incl. install offset and locked/free band | **Exercised** |
+| Static joint forces | every joint, per load case, grouped by part | **Exercised** (3 contact patches only) |
+| Output | CSV, Parquet, XLSX; plots and GIF/MP4 animations | **Exercised** (CSV, PNG, GIF) |
+| Pushrod-rocker actuation, torsion bar, separate linear damper | double wishbone only | Untested here |
+| U-bar / T-bar anti-roll, rocker-to-rocker heave link | requires pushrod-rocker axle | Untested here |
+| MacPherson strut | corner or axle | Untested here |
+| Outboard camber shims | double wishbone corners | Untested here |
+| Explicitly asymmetric axles (authored `hardpoints.right`) | | Untested here |
+| Sided (non-centreline) trailing arm | | Untested here |
 
-Analytical constraint Jacobians are used by the nonlinear solver. Applicable
-motion ratios and response derivatives are evaluated from the solved constraint
-Jacobian rather than by finite differencing adjacent sweep steps.
+---
 
-### Explicitly outside the current model
+## 2. Assumptions and hard limits
 
-- Multibody dynamics, inertia, damping, applied loads, and transient behavior.
-- Bushing, chassis, tire, or component compliance.
-- Stress, fatigue, strength, and packaging or interference checks.
-- Suspension architectures other than double wishbone and MacPherson strut.
-- Offset-axis MacPherson struts. The model requires the authored strut clamp to
-  lie on the lower-ball-joint-to-top-mount steering axis within 1 mm.
-- Arbitrary mechanism combinations. Geometry is rejected when the selected
-  mechanisms do not have an implemented physical connection.
+**The kinematic model assumes:**
 
-## Coordinate system and units
+- Rigid links, ideal joints, zero compliance anywhere (no bushing, chassis, tyre or
+  component deflection).
+- A rigid disc tyre at nominal radius — no loaded radius, contact patch extent,
+  pneumatic trail, camber thrust or self-aligning moment.
+- One axle at a time. A single axle cannot determine whole-vehicle pitch, yaw or
+  longitudinal position, so those are set to zero rather than inferred.
+- A straight, level road. No grade, bank or non-planar surface.
+- Camber is chassis-relative. Road-relative wheel inclination is **not** exported.
+- Sweeps are 1-D paths, not grids. Targets pair by index; there is no Cartesian product
+  anywhere. A 2-D surface needs one run per attitude, stitched afterwards.
 
-Suspension Explorer uses the ISO 8855 vehicle coordinate system:
+**The force solve additionally assumes:**
 
-- Positive X points forwards.
-- Positive Y points left.
-- Positive Z points upwards.
-- Authored hardpoints and linear outputs use millimeters.
-- Tire section width is in millimeters; rim diameter is in inches.
-- Angles use radians internally and degrees in configuration and output.
-- Wheel offset follows the ET convention: positive offset is inboard.
+- Static, at neutral ride height, zero steer/roll/pitch. Springs and dampers are
+  rigid fixed-length links. No spring rate, no damping, no bump steer, no anti-effects.
+- Whole vehicle mass as a point mass at `cg_position`; no sprung/unsprung split.
+- Exactly three contact patches.
+- Horizontal force split by normal load — i.e. one friction coefficient everywhere and
+  ideal brake bias.
+- Every joint carries force only, no moment.
 
-Hardpoints describe the design-condition assembly in chassis space. Fixed
-chassis hardpoints remain fixed while suspension, wheel, and tire points move
-relative to them. Left-side hardpoints therefore normally have positive Y
-coordinates and right-side hardpoints normally have negative Y coordinates.
+**Not possible today:**
 
-### Chassis and world axis systems
+| | |
+| --- | --- |
+| Dynamics, inertia, damping, transient response | not modelled at all |
+| Stress, fatigue, packaging or interference checks | out of scope — that is what the force CSV feeds |
+| Architectures other than double wishbone, MacPherson, trailing arm | rejected at load |
+| Offset-axis MacPherson struts | clamp must lie within 1 mm of the LBJ→top-mount axis |
+| Four-wheel force solve | vertical distribution is indeterminate without roll rates; the solver detects 4 patches and stops |
+| Inboard brakes (`brake_torque_reaction: sprung`) | errors out |
+| Floating steering rack (`rack: floating`) | errors out |
+| Anti-roll bars / heave links in the force solve | no torsional force model yet |
+| `front_brake_bias` and `driven_axle` in the force solve | authored but ignored |
+| Arbitrary mechanism combinations | rejected at load, with the reason named |
 
-The system introduces two right-handed coordinate systems as `Chassis` and
-`World`. Chassis space follows the ISO 8855:2011 vehicle axis system: X points
-forwards, Y left, and Z upwards, with the basis fixed to the sprung mass.
-Solver variables, constraints, hardpoints, and solved positions exist only in
-this system.
+---
 
-World space follows the ISO earth-fixed axis system. World X and Y lie in the
-ISO ground plane, world Z points upwards, and gravity is always world `-Z`.
-This project considers only a straight, level road, so the ISO local road
-plane, ground plane, and world `Z = 0` plane coincide. Road grade, road bank,
-yaw, and non-planar surfaces are outside the model.
+## 3. Coordinate system and units
 
-At design condition the chassis and world axes are aligned, the front axle
-centreline is `X = 0`, and the wheel contact-centre line is `Z = 0`. During a sweep,
-fixed hardpoints remain fixed in chassis space while the road plane may move
-relative to them as the modelled axle heaves or rolls. This represents
-suspension motion associated with vehicle-generated vertical, lateral, or
-longitudinal forces; the solver is kinematic and does not calculate those
-forces or a dynamic body attitude.
+**ISO 8855: +X forward, +Y left, +Z up.** Left-side hardpoints have **positive Y**.
 
-The axle contact closure models each tyre as a rigid disc and returns two
-wheel contact centres. It constructs the single plane tangent to both wheels
-and extrudes the contact line parallel to chassis X. Consequently:
+- **Origin:** front axle centreline, at design ride height, on the ground plane. The
+  rear contact patch therefore sits at `x = -wheelbase`, which the force solve checks.
+- **Lengths:** mm. `units: millimeters` is the only accepted value.
+- **Angles:** degrees in files and output; radians internally.
+- **Forces:** N. **Moments:** N·mm.
+- **Tyre:** section width in mm, **rim diameter in inches** (the one non-metric input).
+- **Wheel offset:** ET convention, **positive = inboard**, measured along the axle axis
+  from the wheel centreline to the hub mounting face. Not a difference of Y coordinates.
+- **CG height** in the force solve is measured from the **road plane**, not from `z = 0`.
 
-- local axle heave and roll relative to the road are observable;
-- longitudinal road gradient is zero by construction;
-- one axle cannot determine whole-vehicle pitch, yaw, or longitudinal
-  translation, so these are assigned zero rather than inferred;
-- an opposite-axle pivot is neither required nor modelled; and
-- `wheel_contact_centre` is an output and cannot be a sweep target.
+Hardpoints describe the **design condition**. Fixed chassis points stay fixed; everything
+else moves relative to them.
 
-The resulting `WorldSpace` value is a presentation transform only. It maps the
-same axle-local road plane to world `Z = 0`, preserves chassis +X as world +X,
-and rotates/translates for local roll and heave. Metric calculation does not
-consume this transform.
+Two sign conventions to watch:
 
-Metric reference systems are deliberate:
+- `toe_angle` is our convention (**positive = toe-in**, side-folded). `steer_angle` is
+  ISO vehicle-fixed. Use `steer_angle` when comparing against anything ISO-based.
+- `scrub_radius` is the ISO **unsigned** distance and includes mechanical trail.
+  SUSProg's scrub radius is our `scrub_signed` / `steering_axis_offset_ground`.
 
-- `camber` is the ISO vehicle-relative camber angle, while road-relative wheel
-  inclination is not currently exported;
-- `caster`, `kpi`, and ISO `steer_angle` use the chassis/vehicle axes;
-- `toe_angle` is the project convention: a side-folded roadwheel heading where
-  positive means toe-in; it is reported alongside, rather than substituted for,
-  the ISO vehicle-fixed `steer_angle`;
-- `steering_axis_offset_ground`, `scrub_radius`, and `mechanical_trail` use
-  the ISO tyre axes on the local road plane;
-- `track` is the ISO rest dimension on horizontal ground; `track_change`,
-  `ride_height_change`, swing-arm lengths, and geometric anti percentages use
-  the axle-local road plane represented in chassis coordinates;
-- wheel travel, heave, instant-centre coordinates, rack displacement, and
-  roll-centre coordinates use chassis axes; and
-- damper length and other Euclidean link lengths are invariant under the
-  chassis-to-world rigid transform.
+---
 
-`ride_height_change` is therefore the change in perpendicular clearance from
-the chassis origin to the axle-local road plane. It is not a full-vehicle ride
-height or pitch result. Likewise, the exported `roll` is a kinematic axle
-state calculated as the ISO suspension roll angle of the current line joining
-the wheel centres, not a solved sprung-mass attitude. The anti percentages are
-geometric construction metrics; they do not predict pitch under load.
+## 4. Installation
 
-The contact model omits tyre deflection, loaded radius, contact-patch extent,
-forces, compliance, and interaction with another axle. A future full-vehicle
-model could observe pitch from both axles, but that degree of freedom is
-intentionally absent from the present single-axle model.
+Written for someone who has never installed Python. If you already have a step, skip it —
+nothing below breaks on a re-run.
 
-## Installation
+### 4.1 Git
 
-Python 3.12 or newer is required. The package is not currently published to
-PyPI.
+Git is what downloads the repository and tracks your changes.
 
-### Core library only
+- **Windows:** download from [git-scm.com/download/win](https://git-scm.com/download/win),
+  run the installer, accept every default.
+- **macOS:** `xcode-select --install`, or download from
+  [git-scm.com/download/mac](https://git-scm.com/download/mac).
+- **Linux:** `sudo apt install git` (or your distro's equivalent).
 
-Install the transport-independent solver API:
+Check it worked. Open a terminal — **Windows: PowerShell** (Start menu → type
+"PowerShell"); **macOS/Linux: Terminal** — and run:
 
 ```bash
-uv pip install "kinematics @ git+https://github.com/suspension-explorer/suspension-explorer-core.git"
+git --version
 ```
 
-This installs NumPy, SciPy, and Pydantic. It does not install YAML, CLI, export,
-or plotting dependencies.
+Anything like `git version 2.4x.x` is fine.
 
-### CLI and file export
+### 4.2 Python 3.12 or newer
 
-Install YAML loading and CSV/Parquet export support:
+The solver needs Python 3.12+. You do **not** have to install it yourself — `uv`
+(next step) will fetch the right version automatically if you don't have it. Check what
+you have:
 
 ```bash
-uv pip install "kinematics[cli] @ git+https://github.com/suspension-explorer/suspension-explorer-core.git"
+python --version
 ```
 
-### CLI with visualization
+If that prints 3.12 or higher, you're done. If it prints something older, or errors, do
+nothing — carry on to `uv` and it will handle it.
 
-Install the CLI plus static plotting and animation support:
+> If you use Anaconda, leave it alone. This project uses its own isolated environment and
+> will not touch your conda installs.
 
-```bash
-uv pip install "kinematics[cli,viz] @ git+https://github.com/suspension-explorer/suspension-explorer-core.git"
+### 4.3 uv
+
+`uv` is the package manager. It creates the project's isolated environment and installs
+every library into it, so nothing here can break your other Python work.
+
+**Windows (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-### Development checkout
+**macOS / Linux:**
 
 ```bash
-git clone https://github.com/suspension-explorer/suspension-explorer-core.git
-cd suspension-explorer-core
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Close and reopen your terminal**, then check:
+
+```bash
+uv --version
+```
+
+If the command is not found after reopening, the installer's folder isn't on your PATH —
+on Windows that is `%USERPROFILE%\.local\bin`, on macOS/Linux `~/.local/bin`.
+
+### 4.4 just
+
+`just` is a command runner. It turns the multi-step setup below into `just setup`. It is
+optional — every `just` recipe is in the `justfile` and can be typed out by hand — but
+installing it is two minutes.
+
+**Windows (PowerShell):**
+
+```powershell
+winget install --id Casey.Just --exact
+```
+
+**macOS:**
+
+```bash
+brew install just
+```
+
+**Linux:**
+
+```bash
+sudo apt install just     # or: cargo install just
+```
+
+Check:
+
+```bash
+just --version
+```
+
+### 4.5 Visual Studio Code (optional, recommended)
+
+VS Code is the editor. You can use anything — the tool is driven from the terminal — but
+VS Code is what the team uses and the repo ships its settings.
+
+1. Download from [code.visualstudio.com](https://code.visualstudio.com) and install.
+2. Open it, go to the Extensions panel (`Ctrl+Shift+X`), and install:
+   - **Python** (Microsoft)
+   - **YAML** (Red Hat) — catches indentation mistakes in geometry files as you type
+3. VS Code has a built-in terminal (`Ctrl+`` `) — use it for every command below.
+
+### 4.6 Clone the repository
+
+Pick where it should live, `cd` there, and clone:
+
+```bash
+cd ~/Documents
+git clone https://github.com/Raphael-Larroquette/BSSR-suspension.git
+cd BSSR-suspension
+```
+
+On Windows, `~/Documents` works in PowerShell. Everything from here on is run **from the
+repository root** — the folder containing `justfile` and `pyproject.toml`.
+
+### 4.7 Install the dependencies
+
+```bash
 just setup
 ```
 
-The development workflow uses [uv](https://docs.astral.sh/uv/) and
-[`just`](https://github.com/casey/just).
+That is three commands in one: `uv venv` creates the isolated environment in `.venv/`,
+`uv sync --all-extras --dev` installs every dependency (NumPy, SciPy, Pydantic, pandas,
+PyYAML, pyarrow, typer, matplotlib, openpyxl, and the dev tools), and `uv pip install -e .`
+installs the `kinematics` package itself in editable mode so your source edits take effect
+immediately.
 
-## Quick start
-
-A CLI run uses two YAML files:
-
-1. A geometry file defines the design-condition hardpoints, architecture, and
-   installed mechanisms.
-2. A sweep file defines one or more coordinated target motions.
-
-### 1. Define a corner geometry
-
-The following is a complete rack-steered double-wishbone corner with no spring
-mechanism. Save it as `geometry.yaml`.
-
-```yaml
-name: example corner
-version: 1.0.0
-units: millimeters
-type: double_wishbone
-scope: corner
-side: left
-
-actuation:
-  type: direct
-  mount: lower_wishbone
-spring:
-  type: none
-
-config:
-  steering:
-    type: rack
-  wheel:
-    offset: 0
-    tire:
-      aspect_ratio: 0.55
-      section_width: 270
-      rim_diameter: 13
-  cg_position: { x: 1250, y: 0, z: 450 }
-  wheelbase: 2500
-
-hardpoints:
-  lower_wishbone_inboard_front: { x: 250, y: 400, z: 200 }
-  lower_wishbone_inboard_rear: { x: -250, y: 450, z: 200 }
-  lower_wishbone_outboard: { x: 0, y: 900, z: 200 }
-
-  upper_wishbone_inboard_front: { x: 225, y: 350, z: 500 }
-  upper_wishbone_inboard_rear: { x: -275, y: 350, z: 500 }
-  upper_wishbone_outboard: { x: -25, y: 750, z: 500 }
-
-  trackrod_inboard: { x: 50, y: 200, z: 250 }
-  trackrod_outboard: { x: 150, y: 800, z: 275 }
-
-  axle_inboard: { x: -20, y: 800, z: 308.426 }
-  axle_outboard: { x: -20, y: 950, z: 313.426 }
-```
-
-For `steering.type: rack`, use `trackrod_inboard` and `trackrod_outboard`.
-For `steering.type: none`, replace them with `toe_link_inboard` and
-`toe_link_outboard`. A fixed toe link is part of the chassis geometry and is
-not a steering actuator.
-
-### 2. Define a bump sweep
-
-Save the following as `sweep.yaml`. The wheel center moves from 40 mm of droop
-to 40 mm of bump while the rack remains at its design position.
-
-```yaml
-version: 1
-steps: 41
-targets:
-  - type: point
-    point: wheel_center
-    side: left
-    direction: { axis: z }
-    mode: relative
-    start: -40
-    stop: 40
-
-  - type: actuator_position
-    actuator: rack
-    direction: { axis: y }
-    mode: relative
-    start: 0
-    stop: 0
-```
-
-Every physical actuator must be controlled exactly once. A rack-steered model
-therefore needs one `type: actuator_position`, `actuator: rack` target along Y,
-even when the rack is held at zero displacement. `relative` values are measured
-from the authored design condition; `absolute` values are coordinates in chassis
-space. Every corner-owned target must identify `side: left` or `side: right`.
-A standalone corner exposes only `left`; an axle exposes both sides. Shared
-coordinates such as `rack` remain unsided. A physical `trackrod_inboard` point
-target does not substitute for the named rack actuator coordinate.
-
-All target sequences must have the same number of values. Multiple targets are
-paired by index rather than expanded into a Cartesian product. Use `start`,
-`stop`, and the file-level `steps`, or give every target an equal-length
-`values` list.
-
-### 3. Check the design condition
+Without `just`, type those three lines yourself:
 
 ```bash
-uv run kinematics visualize --geometry geometry.yaml --output geometry.png
+uv venv
+uv sync --all-extras --dev
+uv pip install -e .
 ```
 
-This validates and builds the geometry, reports whether every derived wheel
-contact centre lies on the reconstructed road plane, and writes a static
-image. The diagnostic also prints each centre's raw chassis Z coordinate and
-signed road-plane distance. It requires `[cli,viz]`.
+Expect a minute or two the first time.
 
-### 4. Solve and export the sweep
+> You never activate the environment manually. Every command in this document starts with
+> `uv run`, which runs it inside `.venv/` for you.
 
-Write CSV output:
+### 4.8 Check it works
 
 ```bash
-uv run kinematics sweep \
-  --geometry geometry.yaml \
-  --sweep sweep.yaml \
-  --out results.csv
+uv run python Working/run_all.py --list
 ```
 
-Use a `.parquet` output suffix for Parquet. Add `--animation-out motion.gif` or
-`--animation-out motion.mp4` to render the solved motion when visualization
-dependencies and the corresponding animation writer are installed.
-
-The output is wide-form: each row is one sweep step, point coordinates use
-lowercase `snake_case` columns, and applicable metrics and solver information
-are included alongside the positions. Diagnostics are printed to stderr and do
-not discard otherwise usable solved frames.
-
-<p align="center">
-  <img src="images/animation.gif" alt="Kinematic sweep animation" width="80%">
-  <br>
-  <em>A coordinated bump, droop, and steering sweep.</em>
-</p>
-
-## Full-axle inputs
-
-Set `scope: axle` to solve two corners together. Axle files separate
-vehicle-wide configuration, axle configuration, side hardpoints, and shared
-center hardpoints:
-
-```yaml
-type: double_wishbone
-scope: axle
-name: example axle
-version: 1.0.0
-units: millimeters
-
-vehicle_config:
-  cg_position: { x: 1250, y: 0, z: 450 }
-  wheelbase: 2500
-
-axle_config:
-  axle_position: front
-  steering: { type: rack }
-  actuation: { type: direct, mount: lower_wishbone }
-  spring: { type: none }
-  anti_roll: { type: none }
-  heave_link: { type: none }
-  wheel:
-    offset: 0
-    tire:
-      aspect_ratio: 0.55
-      section_width: 270
-      rim_diameter: 13
-
-hardpoints:
-  left:
-    # The same left-corner hardpoints used above.
-    # Omit `right` to mirror this complete map through Y = 0.
-    # ...
-```
-
-The complete maintained examples are:
-
-- [Mirrored double-wishbone axle](tests/data/axle_geometry.yaml)
-- [Explicit asymmetric double-wishbone axle](tests/data/axle_geometry_explicit.yaml)
-- [MacPherson axle](tests/data/macpherson_axle_geometry.yaml)
-- [Pushrod-rocker axle with U-bar](tests/data/axle_geometry_rocker.yaml)
-- [Pushrod-rocker axle with T-bar](tests/data/axle_geometry_t_bar.yaml)
-
-Axle sweep targets must identify `side: left` or `side: right` for side-local
-points. A rack has one shared lateral degree of freedom, exposed as the
-side-independent `rack` actuator position. For example, a three-step roll sweep
-is:
-
-```yaml
-version: 1
-targets:
-  - type: point
-    point: wheel_center
-    side: left
-    direction: { axis: z }
-    mode: relative
-    values: [-30, 0, 30]
-
-  - type: point
-    point: wheel_center
-    side: right
-    direction: { axis: z }
-    mode: relative
-    values: [30, 0, -30]
-
-  - type: actuator_position
-    actuator: rack
-    direction: { axis: y }
-    mode: relative
-    values: [0, 0, 0]
-```
-
-## Python API
-
-`kinematics.core` accepts already-decoded mappings and has no YAML or filesystem
-dependency. This is the preferred boundary for applications embedding the
-solver:
-
-```python
-from kinematics.core.analysis import analyze_sweep
-from kinematics.core.input import build_suspension, build_sweep
-
-# `geometry_data` and `sweep_data` are decoded mappings supplied by the caller.
-suspension = build_suspension(geometry_data)
-sweep = build_sweep(sweep_data, suspension)
-analysis = analyze_sweep(suspension, sweep)
-
-for frame in analysis.frames:
-    print(frame.index, frame.positions, frame.metrics)
-```
-
-`analyze_sweep()` returns structured suspension metadata, named point positions,
-metric metadata, per-frame solver information, applicable corner and axle
-metrics, renderer-neutral element paths, reference conditions, and diagnostics.
-The CLI is a thin adapter around this core API for YAML input and file output.
-
-## How the solver works
-
-```text
-decoded geometry mapping
-        |
-        v
-validate schema and build suspension topology
-        |
-        v
-derive initial points, constraints, and actuator degrees of freedom
-        |
-        v
-validate and expand coordinated sweep targets
-        |
-        v
-solve each step with scipy.optimize.least_squares
-        |
-        v
-calculate derived points, metrics, derivatives, and diagnostics
-        |
-        v
-structured analysis or CLI file export
-```
-
-Rigid links and bodies are represented by geometric constraints. For each sweep
-step, the solver finds the coordinates of all free points that minimize the
-constraint and target residuals. The problem is solved as nonlinear least
-squares with SciPy's Levenberg-Marquardt implementation and analytical
-Jacobians.
-
-This lets the same suspension topology be driven by targets such as wheel-center
-height and rack displacement without deriving a separate closed-form solution
-for every motion. The previous solved state seeds the next step, and diagnostics
-report convergence, residual acceptance, branch continuity, derivative
-availability, mechanism chirality, and transmission-margin problems.
-
-## Project structure
-
-```text
-src/kinematics/
-  core/                    Transport-independent solver and analysis API
-    schema/                Strict geometry, configuration, and sweep models
-    suspensions/
-      corner/              Double-wishbone and MacPherson corner models
-      axle/                Generic two-corner composer and shared mechanisms
-    points/derived/        Dependency-aware derived point calculations
-    metrics/               Corner, axle, and derivative metrics
-    loads/                 Static force solve: vehicle, structure, and system
-    primitives/            Geometry, rigid bodies, vectors, and point keys
-    constraints.py         Constraint residuals and analytical Jacobians
-    bodies.py              Rigid bodies derived from declared elements
-    solver.py              Nonlinear solve and Jacobian assembly
-    sweep.py               Sweep solving, metrics, and diagnostics
-    analysis.py            Structured application-facing result model
-  cli/                     YAML, export, terminal, and visualization adapters
-Working/                   Cars, and the workflows run against them
-  models/<car>/            Hardpoints and vehicle configuration
-  sweep_sets/              Kinematic sweeps and their reports
-  forces/<car>/            Static force-solve configuration and load cases
-tests/
-  data/                    Valid example geometries, sweeps, and e2e references
-tools/
-  generate_jacobians.py    Symbolic Jacobian generator
-```
-
-`Suspension` defines the common model interface. Concrete corner classes own
-their locating geometry and point-role hooks. `AxleSuspension` composes two
-already-built corners and the optional shared anti-roll and heave mechanisms;
-new locating architectures belong in `suspensions/corner/`, not in a new axle
-class.
-
-## Development
-
-Common commands are:
+That prints the sweep sets and force configurations it found. Then validate the whole
+configuration without solving anything:
 
 ```bash
-just test
-just check
-just format
-just spellcheck
+uv run python Working/run_all.py --dry-run
 ```
 
-Run manual visualization tests with:
+If both are clean, you're installed. Optionally run the test suite (`just test`).
+
+---
+
+## 5. Quick start
+
+**Everything you touch to *use* the tool is in `Working/`.** The solver itself lives in
+`src/` and you should not need to open it.
+
+```
+Working/
+  run_all.py              THE command
+  models/<car>/           the car: hardpoints, config, joint declarations
+    MODELS.md               geometry + joints syntax reference
+  sweep_sets/<set>/       kinematic sweeps: run.yaml + sweeps/
+    RUNNING.md              run.yaml keys, CLI flags, precedence
+    SWEEPS.md               how to write a sweep file; the sweep catalogue
+    CHARACTERISTICS.md      what every reported characteristic means
+  forces/<car>/           static force solve: forces.yaml + cases.csv
+    force.md                the force workflow
+```
+
+### 5.1 Run it
+
+One command, from the repository root:
 
 ```bash
-uv run pytest tests/ -m ""
+uv run python Working/run_all.py
 ```
 
-Generated analytical Jacobians live in `src/kinematics/core/jacobians.py`. Edit
-their symbolic definitions in `tools/generate_jacobians.py` and regenerate them
-with `just generate-jacobians` rather than manually changing generated
-expressions.
+That solves every enabled sweep in every sweep set, writes a CSV per sweep, renders the
+requested plots and animations, builds `report.md` for each set, and then runs the static
+force solve. **There is no second entry point.** `sweep_sets/runner.py` is a library that
+`run_all.py` calls, not a command.
 
-## License
+### 5.2 CLI overrides
 
-From version 0.6.0 onward, Suspension Explorer Core is licensed under the
-**GNU Affero General Public License v3.0 only (AGPL-3.0-only)**. Alternative
-commercial licensing is available by separate agreement.
+Every flag below overrides `run.yaml` **for that invocation only**.
+Precedence, highest first: **CLI flags → `run.yaml` → the sweep YAML.**
 
-| Versions | License                                                        |
-| -------- | -------------------------------------------------------------- |
-| ≤ 0.5.1  | Apache License 2.0                                             |
-| ≥ 0.6.0  | AGPL-3.0-only, with alternative commercial licensing available |
+**What runs**
 
-Releases up to and including v0.5.1 were published under Apache-2.0. That
-license grant remains in force for those releases.
+| Flag | Effect |
+| --- | --- |
+| *(none)* | every sweep set, then every force solve |
+| `--sets front,rear` | only these sweep sets, by folder name |
+| `--config PATH` | one sweep set by path to its `run.yaml`. Not with `--sets` |
+| `--cars aurora` | only these force configurations, by folder name |
+| `--forces-config PATH` | one force configuration by path. Not with `--cars` |
+| `--no-sweeps` | skip the sweeps |
+| `--no-forces` | skip the force solve (it is on by default) |
 
-The AGPL version is free to use, including for commercial engineering,
-research, education, motorsport, and hobby projects, provided that you comply
-with its terms.
+**Inside each sweep set**
 
-Alternative commercial licensing is intended for organisations that want to
-incorporate Suspension Explorer Core into proprietary or closed-source
-software or services where complying with the AGPL is not suitable.
+| Flag | Effect |
+| --- | --- |
+| `--only A,B` / `--skip A,B` | run only / all but these sweeps |
+| `--plots A,B` / `--gifs A,B` | only these sweeps get a figure / an animation |
+| `--no-plots` / `--no-gifs` / `--no-joints` | drop all figures / animations / the bearing section |
+| `--jobs N` | parallel solver processes |
+| `--report-only` | rebuild reports from the CSVs already on disk, solve nothing |
+| `--solve-only` | solve and stop, no report |
+| `--on-bad-solve off\|warn\|fail` | what to do about non-converged or high-residual steps |
+| `--geometry PATH` † | run the set against a different car |
+| `--sweeps-dir PATH` † | an alternative directory of sweep YAMLs |
+| `--side left\|right` † | which corner the per-corner rows report |
 
-For commercial licensing, contact
-[contact@nickmccleery.com](mailto:contact@nickmccleery.com).
+† describes **one** set, so it needs `--sets` or `--config` to say which.
 
-### Can I use it for confidential or commercial engineering work?
+**Other**
 
-Yes.
+| Flag | Effect |
+| --- | --- |
+| `--list` | print the sweep sets and force configurations found, then stop |
+| `--dry-run` | validate every configuration and print every command, writing nothing |
 
-The AGPL applies to the software, not simply to data processed by the
-software. Using Suspension Explorer Core to analyse a commercial race car,
-confidential vehicle programme, Formula Student car, or other proprietary
-design does not by itself require you to disclose:
+Sweep selectors take the numeric prefix or the full stem — `--only 01,09` and
+`--only 01_bump_parallel,09_steer_in_roll` are the same. A selector applies to **every**
+set being run, so pair it with `--sets`.
 
-- hardpoint coordinates;
-- vehicle geometry;
-- simulation inputs;
-- analysis results;
-- setup data; or
-- other confidential engineering information.
+**Worked examples**
 
-You can therefore use the solver internally for commercial or confidential
-engineering work under the AGPL.
+```bash
+# the front set only, forces still solved after it
+uv run python Working/run_all.py --sets front
 
-Additional obligations may arise if you modify Suspension Explorer Core,
-distribute it or a work based on it, combine or incorporate it into other
-software, or make a modified version available for users to interact with
-over a network.
+# fastest loop: rebuild the reports from existing CSVs, solve nothing
+uv run python Working/run_all.py --report-only --no-forces
 
-If you want to incorporate the solver into a proprietary application or
-service without complying with the applicable AGPL obligations, contact us
-about a commercial license.
+# two sweeps with animations, nothing else
+uv run python Working/run_all.py --sets front --only 09,10 --gifs 09,10 --no-forces
 
-This section is an informal summary intended to explain the project's
-licensing model. The applicable license terms govern.
+# numbers only, no figures
+uv run python Working/run_all.py --no-plots --no-gifs
 
-### Contributions
+# forces only, after editing forces.yaml or cases.csv
+uv run python Working/run_all.py --no-sweeps
 
-Contributions are welcome.
+# the same sweep set against a different car
+uv run python Working/run_all.py --sets front --geometry Working/models/gen14/front.yaml
+```
 
-Because Suspension Explorer Core remains available under the AGPL while also
-being offered under separate commercial terms, the project needs sufficient
-rights to include accepted contributions under both licensing models.
+### 5.3 Where to read the results
 
-Before contributing, please read [CONTRIBUTING.md](CONTRIBUTING.md).
+Results land **beside the geometry they were run against**, never in your current
+directory:
 
-Pull requests include the following contributor acknowledgement:
+| Path | Contents |
+| --- | --- |
+| `Working/models/<car>/report/<set>/report.md` | **start here** — every characteristic, at design / min / max / range, plus the bearing misalignment table |
+| `Working/models/<car>/report/<set>/` | the plots, `summary.csv`, `joints.csv` |
+| `Working/models/<car>/outputs/<set>/` | one raw CSV per sweep, and the animations |
+| `Working/models/<car>/outputs/<set>/_resolved_sweeps/` | what was actually solved after the merge — read, never edit |
+| `Working/forces/<car>/outputs/forces.csv` | force at every joint, grouped by part — the FEA input |
+| `Working/forces/<car>/outputs/load_transfer.csv` | each wheel's vertical load, per case |
 
-> - [ ] I have read and agree to the contributor terms in
->       `CONTRIBUTING.md`. I confirm that I own this contribution or have
->       authority to submit it, and I assign the copyright in my contribution
->       to Nick McCleery, as maintainer of Suspension Explorer Core, on the
->       terms stated there. By checking this box and submitting this pull
->       request, I intend this acknowledgement to constitute my electronic
->       signature and acceptance of those terms.
+All of it is git-ignored and reproducible from the inputs.
 
-Accepted contributions remain available as part of the open-source project
-under **AGPL-3.0-only**. The copyright assignment also allows those
-contributions to be included in separately licensed commercial versions of
-Suspension Explorer Core.
+To understand a number in `report.md`, go to
+[`Working/sweep_sets/CHARACTERISTICS.md`](Working/sweep_sets/CHARACTERISTICS.md) — it is
+the definition list, including the convention traps to check before you diff against
+SUSProg.
+
+### 5.4 Change something on an existing car
+
+| To change | Edit | Reference |
+| --- | --- | --- |
+| a hardpoint, the architecture, the tyre, the CG | `Working/models/<car>/front.yaml` or `rear.yaml` | [`MODELS.md`](Working/models/MODELS.md) |
+| which bearings get a misalignment number | the `joints:` block of that same file | [`MODELS.md` §5](Working/models/MODELS.md) |
+| sweep ranges, step counts, which sweeps run, which channels are reported or plotted | `Working/sweep_sets/<set>/run.yaml` | [`RUNNING.md`](Working/sweep_sets/RUNNING.md) |
+| the *kind* of sweep — which points are driven, in which direction | the sweep YAML in `<set>/sweeps/` | [`SWEEPS.md`](Working/sweep_sets/SWEEPS.md) |
+| load cases | `Working/forces/<car>/cases.csv` | [`force.md`](Working/forces/force.md) |
+| mass, solver policy, structural filter | `Working/forces/<car>/forces.yaml` | [`force.md`](Working/forces/force.md) |
+
+Tuning the `joints:` block never needs a re-solve — the sweeps export the
+axis-independent relative rotation, so `--report-only --no-forces` is the loop.
+
+### 5.5 Set up a new car or a new geometry
+
+A car is a folder. Nothing is registered anywhere — `run_all.py` discovers
+`sweep_sets/*/run.yaml` and `forces/*/forces.yaml` on disk.
+
+1. **Copy the geometry.** `cp -r Working/models/aurora Working/models/gen13` and edit
+   `front.yaml` / `rear.yaml`. Point names are fixed vocabulary and unknown keys are an
+   error, so a typo names itself. See [`MODELS.md`](Working/models/MODELS.md).
+
+2. **Check it before spending CPU:**
+
+   ```bash
+   uv run python Working/models/gen13/check.py Working/models/gen13/front.yaml
+   uv run kinematics visualize --geometry Working/models/gen13/front.yaml --output front.png
+   ```
+
+   The first says whether it loads and builds. The second draws the design condition and
+   reports whether every derived wheel contact centre lands on the reconstructed road
+   plane. **Fix that before reading any characteristic** — every road-plane metric is
+   built on it.
+
+3. **Point a sweep set at it.** Either edit `geometry:` in the set's `run.yaml`, or run
+   it once with an override:
+
+   ```bash
+   uv run python Working/run_all.py --sets front --geometry Working/models/gen13/front.yaml
+   ```
+
+   Results follow the geometry, so there is no collision with Aurora's.
+
+4. **New sweep set** (a different set of sweeps, not just different ranges): copy
+   `Working/sweep_sets/front/` to a new folder, set `name:` and `geometry:`, and pick the
+   reporter — `susreport` for a two-wheel axle, `susreport_rear` for a single corner.
+   Every file in `sweeps/` needs an entry under `sweeps:`, even if only `run: false`.
+   Keys: [`RUNNING.md`](Working/sweep_sets/RUNNING.md). Grammar for a new sweep file:
+   [`SWEEPS.md`](Working/sweep_sets/SWEEPS.md).
+
+5. **New force configuration:** copy `Working/forces/aurora/` to `Working/forces/gen13/`,
+   point `geometry.front` / `geometry.rear` at the new model, set the mass, and edit
+   `cases.csv`. Then run:
+
+   ```bash
+   uv run kinematics forces --config Working/forces/gen13/forces.yaml --describe
+   ```
+
+   `--describe` prints the exact part and joint names the config refers to — run it first
+   on any new model so you never have to guess them. `--check` prints per-part
+   equilibrium residuals. Details: [`force.md`](Working/forces/force.md).
+
+6. **Validate the lot** without solving:
+
+   ```bash
+   uv run python Working/run_all.py --dry-run
+   ```

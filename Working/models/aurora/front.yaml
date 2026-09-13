@@ -1,7 +1,7 @@
 type: double_wishbone
 scope: axle
 name: "Aurora Front Axle Recreated"
-version: "0.1.2" #the first digit represents a fully funtional version, the second digit is a test version (eg new feature), and the final digit is for fixes / small changes
+version: "0.1.2"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
 vehicle_config:
@@ -13,22 +13,21 @@ axle_config:
   steering:
     type: rack
   actuation:
-    type: direct #should add more types to this
-    mount: lower_wishbone #should add more mounting locations
+    type: direct
+    mount: lower_wishbone
   spring:
     type: coilover
   anti_roll:
     type: none
   heave_link:
     type: none
-  wheel: #wheel data for Enlighten tires is encoded in the TyreSize: 95/80R16
-    offset: 23.737 #This is the distance from the centerline of the wheel to the wheel mounting face of the hub. You must measure along the axle’s axis, it is not just the difference between points.
+  wheel:   # Enlighten tyre, 95/80R16
+    offset: 23.737   # ET: wheel centreline to hub face, measured along the axle axis
     tire:
-      aspect_ratio: 0.8  #this is the Sidewall height  / section width (for enlighten its 76mm / 95mm)
+      aspect_ratio: 0.8   # sidewall height / section width = 76 / 95
       section_width: 95
-      rim_diameter: 16 #this value is in inches!
+      rim_diameter: 16    # inches
 
-# A missing right block means reflect the complete left corner through Y = 0.
 hardpoints:
   left:
   # Lower wishbone.
@@ -41,38 +40,38 @@ hardpoints:
     upper_wishbone_inboard_rear: {x: -107.873, y: 235.389, z: 514.82}
     upper_wishbone_outboard: {x: -42.873, y: 363.02, z: 521.647}
 
-  # Track rod.
-    trackrod_inboard: {x: -150, y: 228.97, z: 531.106} #This is the steering inner RodEnd
-    trackrod_outboard: {x: -129.718, y: 354.863, z: 538.251} #This is the steering outer RodEnd
+  # Track rod (inner / outer steering rod ends).
+    trackrod_inboard: {x: -150, y: 228.97, z: 531.106}
+    trackrod_outboard: {x: -129.718, y: 354.863, z: 538.251}
 
-  # Axle.
-    axle_inboard: {x: 0, y: 405.893, z: 278.5} #this is the point of the axle axis within the upright? (It is non critical and must simply be about 100-200mm from the axle_outboard along the correct direction (the axles axis))
-    axle_outboard: {x: 0, y: 477.279, z: 278.5} #this is the point where the axle axis meets the hub mounting face
+  # Axle axis. axle_outboard is where the axis meets the hub mounting face;
+  # axle_inboard is any second point on the same axis, ~100-200 mm inboard.
+    axle_inboard: {x: 0, y: 405.893, z: 278.5}
+    axle_outboard: {x: 0, y: 477.279, z: 278.5}
 
-  # Outboard coilover.
-    strut_bottom: {x: 16.487, y: 335.273, z: 209.701} #this is the bottom mount out the spring & damper onto the LCA
-    strut_top: {x: 16.487, y: 240.576, z: 433.285} #this is the top mount out the spring & damper
+  # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
+    strut_bottom: {x: 16.487, y: 335.273, z: 209.701}
+    strut_top: {x: 16.487, y: 240.576, z: 433.285}
 
+  # No `right:` block, so the left corner is mirrored through Y = 0.
 
-#not mentioning the right side defaults it to a mirror of the left.
-
-
-joints: #this section is for missalignment outputs 
-  lower_wishbone_inboard_front: #the outputs from this are expected to be 0 for all cases (or extremely close to 0)
+# Bearing misalignment outputs only. Not read by the force solve. See MODELS.md section 5.
+joints:
+  # Inboard bushes: bore on the pivot axis, so these must read 0.00 deg.
+  lower_wishbone_inboard_front:
     label: "LCA Front Bush"
     type: bushing
     bore:
       part: lower_wishbone
       axis: {from: lower_wishbone_inboard_front, to: lower_wishbone_inboard_rear}
-  upper_wishbone_inboard_front: #the outputs from this are expected to be 0 for all cases (or extremely close to 0)
+  upper_wishbone_inboard_front:
     label: "UCA Front Bush"
     type: bushing
     bore:
       part: upper_wishbone
       axis: {from: upper_wishbone_inboard_front, to: upper_wishbone_inboard_rear}
 
-  # Outboard ball joints. Both are pressed into a fully located arm, so their
-  # housings are determinate and the bore runs along the steering axis.
+  # Outboard ball joints: pressed into a fully located arm, bore on the steering axis.
   lower_wishbone_outboard:
     label: "LBJ"
     type: spherical
@@ -89,12 +88,12 @@ joints: #this section is for missalignment outputs
       part: upper_wishbone
       axis: centred
 
-
-  # For the Track rods the spin of them is undetermined since its a 2 point member (ie there is no 3rd point to solve the system of equations)
+  # Track rod and damper body are two-point members: their spin is undetermined,
+  # so the housing is `indeterminate` and the report gives a band. Size against locked.
   trackrod_outboard:
     label: "Outer Tie Rod End"
     type: rod_end
-    bore: {part: upright, axis: {vector: [-50.284,16.291,-5.917]}}
+    bore: {part: upright, axis: {vector: [-50.284, 16.291, -5.917]}}
     housing: {part: track_rod, axis: indeterminate}
   trackrod_inboard:
     label: "Inner Tie Rod End"
@@ -102,7 +101,6 @@ joints: #this section is for missalignment outputs
     bore: {part: chassis, axis: {chassis_axis: x}}
     housing: {part: track_rod, axis: indeterminate}
 
-  # Coilover eyes. The damper body is itself a two-point member.
   strut_bottom:
     label: "Damper Lower Mount"
     type: spherical

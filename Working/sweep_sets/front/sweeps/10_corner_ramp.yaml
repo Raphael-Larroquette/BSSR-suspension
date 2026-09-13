@@ -1,18 +1,6 @@
-# 10 - CORNER RAMP: ROLL AND STEER TOGETHER
-# Every target in a sweep file interpolates over the same step index, so a
-# sweep is a 1-D PATH, not a grid. That is exactly what is wanted here: roll
-# and steering angle build together from straight-and-level (step 0) to full
-# roll at full lock (last step), which is the path a real corner entry takes.
-#
-# 09 holds one attitude and sweeps the rack; this sweeps both at once. Between
-# them they bracket the mid-corner behaviour without needing a 2-D grid, which
-# this file format cannot express - a grid would need run_all to generate one
-# file per attitude and stitch the CSVs.
-#
-# Read it against 04 (steer, no roll) and 02 (roll, no steer): anything in
-# here that is not the sum of those two is coupling between roll and steer.
-#
-# Ranges here are overridden by run.yaml. See RUNNING.md.
+# 10 - CORNER RAMP. Roll and steer build together from straight-and-level to full roll
+# at full lock. 09 holds one attitude and sweeps the rack; this sweeps both at once.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 65
 targets:
@@ -21,8 +9,8 @@ targets:
     side: left
     direction: {axis: z}
     mode: relative
-    start: 0 #Straight and level
-    stop: -25 #Full roll
+    start: 0
+    stop: -25
   - type: point
     point: wheel_center
     side: right
@@ -34,5 +22,5 @@ targets:
     actuator: rack
     direction: {axis: y}
     mode: relative
-    start: 0 #Straight ahead
-    stop: 35 #Full lock
+    start: 0
+    stop: 35

@@ -1,22 +1,12 @@
-# 01 - REAR BUMP / DROOP
-# The rear is a single trailing-arm corner with no steering, so it has exactly
-# ONE degree of freedom and this sweep has exactly one target. Drive the wheel
-# centre and read everything else.
-#
-# Gives: motion ratio, wheel-centre recession, and the side-view family (SVIC,
-#        SVSA, anti-squat) that the front cannot produce because its wishbone
-#        axes are parallel in side view. There are no camber or toe curves: the
-#        wheel is on the centreline and the pivot is transverse, so neither
-#        angle is defined nor changes.
-#
-# Ranges here are overridden by rear/run.yaml. See RUNNING.md.
+# 01 - REAR BUMP / DROOP. One centreline corner, one degree of freedom, one target.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 41
 targets:
   - type: point
     point: wheel_center
-    side: center #the wheel sits on the vehicle centreline
+    side: center
     direction: {axis: z}
     mode: relative
-    start: -40 #Define Droop in mm from neutral
-    stop: 60 #Define Bump in mm from neutral
+    start: -40
+    stop: 60

@@ -1,4 +1,5 @@
-# 06 - STEERING AT DROOP RIDE HEIGHT (-40 mm)
+# 06 - STEERING AT DROOP. The other end of the 04/05 comparison.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 65
 targets:
@@ -7,15 +8,15 @@ targets:
     side: left
     direction: {axis: z}
     mode: relative
-    start: -55 #Define Droop in mm from neutral
-    stop: -55 #Define Droop in mm from neutral
+    start: -55
+    stop: -55
   - type: point
     point: wheel_center
     side: right
     direction: {axis: z}
     mode: relative
-    start: -55 #Define Droop in mm from neutral
-    stop: -55 #Define Droop in mm from neutral
+    start: -55
+    stop: -55
   - type: actuator_position
     actuator: rack
     direction: {axis: y}

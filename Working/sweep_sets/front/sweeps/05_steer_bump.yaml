@@ -1,6 +1,6 @@
-# 05 - STEERING AT BUMP RIDE HEIGHT (+40 mm)
-# Same rack sweep as 04, both wheels compressed. Diff against 04 to see how
-# much the steering geometry changes when the car is loaded.
+# 05 - STEERING AT BUMP. Same rack sweep as 04, both wheels compressed.
+# Diff against 04 for how much the steering geometry changes when loaded.
+# Ranges and step counts are overridden by run.yaml. See ../../SWEEPS.md.
 version: 1
 steps: 65
 targets:
@@ -9,15 +9,15 @@ targets:
     side: left
     direction: {axis: z}
     mode: relative
-    start: 50 #Define Bump in mm from neutral
-    stop: 50 #Define Bump in mm from neutral
+    start: 50
+    stop: 50
   - type: point
     point: wheel_center
     side: right
     direction: {axis: z}
     mode: relative
-    start: 50 #Define Bump in mm from neutral
-    stop: 50 #Define Bump in mm from neutral
+    start: 50
+    stop: 50
   - type: actuator_position
     actuator: rack
     direction: {axis: y}

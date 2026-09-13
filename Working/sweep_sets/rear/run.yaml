@@ -1,75 +1,42 @@
-# ==========================================================================
-# rear/run.yaml - the rear sweep set
+# Rear sweep set. Key reference: ../RUNNING.md. Channel names: ../CHARACTERISTICS.md.
+# Precedence: CLI flags > this file > the sweep YAML in sweeps/.
 #
-#   uv run python Working/run_all.py --sets rear         this set, then the force solve
-#   uv run python Working/run_all.py --sets rear --no-forces       this set alone
-#
-# PRECEDENCE, highest first:
-#
-#   1. command-line flags   (this invocation only; see RUNNING.md or --help)
-#   2. THIS FILE            (run.yaml)
-#   3. the sweep YAML       (sweeps/NN_*.yaml)
-#
-# Aurora's rear is a SINGLE CORNER, so its ranges take the bare [start, stop]
-# form rather than the axle's {left:, right:}, and it is reported by
-# susreport_rear.py rather than susreport.py.
-#
-# The rear wheel sits on the vehicle CENTRELINE, so the geometry declares
-# `side: center` and the sweep targets in sweeps/ say `side: center` to match.
-# A centreline wheel has no inboard or outboard, so camber, toe, caster, KPI,
-# scrub radius, mechanical trail, half track and the front-view swing arm are
-# not produced at all - naming them under `plots:` below will not bring them
-# back. What is left is the travel, springing and side-view families.
-# ==========================================================================
+# Aurora's rear is a SINGLE CENTRELINE CORNER, so ranges take the bare [start, stop]
+# form and the reporter is susreport_rear. A centreline wheel produces no camber, toe,
+# caster, KPI, scrub, trail, half track or front-view swing arm at all — naming them
+# under `plots:` will not bring them back.
 version: 1
 
-# ---- identity and paths --------------------------------------------------
-# `name` names the output and report folders, so the same sweep set can be
-# pointed at another car without collisions:
-#   <geometry folder>/outputs/<name>/   and   <geometry folder>/report/<name>/
 name: rear
+geometry: ../../models/aurora/rear.yaml    # default target; --geometry overrides
+sweeps_dir: sweeps                         # relative to this file
+reporter: susreport_rear                   # susreport = axle, susreport_rear = corner
+side: null                                 # null for a corner: it has only one
+jobs: auto                                 # min(8, CPU cores); report and gifs are serial
 
-geometry: ../../models/aurora/rear.yaml   # default target; --geometry overrides
-sweeps_dir: sweeps                 # relative to this file
-reporter: susreport_rear           # susreport = axle, susreport_rear = corner
-side: null                         # a corner has only one; null for a corner
-
-#Number of CPU Cores to run the sweeps. Auto is min(8, CPU cores).
-#Report and animations are built in serial after.
-jobs: auto
-
-# ---- Decimals for report.md --------------------------------------
 decimals:
   mm: 3
   deg: 4
   ratio: 4
   percent: 2
 
-# ---- report --------------------------------------------------------------
 report:
-  joints: true           # bearing misalignment. Needs a `joints:` block in the geometry
-  notes: true            # conventions + degenerate-geometry notes. Options: True / False
-  plots: auto            # Master Overide of all plots. Options: Auto / True / False
-  gifs: auto             # Master Overide of all animations. Options: Auto / True / False
+  joints: true   # needs a `joints:` block in the geometry
+  notes: true
+  plots: auto    # master override: auto | true | false
+  gifs: auto     # master override: auto | true | false
 
-# ---- solver health -------------------------------------------------------
-#   off   - report every row as solved, no checking
-#   warn  - name the bad steps and drop them from min/max/range; they stay in the CSV
-#   fail  - non-zero exit, no report written
 solver:
+  # off = no checking | warn = flag bad steps, drop them from min/max/range | fail = exit
   on_bad_solve: warn
   residual_limit: 1.0e-5
 
-# ---- animation settings --------------------------------------------------
 gif:
   fps: 20
 
-# ==========================================================================
-# Per-sweep settings. Key reference in RUNNING.md.
-# ==========================================================================
+# Key reference in ../RUNNING.md.
 sweeps:
 
-  # -- 01 bump / droop -----------------------------------------------------
   # TODO: set these ranges from 02 once the real damper stroke is known.
   01_bump:
     run: true
@@ -79,7 +46,6 @@ sweeps:
     steps: 41
     travel: [-50.8, 50.8]      # corner form: no left/right
 
-  # -- 02 damper stroke ----------------------------------------------------
   # Read the usable wheel travel off this, then write it into 01 above.
   02_damper_stroke:
     run: true
