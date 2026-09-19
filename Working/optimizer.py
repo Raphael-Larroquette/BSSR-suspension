@@ -1,8 +1,8 @@
 from opt.evaluate import run_optimization
 
 CAR_NAME = "aurora"
-POPULATION_SIZE = 64
-GENERATIONS = 3
+POPULATION_SIZE = 300
+GENERATIONS = 4
 
 BUMP_WEIGHTING = 1.5
 
@@ -12,35 +12,35 @@ SWEEP_LIMITS = {
 }
 
 FREE_PARAMETERS = {
-    "lower_wishbone_outboard.y": (380.0, 450.0),
+    "lower_wishbone_outboard.y": (380.0, 550.0),
     "lower_wishbone_outboard.z": (100, 200.0),
     "upper_wishbone_outboard.z_frac": (0.0, 1.0),
     "lower_wishbone_inboard.y": (0.0, 320.0),
-    "lower_wishbone_inboard.z": (137.5, 200.0),
+    "lower_wishbone_inboard.z": (117.5, 200.0),
     "upper_wishbone_inboard.y": (0.0, 340.0),
     "upper_wishbone_inboard.z_frac": (0.0, 1.0),  # Fractional span ensures safety
     "trackrod_outboard.x": (-150.0, -100.0),
     "trackrod_outboard.z": (450.0, 560.0),
-    "trackrod_outboard.y": (320.0, 380.0),
+    "trackrod_outboard.y": (380.0, 480.0),
     "trackrod_inboard.x": (-150.0, -100.0),
     "trackrod_inboard.z": (450.0, 560.0),
-    "trackrod_inboard.y": (200.0, 280.0),
+    "trackrod_inboard.y": (280.0, 340.0),
 }
 
 KNOWN_DESIGN = {
-    "lower_wishbone_outboard.y": 422.38,
-    "lower_wishbone_outboard.z": 185.0,
-    "upper_wishbone_outboard.z_frac": 0.683235,
-    "lower_wishbone_inboard.y": 249.79,
-    "lower_wishbone_inboard.z": 185.0,
-    "upper_wishbone_inboard.y": 235.389,
-    "upper_wishbone_inboard.z_frac": 0.6491,
-    "trackrod_outboard.x": -129.718,
-    "trackrod_outboard.z": 538.251,
-    "trackrod_outboard.y": 354.863,
-    "trackrod_inboard.x": -150.0,
-    "trackrod_inboard.z": 531.106,
-    "trackrod_inboard.y": 228.97,
+    "lower_wishbone_outboard.y": 475.84,
+    "lower_wishbone_outboard.z": 137,
+    "upper_wishbone_outboard.z": 437,
+    "lower_wishbone_inboard.y": 295.84,
+    "lower_wishbone_inboard.z": 137,
+    "upper_wishbone_inboard.y": 314.95,
+    "upper_wishbone_inboard.z": 422.12,
+    "trackrod_outboard.x": -119.83,
+    "trackrod_outboard.z": 525.2,
+    "trackrod_outboard.y": 407.4,
+    "trackrod_inboard.x": -130,
+    "trackrod_inboard.z": 516.2,
+    "trackrod_inboard.y": 320.7,
 }
 
 
@@ -105,8 +105,22 @@ def derive_parameters(free, fixed):
     derived["axle_inboard.y"] = half_track + fixed["wheel_offset"] - 100.0
     derived["axle_inboard.z"] = fixed["rolling_radius"]
 
+    # Set symmetrical x coordinates of inbound points
+    derived["lower_wishbone_inboard_front.x"] = (
+        derived["lower_wishbone_outboard.x"] + 50.0
+    )
+    derived["lower_wishbone_inboard_rear.x"] = (
+        derived["lower_wishbone_outboard.x"] - 50.0
+    )
+    derived["upper_wishbone_inboard_front.x"] = (
+        derived["upper_wishbone_outboard.x"] + 50.0
+    )
+    derived["upper_wishbone_inboard_rear.x"] = (
+        derived["upper_wishbone_outboard.x"] - 50.0
+    )
+
     for k, v in p.items():
-        if k not in derived and not k.endswith("_frac") and "inboard." not in k:
+        if k not in derived and not k.endswith("_frac") and "wishbone_inboard" not in k:
             derived[k] = v
 
     return derived
@@ -119,11 +133,26 @@ OBJECTIVES = {
 }
 
 CONSTRAINTS = {
-    "rc_height": ("01_bump_parallel", "roll_center_z", (0.0, 30.0)),
+    "rc_height": ("01_bump_parallel", "roll_center_z", (0.0, 40.0)),
     "ackermann": ("04_steer_design", "ackermann", (90.0, 110.0)),
     "kingpin": ("01_bump_parallel", "kpi", (9.0, 11.0)),
     "max_turn": ("04_steer_design", "max_turn", (17.5, 90.0)),
 }
+
+# Auto-convert absolute Z coordinates in KNOWN_DESIGN to the z_frac required by the optimizer
+min_sep = 200.0  # From evaluate.py FIXED_PARAMS
+
+if "upper_wishbone_outboard.z" in KNOWN_DESIGN:
+    lca_z = KNOWN_DESIGN.get("lower_wishbone_outboard.z", 185.0)
+    uca_z = KNOWN_DESIGN.get("upper_wishbone_outboard.z")
+    KNOWN_DESIGN["upper_wishbone_outboard.z_frac"] = (uca_z - (lca_z + min_sep)) / 200.0
+
+if "upper_wishbone_inboard.z" in KNOWN_DESIGN:
+    lca_in_z = KNOWN_DESIGN.get("lower_wishbone_inboard.z", 185.0)
+    lca_z = KNOWN_DESIGN.get("lower_wishbone_outboard.z", 185.0)
+    uca_in_z = KNOWN_DESIGN.get("upper_wishbone_inboard.z")
+    uca_in_z_min = max(lca_z, lca_in_z) + min_sep
+    KNOWN_DESIGN["upper_wishbone_inboard.z_frac"] = (uca_in_z - uca_in_z_min) / 200.0
 
 if __name__ == "__main__":
     run_optimization()
