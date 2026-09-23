@@ -2,7 +2,6 @@ from multiprocessing.pool import Pool
 from pathlib import Path
 
 import numpy as np
-from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.algorithms.moo.nsga3 import NSGA3
 from pymoo.core.callback import Callback
 from pymoo.core.problem import ElementwiseProblem, StarmapParallelization
@@ -104,15 +103,12 @@ def run_pymoo():
         known = np.array([optimizer.KNOWN_DESIGN[n] for n in problem.names])
         initial[0] = known
 
-    if problem.n_obj <= 3:
-        algorithm = NSGA2(
-            pop_size=pop_size, sampling=initial, eliminate_duplicates=True
-        )
-    else:
-        ref_dirs = get_reference_directions(
-            "das-dennis", problem.n_obj, n_partitions=12
-        )
-        algorithm = NSGA3(pop_size=pop_size, ref_dirs=ref_dirs, sampling=initial)
+    # Always use NSGA-III per user request, scaling the partitions based on objective count
+    partitions = {2: 100, 3: 12, 4: 8, 5: 6}.get(problem.n_obj, 5)
+    ref_dirs = get_reference_directions(
+        "das-dennis", problem.n_obj, n_partitions=partitions
+    )
+    algorithm = NSGA3(pop_size=pop_size, ref_dirs=ref_dirs, sampling=initial)
 
     log_path = Path("Working/opt_log.csv")
     callback = LogGeneration(log_path)
