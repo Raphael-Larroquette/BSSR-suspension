@@ -425,11 +425,11 @@ class AxleSuspension(Suspension):
             "left_center": PointRef(Side.LEFT, PointID.WHEEL_CENTER),
             "left_axis_inboard": PointRef(Side.LEFT, left_axis_inboard),
             "left_axis_outboard": PointRef(Side.LEFT, left_axis_outboard),
-            "left_radius": left_corner.config.wheel.tire.nominal_radius,
+            "left_radius": left_corner.config.wheel.tire.design_radius,
             "right_center": PointRef(Side.RIGHT, PointID.WHEEL_CENTER),
             "right_axis_inboard": PointRef(Side.RIGHT, right_axis_inboard),
             "right_axis_outboard": PointRef(Side.RIGHT, right_axis_outboard),
-            "right_radius": right_corner.config.wheel.tire.nominal_radius,
+            "right_radius": right_corner.config.wheel.tire.design_radius,
         }
 
     def apply_ground_closure(

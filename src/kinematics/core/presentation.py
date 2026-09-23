@@ -356,7 +356,7 @@ def wheel_dimensions(config: SuspensionConfig | None) -> WheelDimensions | None:
         return None
     tire = config.wheel.tire
     return WheelDimensions(
-        radius=float(tire.nominal_radius),
+        radius=float(tire.design_radius),
         width=float(tire.section_width),
         rim_radius=float(tire.rim_diameter_mm) / 2.0,
     )

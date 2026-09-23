@@ -110,7 +110,7 @@ def build_wheel_derived_spec(wheel: "WheelConfig") -> "DerivedPointsSpec":
     contact centres from its post-solve ground closure instead, so no
     per-corner flat-ground result can reach an axle state.
     """
-    tire_radius = wheel.tire.nominal_radius
+    tire_radius = wheel.tire.design_radius
     functions = {
         PointID.AXLE_MIDPOINT: get_axle_midpoint,
         PointID.WHEEL_CENTER: partial(get_wheel_center, wheel_offset=wheel.offset),

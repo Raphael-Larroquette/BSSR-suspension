@@ -118,6 +118,7 @@ A mismatch between the two files is an error naming both values.
 | `wheel.tire.aspect_ratio` | 0–1 | sidewall height ÷ section width (Aurora: 76/95 = 0.8) |
 | `wheel.tire.section_width` | mm | |
 | `wheel.tire.rim_diameter` | **inches** | |
+| `wheel.tire.loaded_radius` | mm, optional | the radius **at design ride height**. The section dimensions give the *unloaded* radius; a loaded tyre deflects, so its centre sits lower. Hardpoints are authored loaded, so stating this puts the contact centre on `z = 0` instead of a deflection below it. Omit it and the unloaded radius is used for both — the behaviour before this key existed. Positive, and no larger than the unloaded radius |
 | `anti_roll.type` | `none` \| `u_bar` \| `t_bar` | axle only; requires pushrod-rocker |
 | `heave_link.type` | `none` \| `rocker_to_rocker` | axle only; requires pushrod-rocker |
 

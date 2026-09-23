@@ -1,7 +1,7 @@
 type: double_wishbone
 scope: axle
-name: "Aurora Front Axle Recreated"
-version: "0.1.2"   # major = functional release, minor = new feature, patch = fix
+name: "Front Axle of Under LCA with no BO"
+version: "0.1.0"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
 vehicle_config:

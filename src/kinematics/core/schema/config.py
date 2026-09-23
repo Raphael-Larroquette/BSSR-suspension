@@ -18,13 +18,30 @@ from kinematics.core.schema.decoding import Direction3Value, Point3Value
 
 
 class TireConfig(BaseModel):
-    """Tire dimensions used to derive the nominal unloaded radius."""
+    """
+    Tire dimensions, and the radius the design condition is measured at.
+
+    Two radii matter and they are not the same number. The section dimensions
+    give the **unloaded** radius, which is what the tyre measures off the car.
+    Hardpoints, however, are authored at design ride height, where the tyre
+    carries load and its centre therefore sits a deflection lower. That smaller
+    number is the **loaded** radius, and it is the one that decides where the
+    contact centre lands relative to the authored axle height.
+
+    Leaving ``loaded_radius`` unset keeps the unloaded radius for both, which is
+    the rigid-disc assumption the tool has always made. Stating it makes the
+    model self-consistent: the contact centre then lands on ``z = 0`` exactly,
+    instead of a deflection's worth below it, which is the condition
+    ``MODELS.md`` warns about when it says a contact centre off the road plane
+    means the tyre and axle points disagree.
+    """
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="forbid")
 
     aspect_ratio: float
     section_width: float
     rim_diameter: float
+    loaded_radius: float | None = None
 
     @field_validator("aspect_ratio")
     @classmethod
@@ -32,6 +49,39 @@ class TireConfig(BaseModel):
         if not 0 <= value <= 1:
             raise ValueError(f"aspect_ratio must be in [0, 1], got {value}")
         return value
+
+    @model_validator(mode="after")
+    def check_loaded_radius(self) -> "TireConfig":
+        """
+        Keep a stated loaded radius physically possible for this tyre.
+
+        A loaded pneumatic tyre deflects, so its radius is smaller than the
+        unloaded one; a larger value means the two inputs describe different
+        tyres. Rejecting a value under half the unloaded radius catches a unit
+        slip, which would otherwise put the contact centre somewhere plausible
+        enough to go unnoticed.
+        """
+        if self.loaded_radius is None:
+            return self
+        unloaded = self.nominal_radius
+        if not isfinite(self.loaded_radius) or self.loaded_radius <= 0.0:
+            raise ValueError(
+                f"loaded_radius must be finite and positive, got {self.loaded_radius}"
+            )
+        if self.loaded_radius > unloaded:
+            raise ValueError(
+                f"loaded_radius {self.loaded_radius} mm exceeds the unloaded "
+                f"radius {unloaded:.3f} mm implied by the section dimensions. A "
+                "loaded tyre deflects, so it cannot be larger; check which tyre "
+                "each input describes."
+            )
+        if self.loaded_radius < unloaded / 2.0:
+            raise ValueError(
+                f"loaded_radius {self.loaded_radius} mm is less than half the "
+                f"unloaded radius {unloaded:.3f} mm, which is more deflection "
+                "than a tyre has. Check the units."
+            )
+        return self
 
     @property
     def sidewall_height(self) -> float:
@@ -47,6 +97,19 @@ class TireConfig(BaseModel):
     def nominal_radius(self) -> float:
         """Calculate nominal unloaded tire radius in mm."""
         return (self.rim_diameter_mm + 2 * self.sidewall_height) / 2
+
+    @property
+    def design_radius(self) -> float:
+        """
+        Return the radius the design condition is measured at, in mm.
+
+        The stated loaded radius when there is one, else the unloaded radius.
+        Every geometric consumer — the contact centre, the axle ground closure,
+        the road-plane metrics and the drawn wheel — uses this, so a model that
+        states a loaded radius is treated consistently everywhere rather than in
+        some places only.
+        """
+        return self.nominal_radius if self.loaded_radius is None else self.loaded_radius
 
 
 class WheelConfig(BaseModel):

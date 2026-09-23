@@ -160,8 +160,14 @@ class MetricContext:
 
     @cached_property
     def tire_radius(self) -> float:
-        """Return the nominal tyre radius, independent of reference system."""
-        return self.config.wheel.tire.nominal_radius
+        """
+        Return the design-condition tyre radius, independent of reference system.
+
+        This is the loaded radius when the model states one. The metrics that use
+        it — the anti-geometry force lines above all — are levers measured from
+        the contact patch, so they must use the same radius that placed it.
+        """
+        return self.config.wheel.tire.design_radius
 
     @cached_property
     def wheelbase(self) -> float:
