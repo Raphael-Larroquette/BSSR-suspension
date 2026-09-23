@@ -3,37 +3,47 @@ from opt.evaluate import run_optimization
 #Once done, run uv run python Working/export_pareto.py to export them to yamls
 #to solve, type uv run python Working/run_all.py --sets front --geometry "C:\Users\alexz\Downloads\BSSR-suspension\Working\models\pareto1\front.yaml" --only 01 --no-forces
 CAR_NAME = "aurora"
-POPULATION_SIZE = 120   # 2 full waves of 60 workers, and == ref_dirs
-GENERATIONS = 120
-
-POOL_WORKERS = None
+POPULATION_SIZE = 600   # max workers is 60 on python in windows. so you need at least a pop of 91 the number of objectives, ideally 120 on the giga pc
+GENERATIONS = 100
 
 BUMP_WEIGHTING = 1.5
 
 SWEEP_LIMITS = {
-    "01_bump_parallel": {"start": -20.0, "stop": 20.0},
+    "01_bump_parallel": {"start": -50.8, "stop": 50.8},
     "04_steer_design": {"start": -35.0, "stop": 35.0},
 }
 
+# Steps the OPTIMISER solves each sweep at. run.yaml's own counts (22 and 65)
+# are what the reports use; the search reads far fewer frames than it solves.
+#   01_bump_parallel  three objectives integrate this curve, so it needs real
+#                     resolution. 11 costs ~0.3% on the integrals, uniform
+#                     across candidates so rankings are unaffected. Below 9 the
+#                     trapezoid error starts to matter.
+#   04_steer_design   only `ackermann` (last frame, full lock) and `max_turn`
+#                     (the two extremes) are read, and steer is monotonic in
+#                     rack travel, so 3 frames capture both locks exactly -
+#                     measured identical to 4 decimals against 65.
+#                     WARNING: add an objective that reads the SHAPE of the
+#                     steer curve and this must go back up.
 SWEEP_STEPS = {
-    "01_bump_parallel": 11, #must be odd, minimize to start with (go no lower than 9) then add more steps for refinement.
-    "04_steer_design": 3, #temp 3 steps only, increase number of steps if analyzing characteristics of full sweep.
+    "01_bump_parallel": 11,
+    "04_steer_design": 3,
 }
 
 FREE_PARAMETERS = {
-    "lower_wishbone_outboard.y": (380.0, 550.0),
-    "lower_wishbone_outboard.z": (100, 200.0),
+    "lower_wishbone_outboard.y": (400.0, 500.0),
+    "lower_wishbone_outboard.z": (85.0, 200.0),
     "upper_wishbone_outboard.z_frac": (0.0, 1.0),
-    "lower_wishbone_inboard.y": (0.0, 320.0),
-    "lower_wishbone_inboard.z": (117.5, 200.0),
-    "upper_wishbone_inboard.y": (0.0, 340.0),
+    "lower_wishbone_inboard.y": (100.0, 350.0),
+    "lower_wishbone_inboard.z": (117.5, 200.0), #lower is 80mm ride hight + 37.5mm min separation
+    "upper_wishbone_inboard.y": (100.0, 400.0),
     "upper_wishbone_inboard.z_frac": (0.0, 1.0),  # Fractional span ensures safety
-    "trackrod_outboard.x": (-150.0, -100.0),
-    "trackrod_outboard.z": (450.0, 560.0),
-    "trackrod_outboard.y": (380.0, 480.0),
-    "trackrod_inboard.x": (-150.0, -100.0),
-    "trackrod_inboard.z": (450.0, 560.0),
-    "trackrod_inboard.y": (280.0, 340.0),
+    "trackrod_outboard.x": (-250.0, -50.0), # behind caster 
+    "trackrod_outboard.z": (400.0, 550.0), #bellow top of wheel + margin
+    "trackrod_outboard.y": (350.0, 435.0),
+    "trackrod_inboard.x": (-350.0, -50.0),
+    "trackrod_inboard.z": (400.0, 560.0),
+    "trackrod_inboard.y": (142.875, 340.0),
 }
 
 KNOWN_DESIGN = {
@@ -141,22 +151,6 @@ OBJECTIVES = {
     "bump_scrub": ("01_bump_parallel", "bump_scrub", "minimize"),
 }
 
-# `fvsa_sign` exists because `fvsa_length` is a SIGNED quantity: positive means
-# the front-view instant centre sits inboard of the contact patch (conventional
-# - bump gives negative camber), negative means outboard (bump gives POSITIVE
-# camber). The sign flips through infinity at parallel wishbones, so a bare
-# `maximize fvsa_length` is only meaningful on the positive branch: on the
-# negative branch, "larger" means a SHORTER outboard swing arm and MORE camber
-# change of the wrong sign. Designs on that branch have already been produced
-# (Paretro2 measures -2064 mm). This lower bound keeps the search on the
-# conventional branch. It reads a metric the objective already computes, so it
-# costs no extra solving. 1000 mm is a sign guard, not a real minimum swing-arm
-# length - raise it if you want to rule out genuinely short arms too.
-#
-# BETTER, WHEN THERE IS TIME: drop the FVSA objective entirely and minimise the
-# travel-weighted |camber - camber_design| over 01_bump_parallel instead, reusing
-# the same integral bump_steer uses. Camber gain is what FVSA is a proxy for, and
-# it has no sign, no branch and no singularity.
 CONSTRAINTS = {
     "rc_height": ("01_bump_parallel", "roll_center_z", (0.0, 40.0)),
     "ackermann": ("04_steer_design", "ackermann", (90.0, 110.0)),
