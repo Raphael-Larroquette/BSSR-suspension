@@ -3,13 +3,26 @@ from opt.evaluate import run_optimization
 #Once done, run uv run python Working/export_pareto.py to export them to yamls
 #to solve, type uv run python Working/run_all.py --sets front --geometry "C:\Users\alexz\Downloads\BSSR-suspension\Working\models\pareto1\front.yaml" --only 01 --no-forces
 CAR_NAME = "aurora"
-POPULATION_SIZE = 32   # one full wave across a 128-core box
-GENERATIONS = 2
+POPULATION_SIZE = 128   # one full wave across a 128-core box
+GENERATIONS = 120
+
+# Worker processes. None = one per CPU, capped at POPULATION_SIZE (a pool never
+# needs more workers than there are candidates). Each worker carries its own
+# numpy/scipy/pymoo and model, roughly 200-250 MB.
+#
+# Note POPULATION_SIZE is deliberately a whole multiple of the core count: wall
+# clock per generation is ceil(pop / workers) waves, so 128 on 64 cores is two
+# full waves with nothing idle, while 129 would be three.
+#
+# If a worker dies while importing scipy with "The paging file is too small",
+# that is the BLAS thread pools, not this setting - see limit_worker_threads()
+# in opt/problem.py. Lower this only to leave the machine usable for other work.
+POOL_WORKERS = None
 
 BUMP_WEIGHTING = 1.5
 
 SWEEP_LIMITS = {
-    "01_bump_parallel": {"start": -50.8, "stop": 50.8},
+    "01_bump_parallel": {"start": -20.0, "stop": 20.0},
     "04_steer_design": {"start": -35.0, "stop": 35.0},
 }
 

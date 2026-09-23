@@ -1,3 +1,4 @@
+import os
 from multiprocessing.pool import Pool
 from pathlib import Path
 
@@ -118,15 +119,78 @@ class LogGeneration(Callback):
             write_log_rows(evals, algorithm.n_gen, self.log_path)
 
 
+#: Thread-count variables every numeric library reads at import time.
+THREAD_LIMIT_VARS = (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+)
+
+
+def limit_worker_threads(threads="1"):
+    """
+    Hold each worker's BLAS thread pool to one thread.
+
+    numpy and scipy start a BLAS thread pool sized to the machine's core count
+    in EVERY process. Run one worker per core and you get cores-squared threads
+    - on a 64-core box, roughly four thousand - each reserving stack and buffer
+    space. Windows counts all of that against its commit limit (physical RAM plus
+    page file), and the limit is reached while a worker is still importing
+    scipy, which surfaces as:
+
+        ImportError: DLL load failed while importing _odepack:
+        The paging file is too small for this operation to complete.
+
+    The work here is per-candidate and the matrices are small, so a worker has
+    nothing to gain from internal threading anyway: the parallelism that matters
+    is one candidate per process.
+
+    Set in the parent before the pool is created, because on Windows each child
+    inherits this environment and reads these variables when it imports numpy.
+    Anything already set in the shell is respected.
+    """
+    for name in THREAD_LIMIT_VARS:
+        os.environ.setdefault(name, threads)
+
+
+def pool_size(pop_size):
+    """
+    Decide how many worker processes to start.
+
+    Never more than there are candidates to evaluate. A bare ``Pool()`` starts
+    one worker per CPU no matter how small the population is, and each worker
+    carries its own numpy, scipy, pymoo and model - on the order of 200 MB. On a
+    many-core machine that is tens of GB for a 16-candidate smoke test, which
+    exhausts memory and takes the terminal down with it.
+
+    ``POOL_WORKERS`` in optimizer.py caps it further, for leaving cores free or
+    holding RAM down on a box whose core count outruns its memory.
+    """
+    import optimizer
+
+    available = os.cpu_count() or 1
+    requested = getattr(optimizer, "POOL_WORKERS", None)
+    workers = available if requested in (None, 0) else int(requested)
+    return max(1, min(workers, pop_size, available))
+
+
 def run_pymoo():
     import optimizer
 
-    pool = Pool()
-    runner = StarmapParallelization(pool.starmap)
-    problem = SuspensionProblem(elementwise_runner=runner)
-
     pop_size = optimizer.POPULATION_SIZE
     n_gen = optimizer.GENERATIONS
+
+    limit_worker_threads()
+    workers = pool_size(pop_size)
+    print(
+        f"population {pop_size}, {n_gen} generations, {workers} worker processes "
+        f"({os.cpu_count()} CPUs visible)"
+    )
+    pool = Pool(processes=workers)
+    runner = StarmapParallelization(pool.starmap)
+    problem = SuspensionProblem(elementwise_runner=runner)
 
     sobol = qmc.Sobol(d=problem.n_var, scramble=True, seed=0)
     initial = qmc.scale(sobol.random(pop_size), problem.xl, problem.xu)
@@ -147,17 +211,21 @@ def run_pymoo():
     log_path = Path("Working/opt_log.csv")
     callback = LogGeneration(log_path)
 
-    res = minimize(
-        problem,
-        algorithm,
-        termination=("n_gen", n_gen),
-        seed=1,
-        save_history=False,
-        verbose=True,
-        callback=callback,
-    )
-
-    pool.close()
+    try:
+        res = minimize(
+            problem,
+            algorithm,
+            termination=("n_gen", n_gen),
+            seed=1,
+            save_history=False,
+            verbose=True,
+            callback=callback,
+        )
+    finally:
+        # Cleanup only, no behaviour change: without this a crash or Ctrl+C
+        # leaves every worker process running.
+        pool.close()
+        pool.join()
 
     print("Pareto Front found:")
     print(res.F)
