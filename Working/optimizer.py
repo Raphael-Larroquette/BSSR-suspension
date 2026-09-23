@@ -6,22 +6,6 @@ CAR_NAME = "aurora"
 POPULATION_SIZE = 120   # 2 full waves of 60 workers, and == ref_dirs
 GENERATIONS = 120
 
-# Worker processes. None = one per CPU, capped at POPULATION_SIZE (a pool never
-# needs more workers than there are candidates). Each worker carries its own
-# numpy/scipy/pymoo and model, roughly 200-250 MB.
-#
-# POPULATION_SIZE is deliberately a whole multiple of the worker count: wall
-# clock per generation is ceil(pop / workers) waves, so 120 over 60 workers is
-# two full waves with nothing idle, while 128 would be three (60 + 60 + 8).
-# 120 is also exactly the number of NSGA-III reference directions at
-# n_partitions=14, which is how the algorithm is meant to be configured.
-#
-# Windows caps a single pool near 60 workers whatever the core count - see
-# WINDOWS_MAX_WORKERS in opt/problem.py.
-#
-# If a worker dies while importing scipy with "The paging file is too small",
-# that is the BLAS thread pools, not this setting - see limit_worker_threads()
-# in opt/problem.py. Lower this only to leave the machine usable for other work.
 POOL_WORKERS = None
 
 BUMP_WEIGHTING = 1.5
@@ -31,21 +15,9 @@ SWEEP_LIMITS = {
     "04_steer_design": {"start": -35.0, "stop": 35.0},
 }
 
-# Steps the OPTIMISER solves each sweep at. run.yaml's own counts (22 and 65)
-# are what the reports use; the search reads far fewer frames than it solves.
-#   01_bump_parallel  three objectives integrate this curve, so it needs real
-#                     resolution. 11 costs ~0.3% on the integrals, uniform
-#                     across candidates so rankings are unaffected. Below 9 the
-#                     trapezoid error starts to matter.
-#   04_steer_design   only `ackermann` (last frame, full lock) and `max_turn`
-#                     (the two extremes) are read, and steer is monotonic in
-#                     rack travel, so 3 frames capture both locks exactly -
-#                     measured identical to 4 decimals against 65.
-#                     WARNING: add an objective that reads the SHAPE of the
-#                     steer curve and this must go back up.
 SWEEP_STEPS = {
-    "01_bump_parallel": 11,
-    "04_steer_design": 3,
+    "01_bump_parallel": 11, #must be odd, minimize to start with (go no lower than 9) then add more steps for refinement.
+    "04_steer_design": 3, #temp 3 steps only, increase number of steps if analyzing characteristics of full sweep.
 }
 
 FREE_PARAMETERS = {
