@@ -1,5 +1,7 @@
 # Rear sweep set. Key reference: ../RUNNING.md. Channel names: ../CHARACTERISTICS.md.
-# Precedence: CLI flags > this file > the sweep YAML in sweeps/.
+# THIS FILE IS THE WHOLE SWEEP SET. Each sweep's targets are generated from its
+# travel / damper keys and written to outputs/<name>/_resolved_sweeps/.
+# CLI flags override this file for one invocation; nothing else configures a run.
 #
 # Aurora's rear is a SINGLE CENTRELINE CORNER, so ranges take the bare [start, stop]
 # form and the reporter is susreport_rear. A centreline wheel produces no camber, toe,
@@ -9,7 +11,6 @@ version: 1
 
 name: rear
 geometry: ../../models/aurora/rear.yaml    # default target; --geometry overrides
-sweeps_dir: sweeps                         # relative to this file
 reporter: susreport_rear                   # susreport = axle, susreport_rear = corner
 side: null                                 # null for a corner: it has only one
 jobs: auto                                 # min(8, CPU cores); report and gifs are serial
@@ -34,7 +35,9 @@ solver:
 gif:
   fps: 20
 
-# Key reference in ../RUNNING.md.
+# Per-sweep settings and the drive vocabulary: ../RUNNING.md. A centreline corner
+# has one wheel, so travel / damper take the bare [start, stop] form, and there is
+# no rack to drive.
 sweeps:
 
   # TODO: set these ranges from 02 once the real damper stroke is known.

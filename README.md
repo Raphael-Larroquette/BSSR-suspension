@@ -55,6 +55,8 @@ This is a fork of [suspension-explorer-core](https://github.com/suspension-explo
 - Camber is chassis-relative. Road-relative wheel inclination is **not** exported.
 - Sweeps are 1-D paths, not grids. Targets pair by index; there is no Cartesian product
   anywhere. A 2-D surface needs one run per attitude, stitched afterwards.
+- A sweep drives exactly one target per degree of freedom at every step — every corner
+  once, plus every actuator.
 
 **The force solve additionally assumes:**
 
@@ -281,9 +283,9 @@ Working/
   run_all.py              THE command
   models/<car>/           the car: hardpoints, config, joint declarations
     MODELS.md               geometry + joints syntax reference
-  sweep_sets/<set>/       kinematic sweeps: run.yaml + sweeps/
-    RUNNING.md              run.yaml keys, CLI flags, precedence
-    SWEEPS.md               how to write a sweep file; the sweep catalogue
+  sweep_sets/<set>/       kinematic sweeps: one run.yaml, which is the whole set
+    RUNNING.md              run.yaml keys, what each sweep drives, CLI flags
+    SWEEPS.md               sweep-file grammar (for `file:` sweeps); the sweep catalogue
     CHARACTERISTICS.md      what every reported characteristic means
   forces/<car>/           static force solve: forces.yaml + cases.csv
     force.md                the force workflow
@@ -304,8 +306,8 @@ force solve. **There is no second entry point.** `sweep_sets/runner.py` is a lib
 
 ### 5.2 CLI overrides
 
-Every flag below overrides `run.yaml` **for that invocation only**.
-Precedence, highest first: **CLI flags → `run.yaml` → the sweep YAML.**
+Every flag below overrides `run.yaml` **for that invocation only**. `run.yaml` is the
+only other place anything is configured — sweep files are generated from it.
 
 **What runs**
 
@@ -331,7 +333,6 @@ Precedence, highest first: **CLI flags → `run.yaml` → the sweep YAML.**
 | `--solve-only` | solve and stop, no report |
 | `--on-bad-solve off\|warn\|fail` | what to do about non-converged or high-residual steps |
 | `--geometry PATH` † | run the set against a different car |
-| `--sweeps-dir PATH` † | an alternative directory of sweep YAMLs |
 | `--side left\|right` † | which corner the per-corner rows report |
 
 † describes **one** set, so it needs `--sets` or `--config` to say which.
@@ -379,7 +380,7 @@ directory:
 | `Working/models/<car>/report/<set>/report.md` | **start here** — every characteristic, at design / min / max / range, plus the bearing misalignment table |
 | `Working/models/<car>/report/<set>/` | the plots, `summary.csv`, `joints.csv` |
 | `Working/models/<car>/outputs/<set>/` | one raw CSV per sweep, and the animations |
-| `Working/models/<car>/outputs/<set>/_resolved_sweeps/` | what was actually solved after the merge — read, never edit |
+| `Working/models/<car>/outputs/<set>/_resolved_sweeps/` | the generated sweep files, i.e. exactly what was solved — read, never edit |
 | `Working/forces/<car>/outputs/forces.csv` | force at every joint, grouped by part — the FEA input |
 | `Working/forces/<car>/outputs/load_transfer.csv` | each wheel's vertical load, per case |
 
@@ -396,8 +397,8 @@ SUSProg.
 | --- | --- | --- |
 | a hardpoint, the architecture, the tyre, the CG | `Working/models/<car>/front.yaml` or `rear.yaml` | [`MODELS.md`](Working/models/MODELS.md) |
 | which bearings get a misalignment number | the `joints:` block of that same file | [`MODELS.md` §5](Working/models/MODELS.md) |
-| sweep ranges, step counts, which sweeps run, which channels are reported or plotted | `Working/sweep_sets/<set>/run.yaml` | [`RUNNING.md`](Working/sweep_sets/RUNNING.md) |
-| the *kind* of sweep — which points are driven, in which direction | the sweep YAML in `<set>/sweeps/` | [`SWEEPS.md`](Working/sweep_sets/SWEEPS.md) |
+| anything about a sweep — what it drives, its ranges and step count, whether it runs, which channels it reports or plots | `Working/sweep_sets/<set>/run.yaml` | [`RUNNING.md`](Working/sweep_sets/RUNNING.md) |
+| a sweep the `travel`/`damper`/`rack` vocabulary can't express | a hand-written sweep YAML, named with `file:` | [`SWEEPS.md`](Working/sweep_sets/SWEEPS.md) |
 | load cases | `Working/forces/<car>/cases.csv` | [`force.md`](Working/forces/force.md) |
 | mass, solver policy, structural filter | `Working/forces/<car>/forces.yaml` | [`force.md`](Working/forces/force.md) |
 
@@ -434,12 +435,11 @@ A car is a folder. Nothing is registered anywhere — `run_all.py` discovers
 
    Results follow the geometry, so there is no collision with Aurora's.
 
-4. **New sweep set** (a different set of sweeps, not just different ranges): copy
-   `Working/sweep_sets/front/` to a new folder, set `name:` and `geometry:`, and pick the
-   reporter — `susreport` for a two-wheel axle, `susreport_rear` for a single corner.
-   Every file in `sweeps/` needs an entry under `sweeps:`, even if only `run: false`.
-   Keys: [`RUNNING.md`](Working/sweep_sets/RUNNING.md). Grammar for a new sweep file:
-   [`SWEEPS.md`](Working/sweep_sets/SWEEPS.md).
+4. **New sweep set:** copy `Working/sweep_sets/front/run.yaml` to a new folder, set
+   `name:` and `geometry:`, and pick the reporter — `susreport` for a two-wheel axle,
+   `susreport_rear` for a single corner. Then write the sweeps you want under `sweeps:`;
+   each needs `steps` plus a range for every corner and every actuator. That one file is
+   the whole set. Keys: [`RUNNING.md`](Working/sweep_sets/RUNNING.md).
 
 5. **New force configuration:** copy `Working/forces/aurora/` to `Working/forces/gen13/`,
    point `geometry.front` / `geometry.rear` at the new model, set the mass, and edit

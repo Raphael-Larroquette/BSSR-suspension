@@ -46,7 +46,7 @@ SWEEP_SET_GLOB = "*/run.yaml"
 FORCES_GLOB = "*/forces.yaml"
 
 # Overrides that describe ONE set and cannot mean anything across several.
-PER_SET_FLAGS = ("geometry", "sweeps_dir", "side")
+PER_SET_FLAGS = ("geometry", "side")
 
 
 # ==========================================================================
@@ -131,8 +131,9 @@ def build_parser() -> argparse.ArgumentParser:
         prog="Working/run_all.py",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Precedence: these flags > run.yaml > the sweep YAML. "
-        "See RUNNING.md for the run.yaml key reference.",
+        epilog="These flags override run.yaml for this invocation only; "
+        "run.yaml is the only other place anything is configured. "
+        "See RUNNING.md for its key reference.",
     )
 
     what = parser.add_argument_group("what runs")
@@ -179,12 +180,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="run the set against a different car (one set at a time)",
-    )
-    sweeps.add_argument(
-        "--sweeps-dir",
-        type=Path,
-        default=None,
-        help="an alternative directory of sweep YAMLs (one set at a time)",
     )
     sweeps.add_argument(
         "--side",
@@ -319,7 +314,6 @@ def main() -> None:
     if runner is not None:
         options = runner.SweepOptions(
             geometry=args.geometry,
-            sweeps_dir=args.sweeps_dir,
             side=args.side,
             only=parse_list(args.only),
             skip=parse_list(args.skip) or [],

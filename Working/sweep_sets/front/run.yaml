@@ -1,12 +1,12 @@
 # Front sweep set. Key reference: ../RUNNING.md. Channel names: ../CHARACTERISTICS.md.
-# Precedence: CLI flags > this file > the sweep YAML in sweeps/.
-# A range set here REPLACES the one in the sweep file; anything not mentioned passes
-# through. The merged result is written to outputs/<name>/_resolved_sweeps/ — never edit it.
+# THIS FILE IS THE WHOLE SWEEP SET. Each sweep's targets are generated from its
+# travel / damper / rack keys and written to outputs/<name>/_resolved_sweeps/ —
+# read those to see what was solved, never edit them.
+# CLI flags override this file for one invocation; nothing else configures a run.
 version: 1
 
 name: front                                # names outputs/<name>/ and report/<name>/
 geometry: ../../models/aurora/front.yaml   # default target; --geometry overrides
-sweeps_dir: sweeps                         # relative to this file
 reporter: susreport                        # susreport = axle, susreport_rear = corner
 side: left                                 # which corner the per-corner rows report
 jobs: auto                                 # min(8, CPU cores); report and gifs are serial
@@ -36,9 +36,15 @@ gif:
 #   report  true | false | [list]  true = the preset for that sweep kind
 #   plots   all | none | [list]    must be a subset of `report`
 #   gif     true | false | {...}   a mapping merges over the top-level gif block
+#   steps   int                    points in the sweep
+#
+# What it drives — every corner exactly once, plus every actuator:
 #   travel  {left: [a, b], right: [a, b]}   wheel-centre z, mm from design
 #   damper  {left: [a, b], right: [a, b]}   element length, mm from design (not with travel)
-#   rack    [a, b]                 rack y, mm from centre
+#   rack    [a, b]                 rack y, mm from centre; [0, 0] holds it centred
+#
+#   file    path                   use a hand-written sweep YAML verbatim instead of
+#                                  generating one. Not combinable with the keys above.
 sweeps:
 
   # Both wheels together, rack centred. The straight-line reference for camber,
@@ -71,6 +77,14 @@ sweeps:
   # gains a cross-axle element (an anti-roll bar) that couples the two corners.
   03_single_wheel_bump:
     run: false
+    report: true
+    plots: all
+    gif: false
+    steps: 22
+    travel:
+      left: [-55, 50]
+      right: [0, 0]
+    rack: [0, 0]
 
   04_steer_design:
     run: true
@@ -109,6 +123,14 @@ sweeps:
   # toe-vs-travel curve while steered. Turn on when chasing bump steer specifically.
   07_bump_at_steer:
     run: false
+    report: true
+    plots: all
+    gif: false
+    steps: 65
+    travel:
+      left: [-55.88, 50.063]
+      right: [-55.88, 50.063]
+    rack: [20, 20]
 
   # Driven by damper length instead of wheel travel. Read the usable wheel travel
   # off this, then set the `travel` ranges above to match. Honest motion ratio.

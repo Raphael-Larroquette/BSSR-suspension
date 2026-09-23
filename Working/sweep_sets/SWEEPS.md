@@ -1,11 +1,20 @@
-# Writing sweeps
+# Sweep files
+
+> **You do not normally write one.** A sweep's targets are generated from its `travel` /
+> `damper` / `rack` keys in `run.yaml` — start at [`RUNNING.md`](RUNNING.md). This page is
+> the grammar, which you need for two things: reading a generated file in
+> `_resolved_sweeps/`, and hand-writing a sweep the vocabulary cannot express and naming
+> it with `file:`.
+
+The vocabulary cannot express `mode: absolute`, an explicit `values:` list (non-linear
+spacing), a point driven along a non-principal direction, or any drive coordinate other
+than the wheel centre, the damper and the rack. Those need a `file:` sweep, which is used
+verbatim — `run.yaml` overrides nothing in it. The fastest start is to copy a generated
+file out of `outputs/<set>/_resolved_sweeps/` and edit it.
 
 Source of truth: `src/kinematics/core/schema/sweep.py` and
-`src/kinematics/core/targeting.py`.
-
-Sweep files define the target **structure** — which points are driven, in which direction
-and mode. Ranges and step counts live in `run.yaml` and override what is written here
-(`RUNNING.md`). Declaring bearing joints is in `../models/MODELS.md` §5.
+`src/kinematics/core/targeting.py`. Declaring bearing joints is in
+`../models/MODELS.md` §5.
 
 1. [The mental model](#1-the-mental-model)
 2. [File structure](#2-file-structure)
@@ -144,7 +153,7 @@ Two useful path shapes fall out:
 
 - **Hold an attitude and sweep one thing.** Constant `start`/`stop` on the wheel-centre
   targets pins the axle while another target sweeps. 05/06 do this with heave, 09 with
-  roll.
+  roll. In `run.yaml` that is `travel: {left: [-25, -25], right: [25, 25]}`.
 - **Ramp several things together.** Different start and stop on every target traces a
   diagonal — 10 ramps roll and rack together.
 
@@ -242,9 +251,11 @@ same `body_group=` in the topology's `elements()`.
 
 ## 9. The Aurora sweep catalogue
 
-### Front — `sweep_sets/front/`
+All of these are defined in each set's `run.yaml`, not in files.
 
-| # | File | Drives | Answers | Default |
+### Front — `sweep_sets/front/run.yaml`
+
+| # | Sweep | Drives | Answers | Default |
 | --- | --- | --- | --- | --- |
 | 01 | `01_bump_parallel` | both wheels together | camber curve, bump steer, motion ratio, RC height vs ride | on |
 | 02 | `02_roll` | equal and opposite | camber recovery, RC migration (height and lateral), roll steer, track change | on |
@@ -272,13 +283,13 @@ is a real cornering state; the other half is rolled one way and steered the othe
 Aurora that reads as ≈110% Ackermann turning into the roll and negative (anti-Ackermann)
 turning out of it. For the physical half only, set `rack: [0, 35]` to match the roll sign.
 
-### Rear — `sweep_sets/rear/`
+### Rear — `sweep_sets/rear/run.yaml`
 
 Aurora's rear is a single centreline trailing-arm corner with **one degree of freedom**,
 so each sweep has exactly one target. Roll, Ackermann and steer sweeps have no meaning on
 one wheel; the set is small on purpose.
 
-| # | File | Drives | Answers |
+| # | Sweep | Drives | Answers |
 | --- | --- | --- | --- |
 | 01 | `01_bump` | wheel centre | camber/toe curves, motion ratio, recession, the side-view family |
 | 02 | `02_damper_stroke` | damper length | usable wheel travel; the honest motion ratio |
