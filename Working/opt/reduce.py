@@ -2,12 +2,89 @@ import math
 
 import numpy as np
 
+#: Fewest frames a reduction will work from after bad solves are dropped. Below
+#: three there is not enough curve left to integrate meaningfully.
+MIN_USABLE_FRAMES = 3
 
-def travel_integral(analysis, key: str, bump_weight: float = 1.5) -> float:
+#: Smallest fraction of a sweep's frames that must survive. If more than half a
+#: sweep failed to solve, that is not a numerical blip - the linkage cannot make
+#: the requested travel, and the candidate is reported infeasible for that
+#: reason rather than scored on the remainder.
+MIN_USABLE_FRACTION = 0.5
+
+
+def _frame_ok(frame, residual_limit):
+    """Return True when this step's solve can be trusted."""
+    info = getattr(frame, "solver", None)
+    if info is None:
+        return True
+    if not info.converged:
+        return False
+    if residual_limit is not None and info.max_residual > residual_limit:
+        return False
+    return True
+
+
+def usable_frames(analysis, sweep_name):
+    """
+    Return the frames a reduction may read, applying run.yaml's solver policy.
+
+    Non-convergence is a numerical event, not automatically a design verdict: a
+    single ill-conditioned pose can fail while its neighbours solve cleanly, and
+    a residual marginally over tolerance is still essentially the right pose.
+    Discarding a whole candidate for either would throw away good designs.
+
+    So this follows ``on_bad_solve`` from run.yaml, which already says what to
+    do: ``off`` reads every frame, ``warn`` drops the bad ones exactly as the
+    reports drop them from min/max/range, and ``fail`` refuses the candidate.
+
+    What is NOT tolerated is integrating over frames that did not solve, which
+    is what happened before: the objective was computed from whatever numbers
+    the failed steps happened to leave behind.
+
+    Raises:
+        ValueError: if too little of the sweep survives to reduce honestly. The
+            caller reports the candidate as infeasible carrying this reason, so
+            the log says which sweep failed and how much of it.
+    """
+    from .solve import solver_policy
+
+    mode, residual_limit = solver_policy()
+    frames = analysis.frames
+    if mode == "off" or not frames:
+        return frames
+
+    good = [f for f in frames if _frame_ok(f, residual_limit)]
+    dropped = len(frames) - len(good)
+
+    if dropped and mode == "fail":
+        raise ValueError(
+            f"sweep '{sweep_name}': {dropped} of {len(frames)} steps did not "
+            f"solve within residual_limit, and run.yaml sets "
+            f"on_bad_solve: fail"
+        )
+    if len(good) < MIN_USABLE_FRAMES or len(good) < MIN_USABLE_FRACTION * len(frames):
+        raise ValueError(
+            f"sweep '{sweep_name}': only {len(good)} of {len(frames)} steps "
+            "solved, too few to reduce. The linkage most likely cannot reach "
+            "the requested travel."
+        )
+    return good
+
+
+def _last_usable_frame(analysis, sweep_name):
+    """Return the highest-index frame that solved, for an end-of-sweep read."""
+    return usable_frames(analysis, sweep_name)[-1]
+
+
+def travel_integral(
+    analysis, key: str, bump_weight: float = 1.5, sweep_name=""
+) -> float:
+    frames = usable_frames(analysis, sweep_name)
     travel = np.array(
-        [list(f.corner_metrics.values())[0]["wheel_travel"] for f in analysis.frames]
+        [list(f.corner_metrics.values())[0]["wheel_travel"] for f in frames]
     )
-    value = np.array([list(f.corner_metrics.values())[0][key] for f in analysis.frames])
+    value = np.array([list(f.corner_metrics.values())[0][key] for f in frames])
 
     order = np.argsort(travel)
     travel, value = travel[order], value[order]
@@ -29,9 +106,13 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
         analysis = analyses[sweep_name]
 
         if metric == "bump_steer":
-            outcomes[obj_name] = travel_integral(analysis, "toe_angle", bump_weight)
+            outcomes[obj_name] = travel_integral(
+                analysis, "toe_angle", bump_weight, sweep_name
+            )
         elif metric == "bump_scrub":
-            outcomes[obj_name] = travel_integral(analysis, "half_track", bump_weight)
+            outcomes[obj_name] = travel_integral(
+                analysis, "half_track", bump_weight, sweep_name
+            )
         else:
             try:
                 outcomes[obj_name] = float(
@@ -48,8 +129,11 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
         analysis = analyses[sweep_name]
 
         if metric == "ackermann":
+            # Resolved outside the try: if too little of the sweep solved, that
+            # must reach the caller as an infeasible candidate, not be caught
+            # below and turned into a score.
+            f = _last_usable_frame(analysis, sweep_name)
             try:
-                f = analysis.frames[-1]
                 vals = list(f.corner_metrics.values())
                 steer_l = vals[0]["steer_angle"]
                 steer_r = vals[1]["steer_angle"]
@@ -84,7 +168,8 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
 
         elif metric == "max_turn":
             toes = [
-                list(f.corner_metrics.values())[0]["toe_angle"] for f in analysis.frames
+                list(f.corner_metrics.values())[0]["toe_angle"]
+                for f in usable_frames(analysis, sweep_name)
             ]
             outcomes[const_name] = min(abs(max(toes)), abs(min(toes)))
 

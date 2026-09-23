@@ -14,6 +14,35 @@ from .evaluate import evaluate, write_log_rows
 FAIL = 1.0e6
 
 
+def constraint_scales(constraints):
+    """
+    Return the divisor that puts every constraint violation in one currency.
+
+    pymoo ranks infeasible candidates by the SUM of their violations, so raw
+    values in mixed units let whichever constraint happens to be measured in the
+    largest numbers dominate the search. Roll-centre height is in mm, kingpin in
+    degrees, Ackermann in percent: a design 4 mm out on roll centre and one 4%
+    out on Ackermann would count the same, and a design 60% out on Ackermann
+    would swamp everything else about sixty to one.
+
+    Dividing by the width of each constraint's own window makes a violation mean
+    "this fraction of the allowed band", which is comparable across units. A
+    one-sided bound has no width, so its own magnitude is used instead.
+    """
+    scales = {}
+    for name, spec in constraints.items():
+        bounds = spec[2] if len(spec) > 2 else None
+        low, high = bounds if bounds else (None, None)
+        if low is not None and high is not None:
+            width = abs(high - low)
+        elif low is not None or high is not None:
+            width = abs(low if low is not None else high)
+        else:
+            width = 0.0
+        scales[name] = width if width > 0.0 else 1.0
+    return scales
+
+
 class SuspensionProblem(ElementwiseProblem):
     def __init__(self, **kwargs):
         import optimizer
@@ -22,6 +51,7 @@ class SuspensionProblem(ElementwiseProblem):
 
         self.obj_names = list(optimizer.OBJECTIVES.keys())
         self.constr_names = list(optimizer.CONSTRAINTS.keys())
+        self.constr_scales = constraint_scales(optimizer.CONSTRAINTS)
 
         xl = np.array([optimizer.FREE_PARAMETERS[n][0] for n in self.names])
         xu = np.array([optimizer.FREE_PARAMETERS[n][1] for n in self.names])
@@ -60,10 +90,13 @@ class SuspensionProblem(ElementwiseProblem):
         for const_name in self.constr_names:
             sweep, metric, bounds = optimizer.CONSTRAINTS[const_name]
             val = result.outcomes.get(const_name, FAIL)
+            scale = self.constr_scales[const_name]
             if bounds:
                 low, high = bounds
-                g1 = low - val if low is not None else -FAIL
-                g2 = val - high if high is not None else -FAIL
+                # Scaled so that a violation reads as a fraction of this
+                # constraint's own window - see constraint_scales().
+                g1 = (low - val) / scale if low is not None else -FAIL
+                g2 = (val - high) / scale if high is not None else -FAIL
             else:
                 g1 = g2 = -FAIL
             G.extend([g1, g2])
@@ -104,7 +137,8 @@ def run_pymoo():
         initial[0] = known
 
     # Always use NSGA-III per user request, scaling the partitions based on objective count
-    partitions = {2: 100, 3: 12, 4: 8, 5: 6}.get(problem.n_obj, 5)
+    # 3 objectives -> 120 reference directions, matching POPULATION_SIZE = 128
+    partitions = {2: 100, 3: 14, 4: 8, 5: 6}.get(problem.n_obj, 5)
     ref_dirs = get_reference_directions(
         "das-dennis", problem.n_obj, n_partitions=partitions
     )
