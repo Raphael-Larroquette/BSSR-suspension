@@ -1,8 +1,10 @@
 from opt.evaluate import run_optimization
-
+#TO RUN: type uv run python Working/optimizer.py into terminal
+#Once done, run uv run python Working/export_pareto.py to export them to yamls
+#to solve, type uv run python Working/run_all.py --sets front --geometry "C:\Users\alexz\Downloads\BSSR-suspension\Working\models\pareto1\front.yaml" --only 01 --no-forces
 CAR_NAME = "aurora"
 POPULATION_SIZE = 300
-GENERATIONS = 4
+GENERATIONS = 30
 
 BUMP_WEIGHTING = 1.5
 

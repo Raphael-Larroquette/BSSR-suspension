@@ -47,7 +47,7 @@ hardpoints:
 
   # Axle.
     axle_inboard: {x: 0, y: 405.893, z: 278.5} #this is the point of the axle axis within the upright? (It is non critical and must simply be about 100-200mm from the axle_outboard along the correct direction (the axles axis))
-    axle_outboard: {x: 0, y: 477.279, z: 278.5} #this is the point where the axle axis meets the hub mounting face
+    axle_outboard: {x: 0, y: 523.737, z: 278.5} #this is the point where the axle axis meets the hub mounting face
 
   # Outboard coilover.
     strut_bottom: {x: 16.487, y: 335.273, z: 209.701} #this is the bottom mount out the spring & damper onto the LCA

@@ -74,7 +74,7 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
                     if ideal_delta > 0.25
                     else 100.0
                 )
-                outcomes[const_name] = abs(pct - 100.0)
+                outcomes[const_name] = pct
             except Exception as e:
                 import traceback
 
