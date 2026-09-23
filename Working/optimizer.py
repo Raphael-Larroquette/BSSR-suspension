@@ -3,16 +3,21 @@ from opt.evaluate import run_optimization
 #Once done, run uv run python Working/export_pareto.py to export them to yamls
 #to solve, type uv run python Working/run_all.py --sets front --geometry "C:\Users\alexz\Downloads\BSSR-suspension\Working\models\pareto1\front.yaml" --only 01 --no-forces
 CAR_NAME = "aurora"
-POPULATION_SIZE = 128   # one full wave across a 128-core box
+POPULATION_SIZE = 120   # 2 full waves of 60 workers, and == ref_dirs
 GENERATIONS = 120
 
 # Worker processes. None = one per CPU, capped at POPULATION_SIZE (a pool never
 # needs more workers than there are candidates). Each worker carries its own
 # numpy/scipy/pymoo and model, roughly 200-250 MB.
 #
-# Note POPULATION_SIZE is deliberately a whole multiple of the core count: wall
-# clock per generation is ceil(pop / workers) waves, so 128 on 64 cores is two
-# full waves with nothing idle, while 129 would be three.
+# POPULATION_SIZE is deliberately a whole multiple of the worker count: wall
+# clock per generation is ceil(pop / workers) waves, so 120 over 60 workers is
+# two full waves with nothing idle, while 128 would be three (60 + 60 + 8).
+# 120 is also exactly the number of NSGA-III reference directions at
+# n_partitions=14, which is how the algorithm is meant to be configured.
+#
+# Windows caps a single pool near 60 workers whatever the core count - see
+# WINDOWS_MAX_WORKERS in opt/problem.py.
 #
 # If a worker dies while importing scipy with "The paging file is too small",
 # that is the BLAS thread pools, not this setting - see limit_worker_threads()

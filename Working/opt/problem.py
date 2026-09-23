@@ -155,6 +155,15 @@ def limit_worker_threads(threads="1"):
         os.environ.setdefault(name, threads)
 
 
+#: Hard ceiling for a single Pool on Windows. multiprocessing waits on one OS
+#: handle per worker through WaitForMultipleObjects, which accepts at most 64,
+#: so a larger pool dies with "need at most 63 handles". 60 leaves headroom for
+#: the pool's own notifier handles. This is a Windows limit, not a tunable: to
+#: use more than ~60 processes you need several independent runs, or Linux/WSL2,
+#: where fork-based pools have no such cap.
+WINDOWS_MAX_WORKERS = 60
+
+
 def pool_size(pop_size):
     """
     Decide how many worker processes to start.
@@ -166,14 +175,22 @@ def pool_size(pop_size):
     exhausts memory and takes the terminal down with it.
 
     ``POOL_WORKERS`` in optimizer.py caps it further, for leaving cores free or
-    holding RAM down on a box whose core count outruns its memory.
+    holding RAM down on a box whose core count outruns its memory. On Windows a
+    further hard cap applies - see WINDOWS_MAX_WORKERS.
+
+    Note that ``os.cpu_count()`` reports LOGICAL processors, so a 64-core machine
+    with SMT says 128. This workload gains almost nothing from SMT, so the
+    Windows ceiling costs little in practice.
     """
     import optimizer
 
     available = os.cpu_count() or 1
     requested = getattr(optimizer, "POOL_WORKERS", None)
     workers = available if requested in (None, 0) else int(requested)
-    return max(1, min(workers, pop_size, available))
+    workers = min(workers, pop_size, available)
+    if os.name == "nt":
+        workers = min(workers, WINDOWS_MAX_WORKERS)
+    return max(1, workers)
 
 
 def run_pymoo():
@@ -200,8 +217,9 @@ def run_pymoo():
         known = np.array([optimizer.KNOWN_DESIGN[n] for n in problem.names])
         initial[0] = known
 
-    # Always use NSGA-III per user request, scaling the partitions based on objective count
-    # 3 objectives -> 120 reference directions, matching POPULATION_SIZE = 128
+    # Always use NSGA-III per user request, scaling the partitions based on
+    # objective count. 3 objectives at n_partitions=14 -> C(16,2) = 120
+    # reference directions, which POPULATION_SIZE = 120 matches exactly.
     partitions = {2: 100, 3: 14, 4: 8, 5: 6}.get(problem.n_obj, 5)
     ref_dirs = get_reference_directions(
         "das-dennis", problem.n_obj, n_partitions=partitions
