@@ -245,6 +245,15 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    # A path typed on the command line means "relative to where I am", so pin
+    # it to the current directory now. Left relative, --geometry would reach
+    # the runner and be resolved against the sweep set's folder, which is the
+    # rule for a `geometry:` written INSIDE run.yaml, not for one typed here.
+    for flag in ("geometry", "config", "forces_config"):
+        path = getattr(args, flag, None)
+        if path is not None:
+            setattr(args, flag, path.expanduser().resolve())
+
     if args.list:
         print("sweep sets:")
         for config in discover_sweep_sets():

@@ -72,9 +72,57 @@ def usable_frames(analysis, sweep_name):
     return good
 
 
-def _last_usable_frame(analysis, sweep_name):
-    """Return the highest-index frame that solved, for an end-of-sweep read."""
-    return usable_frames(analysis, sweep_name)[-1]
+#: Below this ideal inner-minus-outer difference (deg) the percentage is noise.
+#: Same threshold as the report (susreport.ACKERMANN_MIN_IDEAL_DELTA_DEG).
+ACKERMANN_MIN_IDEAL_DELTA_DEG = 0.25
+
+
+def ackermann_percent(frame) -> float:
+    """Signed Ackermann percentage of one steered frame, as the report defines it.
+
+    100% = true Ackermann, 0% = parallel, NEGATIVE = anti-Ackermann (the wheel
+    on the inside of the turn steers LESS than the outside one).
+
+    Which wheel is inner comes from the turn DIRECTION, not from which wheel
+    steers more: ISO steer > 0 is a left turn, so the left wheel is inner.
+    Taking inner = max(|left|, |right|) instead - which this function replaced -
+    makes the result symmetric under swapping the wheels, so anti-Ackermann of
+    the same size reads as positive Ackermann and passes the constraint.
+
+    A frame too close to centre to measure returns 0.0, which fails any
+    Ackermann band instead of passing it by default.
+    """
+    steer_l = frame.corner_metrics["left"]["steer_angle"]
+    steer_r = frame.corner_metrics["right"]["steer_angle"]
+    left_turn = (steer_l + steer_r) > 0.0
+    inner, outer = (steer_l, steer_r) if left_turn else (steer_r, steer_l)
+    inner, outer = abs(inner), abs(outer)
+
+    wheelbase = _wheelbase()
+    track = frame.metrics.get("track", 1000.0)
+    if outer <= 1e-6:
+        return 0.0
+    inner_arm = max(wheelbase / math.tan(math.radians(outer)) - track, 1e-9)
+    ideal_delta = math.degrees(math.atan2(wheelbase, inner_arm)) - outer
+    if ideal_delta < ACKERMANN_MIN_IDEAL_DELTA_DEG:
+        return 0.0
+    return 100.0 * (inner - outer) / ideal_delta
+
+
+_WHEELBASE = None
+
+
+def _wheelbase() -> float:
+    """Wheelbase (mm) from the template model's vehicle_config, as the report reads it."""
+    global _WHEELBASE
+    if _WHEELBASE is None:
+        import yaml
+
+        from .solve import model_path
+
+        spec = yaml.safe_load(model_path().read_text()) or {}
+        _WHEELBASE = float((spec.get("vehicle_config") or {}).get("wheelbase", 2240.0))
+    return _WHEELBASE
 
 
 def travel_integral(
@@ -132,33 +180,11 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
             # Resolved outside the try: if too little of the sweep solved, that
             # must reach the caller as an infeasible candidate, not be caught
             # below and turned into a score.
-            f = _last_usable_frame(analysis, sweep_name)
+            frames = usable_frames(analysis, sweep_name)
             try:
-                vals = list(f.corner_metrics.values())
-                steer_l = vals[0]["steer_angle"]
-                steer_r = vals[1]["steer_angle"]
-                wheelbase = 2240.0
-                track = f.metrics.get("track", 1000.0)
-                inner = max(abs(steer_l), abs(steer_r))
-                outer = min(abs(steer_l), abs(steer_r))
-                ideal_delta = (
-                    math.degrees(
-                        math.atan(
-                            wheelbase
-                            / (wheelbase / math.tan(math.radians(outer)) - track)
-                        )
-                    )
-                    - outer
-                    if outer > 0
-                    else 0
-                )
-                actual_delta = inner - outer
-                pct = (
-                    (actual_delta / ideal_delta * 100.0)
-                    if ideal_delta > 0.25
-                    else 100.0
-                )
-                outcomes[const_name] = pct
+                # Both locks, and the worse one is what the constraint sees.
+                pcts = [ackermann_percent(f) for f in (frames[0], frames[-1])]
+                outcomes[const_name] = max(pcts, key=lambda p: abs(p - 100.0))
             except Exception as e:
                 import traceback
 
