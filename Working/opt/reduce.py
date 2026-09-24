@@ -125,6 +125,49 @@ def _wheelbase() -> float:
     return _WHEELBASE
 
 
+def joint_force_score(solved):
+    """
+    0.75 x mean |F| + 0.25 x max |F| over the candidate axle's joints, in N.
+
+    Every physical joint counts once per side per case: a ball joint appears on
+    both parts it connects, and is read from one of them. The tyre contact load
+    is an applied force, not a joint, and is left out. Only the axle being
+    optimised is scored; the other axle is fixed, so its joints would add a
+    constant to the mean and could pin the max at a value no candidate moves.
+    Weights come from FORCE_WEIGHTS in optimizer.py.
+    """
+    import optimizer
+    from kinematics.core.loads.results import disambiguate_part_names
+
+    run, axle = solved
+    names = disambiguate_part_names(
+        {
+            (corner.axle.value, body.base_name): ""
+            for corner in run.corners
+            for body in corner.subsystem.bodies
+            if not body.is_ground
+        }
+    )
+    own_parts = {name for (ax, _), name in names.items() if ax == axle}
+
+    magnitudes = {}
+    for block in run.solution.blocks:
+        if block.part not in own_parts:
+            continue
+        for row in block.rows:
+            for load in row.loads:
+                if load.applied:
+                    continue
+                key = (row.case, row.side, load.name)
+                magnitudes[key] = float(np.linalg.norm(load.force))
+    if not magnitudes:
+        raise ValueError(f"force solve returned no joints for the {axle} axle")
+
+    forces = np.fromiter(magnitudes.values(), float)
+    weights = getattr(optimizer, "FORCE_WEIGHTS", {"mean": 0.75, "max": 0.25})
+    return weights["mean"] * forces.mean() + weights["max"] * forces.max()
+
+
 def travel_integral(
     analysis, key: str, bump_weight: float = 1.5, sweep_name=""
 ) -> float:
@@ -153,7 +196,9 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
             continue
         analysis = analyses[sweep_name]
 
-        if metric == "bump_steer":
+        if metric == "joint_force":
+            outcomes[obj_name] = joint_force_score(analysis)
+        elif metric == "bump_steer":
             outcomes[obj_name] = travel_integral(
                 analysis, "toe_angle", bump_weight, sweep_name
             )
@@ -191,6 +236,14 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
                 print(f"ACKERMANN ERROR: {e}")
                 traceback.print_exc()
                 outcomes[const_name] = 0.0
+
+        elif metric == "motion_ratio":
+            # Damper/wheel at design height, defined exactly as the report
+            # defines it: MR = -d(damper length)/d(wheel centre z).
+            setup = analysis.references["setup"].corner_metrics
+            outcomes[const_name] = -float(
+                setup["left"]["deriv_damper_length_wrt_hub_z"]
+            )
 
         elif metric == "max_turn":
             toes = [

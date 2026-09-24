@@ -1,12 +1,17 @@
+from opt.construct import spring_fractions, spring_mounts, top_height
 from opt.evaluate import run_optimization
 #TO RUN: type uv run python Working/optimizer.py into terminal
 #Once done, run uv run python Working/export_pareto.py to export them to yamls
-#to solve, type uv run python Working/run_all.py --sets front --geometry "C:\Users\alexz\Downloads\BSSR-suspension\Working\models\pareto1\front.yaml" --only 01 --no-forces
+#to solve, type uv run python Working/run_all.py --sets front --geometry "Working\models\pareto1\front.yaml" --only 01, 02 --no-forces 
 CAR_NAME = "aurora"
-POPULATION_SIZE = 600   # max workers is 60 on python in windows. so you need at least a pop of 91 the number of objectives, ideally 120 on the giga pc
-GENERATIONS = 100
+POPULATION_SIZE = 660   # max workers is 60 on python in windows. so you need at least a pop of 91 the number of objectives, ideally 120 on the giga pc
+GENERATIONS = 200
 
 BUMP_WEIGHTING = 1.5
+
+# True prints why each failed candidate failed. Off, each generation prints
+# only how many failed - most failures are ordinary kinematic lock-outs.
+VERBOSE_FAILURES = False
 
 SWEEP_LIMITS = {
     "01_bump_parallel": {"start": -50.8, "stop": 50.8},
@@ -44,6 +49,22 @@ FREE_PARAMETERS = {
     "trackrod_inboard.x": (-350.0, -50.0),
     "trackrod_inboard.z": (400.0, 560.0),
     "trackrod_inboard.y": (142.875, 340.0),
+    # Inboard pivot x, absolute. Front and rear ranges never overlap, so the
+    # front pivot is always ahead of the rear one by at least 50 mm.
+    "lower_wishbone_inboard_front.x": (25.0, 250.0),
+    "lower_wishbone_inboard_rear.x": (-250.0, -25.0),
+    "upper_wishbone_inboard_front.x": (25.0, 250.0),
+    "upper_wishbone_inboard_rear.x": (-250.0, -25.0),
+    # Spring mounts: fractions inside the UCA-LCA prism, see opt/construct.py.
+    # h: 0 = LCA triangle, 1 = UCA triangle. w: 0 = inboard, 1 = outboard.
+    # x is shared by both mounts: 0 = rearmost common x, 1 = frontmost.
+    # rise: the chassis mount's height as a fraction of the way from the LCA
+    # mount up to the UCA triangle, so it can never sit below the LCA mount.
+    "spring.x_frac": (0.0, 1.0),
+    "strut_top.rise_frac": (0.0, 1.0),    # chassis mount
+    "strut_top.w_frac": (0.0, 1.0),
+    "strut_bottom.h_frac": (0.0, 1.0),    # LCA mount
+    "strut_bottom.w_frac": (0.0, 1.0),
 }
 
 KNOWN_DESIGN = {
@@ -56,11 +77,39 @@ KNOWN_DESIGN = {
     "upper_wishbone_inboard.z": 422.12,
     "trackrod_outboard.x": -119.83,
     "trackrod_outboard.z": 525.2,
-    "trackrod_outboard.y": 407.4,
+    "trackrod_outboard.y": 394.5,   # was 407.4: 32% Ackermann; 394.5 gives 95%
     "trackrod_inboard.x": -130,
     "trackrod_inboard.z": 516.2,
     "trackrod_inboard.y": 320.7,
+    # Previously derived as outboard x +/- 50, kept so the seed is unchanged.
+    "lower_wishbone_inboard_front.x": 67.37,
+    "lower_wishbone_inboard_rear.x": -32.63,
+    "upper_wishbone_inboard_front.x": 30.54,
+    "upper_wishbone_inboard_rear.x": -69.46,
+    # Absolute spring mounts; converted to prism fractions by
+    # resolve_spring_seed(). Chosen so the seed passes every constraint
+    # (motion ratio 0.80); Aurora's mounts sit outside this seed's prism.
+    "strut_top": (10.43, 365.75, 341.13),
+    "strut_bottom": (10.43, 443.12, 166.76),
 }
+
+#: The force objective: this share of the mean joint force plus the rest of the
+#: largest one. Both are |F| in N over every front joint and every load case in
+#: forces/<CAR_NAME>/forces.yaml.
+FORCE_WEIGHTS = {"mean": 0.75, "max": 0.25}
+
+
+def wishbone_triangles(derived):
+    """LCA and UCA hardpoint triangles, each (inboard front, inboard rear, ball joint)."""
+    def xyz(name):
+        return [derived[f"{name}.{a}"] for a in "xyz"]
+
+    return tuple(
+        [xyz(f"{arm}_wishbone_inboard_front"),
+         xyz(f"{arm}_wishbone_inboard_rear"),
+         xyz(f"{arm}_wishbone_outboard")]
+        for arm in ("lower", "upper")
+    )
 
 
 def derive_parameters(free, fixed):
@@ -124,19 +173,23 @@ def derive_parameters(free, fixed):
     derived["axle_inboard.y"] = half_track + fixed["wheel_offset"] - 100.0
     derived["axle_inboard.z"] = fixed["rolling_radius"]
 
-    # Set symmetrical x coordinates of inbound points
-    derived["lower_wishbone_inboard_front.x"] = (
-        derived["lower_wishbone_outboard.x"] + 50.0
+    # Inboard pivot x: free parameters, one per pivot.
+    for arm in ("lower", "upper"):
+        for end in ("front", "rear"):
+            key = f"{arm}_wishbone_inboard_{end}.x"
+            derived[key] = p[key]
+
+    # Spring mounts: placed inside the prism the two arms sweep out.
+    lca, uca = wishbone_triangles(derived)
+    top, bottom = spring_mounts(
+        lca, uca, p["spring.x_frac"],
+        (top_height(p["strut_bottom.h_frac"], p["strut_top.rise_frac"]),
+         p["strut_top.w_frac"]),
+        (p["strut_bottom.h_frac"], p["strut_bottom.w_frac"]),
     )
-    derived["lower_wishbone_inboard_rear.x"] = (
-        derived["lower_wishbone_outboard.x"] - 50.0
-    )
-    derived["upper_wishbone_inboard_front.x"] = (
-        derived["upper_wishbone_outboard.x"] + 50.0
-    )
-    derived["upper_wishbone_inboard_rear.x"] = (
-        derived["upper_wishbone_outboard.x"] - 50.0
-    )
+    for name, point in (("strut_top", top), ("strut_bottom", bottom)):
+        for axis, value in zip("xyz", point):
+            derived[f"{name}.{axis}"] = float(value)
 
     for k, v in p.items():
         if k not in derived and not k.endswith("_frac") and "wishbone_inboard" not in k:
@@ -149,14 +202,18 @@ OBJECTIVES = {
     "fvsa_length": ("01_bump_parallel", "fvsa_length", "maximize"),
     "bump_steer": ("01_bump_parallel", "bump_steer", "minimize"),
     "bump_scrub": ("01_bump_parallel", "bump_scrub", "minimize"),
+    # "forces" is not a sweep: it is the static force solve at design height.
+    "joint_force": ("forces", "joint_force", "minimize"),
 }
 
 CONSTRAINTS = {
     "rc_height": ("01_bump_parallel", "roll_center_z", (0.0, 40.0)),
-    "ackermann": ("04_steer_design", "ackermann", (90.0, 110.0)),
+    "ackermann": ("04_steer_design", "ackermann", (60.0, 110.0)),
     "kingpin": ("01_bump_parallel", "kpi", (9.0, 11.0)),
     "max_turn": ("04_steer_design", "max_turn", (17.5, 90.0)),
     "fvsa_sign": ("01_bump_parallel", "fvsa_length", (1000.0, None)),
+    # Damper travel / wheel travel, at design height.
+    "motion_ratio": ("01_bump_parallel", "motion_ratio", (0.6, 1.01)),
 }
 
 # Auto-convert absolute Z coordinates in KNOWN_DESIGN to the z_frac required by the optimizer
@@ -173,6 +230,32 @@ if "upper_wishbone_inboard.z" in KNOWN_DESIGN:
     uca_in_z = KNOWN_DESIGN.get("upper_wishbone_inboard.z")
     uca_in_z_min = max(lca_z, lca_in_z) + min_sep
     KNOWN_DESIGN["upper_wishbone_inboard.z_frac"] = (uca_in_z - uca_in_z_min) / 200.0
+
+
+def resolve_spring_seed(fixed):
+    """
+    Turn KNOWN_DESIGN's absolute spring mounts into prism fractions, in place.
+
+    Run once, by the parent process, before the initial population is built -
+    not at import, because every worker imports this file. A mount outside the
+    seed's own prism has no exact fractions; the nearest in-prism pair is used
+    and the miss is printed.
+    """
+    if "strut_top" not in KNOWN_DESIGN:
+        return
+    top = KNOWN_DESIGN.pop("strut_top")
+    bottom = KNOWN_DESIGN.pop("strut_bottom")
+    trial = dict(KNOWN_DESIGN)
+    trial.update({"spring.x_frac": 0.5, "strut_top.rise_frac": 0.5,
+                  "strut_top.w_frac": 0.5, "strut_bottom.h_frac": 0.5,
+                  "strut_bottom.w_frac": 0.5})
+    lca, uca = wishbone_triangles(derive_parameters(trial, fixed))
+    fractions, miss = spring_fractions(lca, uca, top, bottom)
+    KNOWN_DESIGN.update(fractions)
+    if miss > 0.5:
+        print(f"KNOWN_DESIGN spring mounts are outside the seed's UCA-LCA prism; "
+              f"seeding with the nearest in-prism mounts ({miss:.1f} mm away)")
+
 
 if __name__ == "__main__":
     run_optimization()

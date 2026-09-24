@@ -276,6 +276,70 @@ def solve_stage(hardpoints_dict, required_sweeps):
 
     out = {}
     for name in required_sweeps:
+        if name == FORCES:
+            out[name] = solve_candidate_forces(suspension)
+            continue
         spec = copy.deepcopy(sweep_spec(name))
         out[name] = analyze_sweep(suspension, build_sweep(spec, suspension))
     return out
+
+
+# ==========================================================================
+# Static force solve
+# ==========================================================================
+#: Pseudo-sweep name an objective uses to ask for the static force solve.
+FORCES = "forces"
+
+_FORCE_INPUTS = {}
+
+
+def force_config_path(car=None):
+    """forces/<car>/forces.yaml - the same configuration run_all.py solves."""
+    if car is None:
+        car, _ = target_car()
+    path = WORKING / "forces" / car / "forces.yaml"
+    if not path.is_file():
+        raise FileNotFoundError(f"no force configuration at {path}")
+    return path
+
+
+def _force_inputs():
+    """Config, the fixed other axle, the cases and solver options, loaded once."""
+    car, axle = target_car()
+    key = (car, axle)
+    if key not in _FORCE_INPUTS:
+        from kinematics.cli.commands.forces import build_options, resolve_paths
+        from kinematics.cli.io.cases_loader import load_cases
+        from kinematics.cli.io.forces_loader import load_forces_config
+        from kinematics.cli.io.loaders import load_geometry
+
+        config_path = force_config_path(car)
+        config = load_forces_config(config_path)
+        paths = resolve_paths(config, config_path)
+        other = paths.rear if axle == "front" else paths.front
+        _FORCE_INPUTS[key] = (
+            config,
+            load_geometry(other),
+            load_cases(paths.cases),
+            build_options(config),
+        )
+    return _FORCE_INPUTS[key]
+
+
+def solve_candidate_forces(suspension):
+    """
+    Static joint forces for this candidate, with the other axle from the config.
+
+    Solved in-process at design height over every case in the force
+    configuration's cases.csv - the same solve `run_all.py` runs, without
+    writing anything. Returns ``(ForceRun, axle)`` so the reduction can keep
+    only the candidate axle's joints.
+    """
+    from kinematics.core.loads.main import solve_forces
+
+    _, axle = target_car()
+    config, other, cases, options = _force_inputs()
+    pair = (suspension, other) if axle == "front" else (other, suspension)
+    run = solve_forces(pair, cases, mass=config.vehicle.mass,
+                       gravity=config.vehicle.g, options=options)
+    return run, axle

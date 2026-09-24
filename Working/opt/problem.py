@@ -105,12 +105,32 @@ class SuspensionProblem(ElementwiseProblem):
         out["G"] = np.array(G)
 
 
+def report_failures(algorithm):
+    """Print how many of this generation's new candidates failed to solve.
+
+    Replaces one printed line per failure (see evaluate._report). A failed
+    candidate is scored FAIL on every objective, which is how it is counted.
+    Never allowed to stop the run: this is a progress message only.
+    """
+    try:
+        batch = getattr(algorithm, "off", None)
+        if batch is None or len(batch) == 0:
+            batch = algorithm.pop
+        F = batch.get("F")
+        failed = int(np.sum(np.asarray(F)[:, 0] >= FAIL))
+        print(f"   gen {algorithm.n_gen}: {failed} of {len(batch)} new candidates "
+              "failed to solve (lock-out / cannot assemble / too few steps)")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 class LogGeneration(Callback):
     def __init__(self, log_path):
         super().__init__()
         self.log_path = log_path
 
     def notify(self, algorithm):
+        report_failures(algorithm)
         evals = []
         for ind in algorithm.pop:
             if False:
@@ -213,6 +233,9 @@ def run_pymoo():
     initial = qmc.scale(sobol.random(pop_size), problem.xl, problem.xu)
 
     if hasattr(optimizer, "KNOWN_DESIGN"):
+        from .evaluate import FIXED_PARAMS
+
+        optimizer.resolve_spring_seed(FIXED_PARAMS)
         # Put known design in initial population
         known = np.array([optimizer.KNOWN_DESIGN[n] for n in problem.names])
         initial[0] = known

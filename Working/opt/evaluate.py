@@ -30,6 +30,20 @@ FIXED_PARAMS = {
     "min_outboard_separation": 200.0,
 }
 
+def _report(stage, err):
+    """Print one candidate's failure, only when optimizer.VERBOSE_FAILURES asks.
+
+    Most failures are expected: roughly two thirds of random geometries lock
+    up or cannot assemble. Printed one per line they bury the progress table,
+    so by default each generation prints a count instead (see
+    problem.LogGeneration). Turn this on to see why individual candidates fail.
+    """
+    import optimizer
+
+    if getattr(optimizer, "VERBOSE_FAILURES", False):
+        print(f"{stage} error: {err}")
+
+
 def evaluate(params: dict) -> Evaluation:
     import optimizer
     started = time.perf_counter()
@@ -38,7 +52,7 @@ def evaluate(params: dict) -> Evaluation:
         derived_flat = optimizer.derive_parameters(params, FIXED_PARAMS)
         hardpoints = expand_hardpoints(derived_flat)
     except Exception as err:
-        print(f"construct error: {err}")
+        _report("construct", err)
         return Evaluation({}, False, f"construct: {type(err).__name__}: {err}", [], time.perf_counter() - started, {})
         
     required_sweeps = set()
@@ -50,16 +64,16 @@ def evaluate(params: dict) -> Evaluation:
     try:
         analyses = solve_stage(hardpoints, list(required_sweeps))
     except (ValueError, RuntimeError) as err:
-        print(f"solve error: {err}")
+        _report("solve", err)
         return Evaluation({}, False, f"solve: {type(err).__name__}: {err}", [], time.perf_counter() - started, hardpoints)
         
     try:
         outcomes = reduce_outcomes(analyses, optimizer.OBJECTIVES, optimizer.CONSTRAINTS, optimizer.BUMP_WEIGHTING)
     except Exception as err:
-        print(f"reduce error: {err}")
+        _report("reduce", err)
         return Evaluation({}, False, f"reduce: {type(err).__name__}: {err}", [], time.perf_counter() - started, hardpoints)
         
-    warnings = [str(d) for a in analyses.values() for d in a.diagnostics]
+    warnings = [str(d) for a in analyses.values() for d in getattr(a, "diagnostics", ())]
     
     return Evaluation(outcomes, True, None, warnings, time.perf_counter() - started, hardpoints)
 
