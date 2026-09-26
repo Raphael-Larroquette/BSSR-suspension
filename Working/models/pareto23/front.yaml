@@ -1,6 +1,6 @@
 type: double_wishbone
 scope: axle
-name: "Pareto 1 Optimized Geometry"
+name: "Pareto 23 Optimized Geometry"
 version: "0.1.2"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
@@ -32,18 +32,18 @@ axle_config:
 hardpoints:
   left:
   # Lower wishbone.
-    lower_wishbone_inboard_front: {x: 247.257, y: 109.787, z: 160.056}
-    lower_wishbone_inboard_rear: {x: -160.455, y: 109.787, z: 160.056}
-    lower_wishbone_outboard: {x: 14.742, y: 474.225, z: 158.435}
+    lower_wishbone_inboard_front: {x: 236.492, y: 114.233, z: 160.081}
+    lower_wishbone_inboard_rear: {x: -180.002, y: 114.233, z: 160.081}
+    lower_wishbone_outboard: {x: 14.589, y: 472.533, z: 159.686}
 
   # Upper wishbone.
-    upper_wishbone_inboard_front: {x: 195.24, y: 267.454, z: 462.492}
-    upper_wishbone_inboard_rear: {x: -247.511, y: 267.454, z: 462.492}
-    upper_wishbone_outboard: {x: -22.942, y: 424.295, z: 465.351}
+    upper_wishbone_inboard_front: {x: 108.557, y: 226.654, z: 462.444}
+    upper_wishbone_inboard_rear: {x: -120.91, y: 226.654, z: 462.444}
+    upper_wishbone_outboard: {x: -22.559, y: 420.494, z: 462.23}
 
   # Track rod (inner / outer steering rod ends).
-    trackrod_inboard: {x: -229.543, y: 152.837, z: 444.091}
-    trackrod_outboard: {x: -128.658, y: 432.945, z: 463.018}
+    trackrod_inboard: {x: -216.711, y: 225.003, z: 456.41}
+    trackrod_outboard: {x: -123.232, y: 430.955, z: 456.193}
 
   # Axle axis. axle_outboard is where the axis meets the hub mounting face;
   # axle_inboard is any second point on the same axis, ~100-200 mm inboard.
@@ -51,8 +51,8 @@ hardpoints:
     axle_outboard: {x: 0.0, y: 523.737, z: 278.5}
 
   # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
-    strut_bottom: {x: -112.221, y: 335.265, z: 411.305}
-    strut_top: {x: -112.221, y: 320.771, z: 457.231}
+    strut_bottom: {x: -24.535, y: 370.181, z: 373.806}
+    strut_top: {x: -24.535, y: 338.875, z: 453.6}
 
   # No `right:` block, so the left corner is mirrored through Y = 0.
 

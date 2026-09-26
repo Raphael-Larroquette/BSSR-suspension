@@ -1,11 +1,11 @@
 from opt.construct import spring_fractions, spring_mounts, top_height
 from opt.evaluate import run_optimization
-#TO RUN: type uv run python Working/optimizer.py into terminal
-#Once done, run uv run python Working/export_pareto.py to export them to yamls
+#TO RUN: type into terminal: uv run python Working/optimizer.py 
+#Once done to export them to yamls run: uv run python Working/export_pareto.py 
 #to solve, type uv run python Working/run_all.py --sets front --geometry "Working\models\pareto1\front.yaml" --only 01, 02 --no-forces 
 CAR_NAME = "aurora"
-POPULATION_SIZE = 660   # max workers is 60 on python in windows. so you need at least a pop of 91 the number of objectives, ideally 120 on the giga pc
-GENERATIONS = 200
+POPULATION_SIZE = 1320   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
+GENERATIONS = 300
 
 BUMP_WEIGHTING = 1.5
 
