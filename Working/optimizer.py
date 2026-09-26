@@ -1,4 +1,4 @@
-from opt.construct import spring_fractions, spring_mounts, top_height
+from opt.construct import strut_bottom_fractions, strut_bottom_point
 from opt.evaluate import run_optimization
 #TO RUN: type uv run python Working/optimizer.py into terminal
 #Once done, run uv run python Working/export_pareto.py to export them to yamls
@@ -8,6 +8,13 @@ POPULATION_SIZE = 660   # max workers is 60 on python in windows. so you need at
 GENERATIONS = 200
 
 BUMP_WEIGHTING = 1.5
+
+# Shortest the shock may ever be, eye to eye, in mm. Checked twice with this
+# one number: before solving (design length, free - a shock already too short
+# at design height can only get shorter in the sweep) and after (the whole bump
+# sweep). Set it to the chosen shock's fully compressed length plus any
+# bump-stop margin. Placeholder until a shock is chosen. None turns it off.
+MIN_SHOCK_LENGTH = 130.0
 
 # True prints why each failed candidate failed. Off, each generation prints
 # only how many failed - most failures are ordinary kinematic lock-outs.
@@ -55,16 +62,17 @@ FREE_PARAMETERS = {
     "lower_wishbone_inboard_rear.x": (-250.0, -25.0),
     "upper_wishbone_inboard_front.x": (25.0, 250.0),
     "upper_wishbone_inboard_rear.x": (-250.0, -25.0),
-    # Spring mounts: fractions inside the UCA-LCA prism, see opt/construct.py.
-    # h: 0 = LCA triangle, 1 = UCA triangle. w: 0 = inboard, 1 = outboard.
-    # x is shared by both mounts: 0 = rearmost common x, 1 = frontmost.
-    # rise: the chassis mount's height as a fraction of the way from the LCA
-    # mount up to the UCA triangle, so it can never sit below the LCA mount.
-    "spring.x_frac": (0.0, 1.0),
-    "strut_top.rise_frac": (0.0, 1.0),    # chassis mount
-    "strut_top.w_frac": (0.0, 1.0),
-    "strut_bottom.h_frac": (0.0, 1.0),    # LCA mount
-    "strut_bottom.w_frac": (0.0, 1.0),
+    # Spring mounts at design height, see opt/construct.py.
+    # LCA mount: inside the LCA triangle in plan, `height` mm straight up from
+    # the LCA plane. u: 0 = ball joint, 1 = inboard pivot axis (area-uniform).
+    # v: 0 = front pivot side, 1 = rear pivot side.
+    "strut_bottom.u_frac": (0.0, 1.0),
+    "strut_bottom.v_frac": (0.0, 1.0),
+    "strut_bottom.height": (10.0, 50.0),
+    # Chassis mount: same x as the LCA mount, y and z absolute. z starts at
+    # 275 so it is always above the highest possible LCA mount (200 + 50).
+    "strut_top.y": (200.0, 435.0),
+    "strut_top.z": (275.0, 550.0),
 }
 
 KNOWN_DESIGN = {
@@ -86,9 +94,9 @@ KNOWN_DESIGN = {
     "lower_wishbone_inboard_rear.x": -32.63,
     "upper_wishbone_inboard_front.x": 30.54,
     "upper_wishbone_inboard_rear.x": -69.46,
-    # Absolute spring mounts; converted to prism fractions by
-    # resolve_spring_seed(). Chosen so the seed passes every constraint
-    # (motion ratio 0.80); Aurora's mounts sit outside this seed's prism.
+    # Absolute spring mounts; converted to strut_bottom u/v/height and
+    # strut_top y/z by resolve_spring_seed(). Chosen so the seed passes every
+    # constraint (motion ratio 0.80, 148.7 mm at full bump).
     "strut_top": (10.43, 365.75, 341.13),
     "strut_bottom": (10.43, 443.12, 166.76),
 }
@@ -179,20 +187,23 @@ def derive_parameters(free, fixed):
             key = f"{arm}_wishbone_inboard_{end}.x"
             derived[key] = p[key]
 
-    # Spring mounts: placed inside the prism the two arms sweep out.
-    lca, uca = wishbone_triangles(derived)
-    top, bottom = spring_mounts(
-        lca, uca, p["spring.x_frac"],
-        (top_height(p["strut_bottom.h_frac"], p["strut_top.rise_frac"]),
-         p["strut_top.w_frac"]),
-        (p["strut_bottom.h_frac"], p["strut_bottom.w_frac"]),
+    # Spring mounts: LCA mount above the LCA triangle, chassis mount at its x.
+    lca, _ = wishbone_triangles(derived)
+    bottom = strut_bottom_point(
+        lca, p["strut_bottom.u_frac"], p["strut_bottom.v_frac"],
+        p["strut_bottom.height"],
     )
-    for name, point in (("strut_top", top), ("strut_bottom", bottom)):
-        for axis, value in zip("xyz", point):
-            derived[f"{name}.{axis}"] = float(value)
+    for axis, value in zip("xyz", bottom):
+        derived[f"strut_bottom.{axis}"] = float(value)
+    derived["strut_top.x"] = float(bottom[0])
+    derived["strut_top.y"] = p["strut_top.y"]
+    derived["strut_top.z"] = p["strut_top.z"]
 
+    # Anything else that is already a plain hardpoint coordinate passes
+    # through; fractions and offsets (u_frac, height, ...) never do.
     for k, v in p.items():
-        if k not in derived and not k.endswith("_frac") and "wishbone_inboard" not in k:
+        if (k not in derived and k.rsplit(".", 1)[-1] in ("x", "y", "z")
+                and "wishbone_inboard" not in k):
             derived[k] = v
 
     return derived
@@ -214,7 +225,11 @@ CONSTRAINTS = {
     "fvsa_sign": ("01_bump_parallel", "fvsa_length", (1000.0, None)),
     # Damper travel / wheel travel, at design height.
     "motion_ratio": ("01_bump_parallel", "motion_ratio", (0.6, 1.01)),
+    # Shortest damper length anywhere in the bump sweep. See MIN_SHOCK_LENGTH.
+    "shock_length": ("01_bump_parallel", "min_damper_length", (MIN_SHOCK_LENGTH, None)),
 }
+if MIN_SHOCK_LENGTH is None:
+    del CONSTRAINTS["shock_length"]
 
 # Auto-convert absolute Z coordinates in KNOWN_DESIGN to the z_frac required by the optimizer
 min_sep = 200.0  # From evaluate.py FIXED_PARAMS
@@ -234,27 +249,40 @@ if "upper_wishbone_inboard.z" in KNOWN_DESIGN:
 
 def resolve_spring_seed(fixed):
     """
-    Turn KNOWN_DESIGN's absolute spring mounts into prism fractions, in place.
+    Turn KNOWN_DESIGN's absolute spring mounts into free parameters, in place.
 
     Run once, by the parent process, before the initial population is built -
-    not at import, because every worker imports this file. A mount outside the
-    seed's own prism has no exact fractions; the nearest in-prism pair is used
-    and the miss is printed.
+    not at import, because every worker imports this file. The LCA mount's x
+    is used for the chassis mount too, so a seed whose two mounts differ in x
+    is moved to the LCA mount's x. Anything that had to be moved, or that
+    falls outside FREE_PARAMETERS, is printed.
     """
     if "strut_top" not in KNOWN_DESIGN:
         return
     top = KNOWN_DESIGN.pop("strut_top")
     bottom = KNOWN_DESIGN.pop("strut_bottom")
     trial = dict(KNOWN_DESIGN)
-    trial.update({"spring.x_frac": 0.5, "strut_top.rise_frac": 0.5,
-                  "strut_top.w_frac": 0.5, "strut_bottom.h_frac": 0.5,
-                  "strut_bottom.w_frac": 0.5})
-    lca, uca = wishbone_triangles(derive_parameters(trial, fixed))
-    fractions, miss = spring_fractions(lca, uca, top, bottom)
-    KNOWN_DESIGN.update(fractions)
+    trial.update({"strut_bottom.u_frac": 0.5, "strut_bottom.v_frac": 0.5,
+                  "strut_bottom.height": 0.0, "strut_top.y": top[1],
+                  "strut_top.z": top[2]})
+    lca, _ = wishbone_triangles(derive_parameters(trial, fixed))
+    u, v, height, miss = strut_bottom_fractions(lca, bottom)
+    KNOWN_DESIGN.update({"strut_bottom.u_frac": u, "strut_bottom.v_frac": v,
+                         "strut_bottom.height": height,
+                         "strut_top.y": float(top[1]),
+                         "strut_top.z": float(top[2])})
     if miss > 0.5:
-        print(f"KNOWN_DESIGN spring mounts are outside the seed's UCA-LCA prism; "
-              f"seeding with the nearest in-prism mounts ({miss:.1f} mm away)")
+        print(f"KNOWN_DESIGN LCA spring mount is outside the LCA triangle in "
+              f"plan; seeding {miss:.1f} mm away, on its edge")
+    if abs(top[0] - bottom[0]) > 0.5:
+        print(f"KNOWN_DESIGN spring mounts differ in x by "
+              f"{top[0] - bottom[0]:.1f} mm; the chassis mount is moved to "
+              f"the LCA mount's x")
+    for name in ("strut_bottom.height", "strut_top.y", "strut_top.z"):
+        lo, hi = FREE_PARAMETERS[name]
+        if not lo <= KNOWN_DESIGN[name] <= hi:
+            print(f"KNOWN_DESIGN {name} = {KNOWN_DESIGN[name]:.2f} is outside "
+                  f"its range ({lo}, {hi})")
 
 
 if __name__ == "__main__":

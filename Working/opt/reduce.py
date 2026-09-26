@@ -168,6 +168,43 @@ def joint_force_score(solved):
     return weights["mean"] * forces.mean() + weights["max"] * forces.max()
 
 
+def min_damper_length(analysis, sweep_name=""):
+    """
+    Shortest damper length (mm) over the sweep, both sides.
+
+    Taken over every frame, not just the last one, so it still holds if the
+    motion ratio changes sign somewhere in travel. If an end frame failed to
+    solve and was dropped, the length is extrapolated linearly from the two
+    nearest solved frames out to the travel SWEEP_LIMITS asked for, so a
+    candidate cannot pass just because its full-bump frame did not solve.
+    """
+    import optimizer
+
+    frames = usable_frames(analysis, sweep_name)
+    worst = math.inf
+    limits = getattr(optimizer, "SWEEP_LIMITS", {}).get(sweep_name, {})
+    ends = [limits[k] for k in ("start", "stop") if k in limits]
+
+    for side in frames[0].corner_metrics:
+        travel = np.array([f.corner_metrics[side]["wheel_travel"] for f in frames])
+        length = np.array([f.corner_metrics[side]["damper_length"] for f in frames])
+        order = np.argsort(travel)
+        travel, length = travel[order], length[order]
+        worst = min(worst, float(length.min()))
+
+        for end in ends:
+            if end > travel[-1] + 0.5:
+                t, l = travel[-2:], length[-2:]
+            elif end < travel[0] - 0.5:
+                t, l = travel[:2], length[:2]
+            else:
+                continue
+            slope = (l[1] - l[0]) / (t[1] - t[0])
+            worst = min(worst, float(l[0] + slope * (end - t[0])))
+
+    return worst
+
+
 def travel_integral(
     analysis, key: str, bump_weight: float = 1.5, sweep_name=""
 ) -> float:
@@ -244,6 +281,9 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
             outcomes[const_name] = -float(
                 setup["left"]["deriv_damper_length_wrt_hub_z"]
             )
+
+        elif metric == "min_damper_length":
+            outcomes[const_name] = min_damper_length(analysis, sweep_name)
 
         elif metric == "max_turn":
             toes = [

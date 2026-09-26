@@ -1,3 +1,4 @@
+import math
 import time
 import subprocess
 import csv
@@ -54,7 +55,26 @@ def evaluate(params: dict) -> Evaluation:
     except Exception as err:
         _report("construct", err)
         return Evaluation({}, False, f"construct: {type(err).__name__}: {err}", [], time.perf_counter() - started, {})
-        
+
+    # Pre-solve shock length. The design pose is one frame of the bump sweep,
+    # so a shock already shorter than the minimum here must fail the post-solve
+    # check too: skip the solve. The length is kept as the candidate's
+    # shock_length outcome, so the optimiser still sees how short it was
+    # (see problem.SuspensionProblem._evaluate).
+    min_length = getattr(optimizer, "MIN_SHOCK_LENGTH", None)
+    if min_length is not None:
+        design_length = math.dist(
+            [derived_flat[f"strut_top.{a}"] for a in "xyz"],
+            [derived_flat[f"strut_bottom.{a}"] for a in "xyz"],
+        )
+        if design_length < min_length:
+            _report("presolve", f"design shock length {design_length:.1f} mm < {min_length} mm")
+            return Evaluation(
+                {"shock_length": design_length}, False,
+                f"presolve: design shock length {design_length:.1f} mm < {min_length} mm",
+                [], time.perf_counter() - started, hardpoints,
+            )
+
     required_sweeps = set()
     for s, m, d in optimizer.OBJECTIVES.values():
         required_sweeps.add(s)

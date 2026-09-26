@@ -74,7 +74,12 @@ class SuspensionProblem(ElementwiseProblem):
 
         if not result.feasible:
             out["F"] = np.full(self.n_obj, FAIL)
-            out["G"] = np.full(self.n_ieq_constr, FAIL)
+            # Constraints the candidate was measured on before it failed (the
+            # pre-solve shock length) get their real violation; the rest FAIL.
+            # So among candidates rejected before solving, a shock 2 mm short
+            # ranks ahead of one 40 mm short, and all of them rank ahead of
+            # candidates that could not be solved at all (every value FAIL).
+            out["G"] = np.array(self._constraint_values(result.outcomes, FAIL))
             return
 
         F = []
@@ -87,10 +92,25 @@ class SuspensionProblem(ElementwiseProblem):
                 F.append(val)
         out["F"] = np.array(F)
 
+        out["G"] = np.array(self._constraint_values(result.outcomes))
+
+    def _constraint_values(self, outcomes, missing=None):
+        """
+        pymoo's G vector (<= 0 is satisfied), two entries per constraint.
+
+        A constraint with no outcome is scored `missing` on both sides when
+        given (FAIL for a failed candidate); otherwise its value is taken as
+        FAIL, as before.
+        """
+        import optimizer
+
         G = []
         for const_name in self.constr_names:
             sweep, metric, bounds = optimizer.CONSTRAINTS[const_name]
-            val = result.outcomes.get(const_name, FAIL)
+            if const_name not in outcomes and missing is not None:
+                G.extend([missing, missing])
+                continue
+            val = outcomes.get(const_name, FAIL)
             scale = self.constr_scales[const_name]
             if bounds:
                 low, high = bounds
@@ -101,8 +121,7 @@ class SuspensionProblem(ElementwiseProblem):
             else:
                 g1 = g2 = -FAIL
             G.extend([g1, g2])
-
-        out["G"] = np.array(G)
+        return G
 
 
 def report_failures(algorithm):
@@ -116,10 +135,16 @@ def report_failures(algorithm):
         batch = getattr(algorithm, "off", None)
         if batch is None or len(batch) == 0:
             batch = algorithm.pop
-        F = batch.get("F")
-        failed = int(np.sum(np.asarray(F)[:, 0] >= FAIL))
-        print(f"   gen {algorithm.n_gen}: {failed} of {len(batch)} new candidates "
-              "failed to solve (lock-out / cannot assemble / too few steps)")
+        F = np.asarray(batch.get("F"))
+        G = np.asarray(batch.get("G"))
+        failed = F[:, 0] >= FAIL
+        # Pre-solve rejects carry one real constraint value; solve failures
+        # are FAIL everywhere.
+        short = failed & np.any(np.abs(G) < FAIL / 2, axis=1)
+        print(f"   gen {algorithm.n_gen}: {int(failed.sum())} of {len(batch)} new "
+              f"candidates failed - {int(short.sum())} shock too short at design "
+              f"height (not solved), {int((failed & ~short).sum())} failed to "
+              "solve (lock-out / cannot assemble / too few steps)")
     except Exception:  # noqa: BLE001
         pass
 
