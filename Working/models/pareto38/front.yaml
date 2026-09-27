@@ -1,6 +1,6 @@
 type: double_wishbone
 scope: axle
-name: "Pareto 22 Optimized Geometry"
+name: "Pareto 38 Optimized Geometry"
 version: "0.1.2"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
@@ -32,18 +32,18 @@ axle_config:
 hardpoints:
   left:
   # Lower wishbone.
-    lower_wishbone_inboard_front: {x: 239.064, y: 286.116, z: 146.106}
-    lower_wishbone_inboard_rear: {x: -249.809, y: 286.116, z: 146.106}
-    lower_wishbone_outboard: {x: 17.691, y: 475.938, z: 134.418}
+    lower_wishbone_inboard_front: {x: 248.788, y: 104.775, z: 137.462}
+    lower_wishbone_inboard_rear: {x: -244.604, y: 104.775, z: 137.462}
+    lower_wishbone_outboard: {x: 17.502, y: 475.952, z: 135.958}
 
   # Upper wishbone.
-    upper_wishbone_inboard_front: {x: 165.235, y: 286.301, z: 500.302}
-    upper_wishbone_inboard_rear: {x: -129.635, y: 286.301, z: 500.302}
-    upper_wishbone_outboard: {x: -26.285, y: 411.826, z: 492.573}
+    upper_wishbone_inboard_front: {x: 243.054, y: 232.823, z: 435.448}
+    upper_wishbone_inboard_rear: {x: -131.261, y: 232.823, z: 435.448}
+    upper_wishbone_outboard: {x: -19.176, y: 423.115, z: 434.677}
 
   # Track rod (inner / outer steering rod ends).
-    trackrod_inboard: {x: -121.57, y: 238.29, z: 440.519}
-    trackrod_outboard: {x: -130.168, y: 386.995, z: 444.324}
+    trackrod_inboard: {x: -129.382, y: 239.599, z: 439.327}
+    trackrod_outboard: {x: -119.902, y: 400.264, z: 437.828}
 
   # Axle axis. axle_outboard is where the axis meets the hub mounting face;
   # axle_inboard is any second point on the same axis, ~100-200 mm inboard.
@@ -51,8 +51,8 @@ hardpoints:
     axle_outboard: {x: 0.0, y: 523.737, z: 278.5}
 
   # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
-    strut_bottom: {x: 14.925, y: 473.698, z: 183.358}
-    strut_top: {x: 14.925, y: 432.617, z: 523.133}
+    strut_bottom: {x: 15.009, y: 472.088, z: 185.329}
+    strut_top: {x: 15.009, y: 424.676, z: 376.014}
 
   # No `right:` block, so the left corner is mirrored through Y = 0.
 

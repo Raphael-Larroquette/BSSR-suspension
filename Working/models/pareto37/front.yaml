@@ -1,6 +1,6 @@
 type: double_wishbone
 scope: axle
-name: "Pareto 22 Optimized Geometry"
+name: "Pareto 37 Optimized Geometry"
 version: "0.1.2"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
@@ -32,18 +32,18 @@ axle_config:
 hardpoints:
   left:
   # Lower wishbone.
-    lower_wishbone_inboard_front: {x: 239.064, y: 286.116, z: 146.106}
-    lower_wishbone_inboard_rear: {x: -249.809, y: 286.116, z: 146.106}
-    lower_wishbone_outboard: {x: 17.691, y: 475.938, z: 134.418}
+    lower_wishbone_inboard_front: {x: 198.381, y: 100.034, z: 137.493}
+    lower_wishbone_inboard_rear: {x: -244.202, y: 100.034, z: 137.493}
+    lower_wishbone_outboard: {x: 17.657, y: 475.511, z: 134.695}
 
   # Upper wishbone.
-    upper_wishbone_inboard_front: {x: 165.235, y: 286.301, z: 500.302}
-    upper_wishbone_inboard_rear: {x: -129.635, y: 286.301, z: 500.302}
-    upper_wishbone_outboard: {x: -26.285, y: 411.826, z: 492.573}
+    upper_wishbone_inboard_front: {x: 151.715, y: 289.563, z: 434.47}
+    upper_wishbone_inboard_rear: {x: -231.479, y: 289.563, z: 434.47}
+    upper_wishbone_outboard: {x: -19.03, y: 421.188, z: 433.491}
 
   # Track rod (inner / outer steering rod ends).
-    trackrod_inboard: {x: -121.57, y: 238.29, z: 440.519}
-    trackrod_outboard: {x: -130.168, y: 386.995, z: 444.324}
+    trackrod_inboard: {x: -136.576, y: 259.867, z: 440.464}
+    trackrod_outboard: {x: -128.915, y: 392.299, z: 440.32}
 
   # Axle axis. axle_outboard is where the axis meets the hub mounting face;
   # axle_inboard is any second point on the same axis, ~100-200 mm inboard.
@@ -51,8 +51,8 @@ hardpoints:
     axle_outboard: {x: 0.0, y: 523.737, z: 278.5}
 
   # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
-    strut_bottom: {x: 14.925, y: 473.698, z: 183.358}
-    strut_top: {x: 14.925, y: 432.617, z: 523.133}
+    strut_bottom: {x: 14.288, y: 460.341, z: 153.552}
+    strut_top: {x: 14.288, y: 434.59, z: 513.274}
 
   # No `right:` block, so the left corner is mirrored through Y = 0.
 

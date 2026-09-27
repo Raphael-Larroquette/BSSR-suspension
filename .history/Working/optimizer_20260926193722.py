@@ -4,7 +4,7 @@ from opt.evaluate import run_optimization
 #Once done to export them to yamls run: uv run python Working/export_pareto.py 
 #to solve, type uv run python Working/run_all.py --sets front --geometry "Working\models\pareto1\front.yaml" --only 01, 02 --no-forces 
 CAR_NAME = "aurora"
-POPULATION_SIZE = 1320   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
+POPULATION_SIZE = 660   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
 GENERATIONS = 180
 
 BUMP_WEIGHTING = 1.5
@@ -66,13 +66,13 @@ FREE_PARAMETERS = {
     # LCA mount: inside the LCA triangle in plan, `height` mm straight up from
     # the LCA plane. u: 0 = ball joint, 1 = inboard pivot axis (area-uniform).
     # v: 0 = front pivot side, 1 = rear pivot side.
-    "strut_bottom.u_frac": (0.15, 1.0),
+    "strut_bottom.u_frac": (0.0, 1.0),
     "strut_bottom.v_frac": (0.0, 1.0),
     "strut_bottom.height": (10.0, 50.0),
     # Chassis mount: same x as the LCA mount, y and z absolute. z starts at
     # 275 so it is always above the highest possible LCA mount (200 + 50).
-    "strut_top.y": (200.0, 410.0),
-    "strut_top.z": (275.0, 490.0),
+    "strut_top.y": (200.0, 435.0),
+    "strut_top.z": (275.0, 550.0),
 }
 
 KNOWN_DESIGN = {
@@ -219,7 +219,7 @@ OBJECTIVES = {
 
 CONSTRAINTS = {
     "rc_height": ("01_bump_parallel", "roll_center_z", (0.0, 40.0)),
-    "bump_steer": ("01_bump_parallel", "bump_steer", (-0.2, 0.2)), #Added to reduce number of designs coming through with too high of bump steer. TEST as of 7:40pm 09/26/2026
+    "bump_steer": ("01_bump_parallel", "bump_steer", (-0.3, 0.3)), #Added to reduce number of designs coming through with too high of bump steer. TEST as of 7:40pm 09/26/2026
     "ackermann": ("04_steer_design", "ackermann", (60.0, 110.0)),
     "kingpin": ("01_bump_parallel", "kpi", (9.0, 11.0)),
     "max_turn": ("04_steer_design", "max_turn", (17.5, 90.0)),
