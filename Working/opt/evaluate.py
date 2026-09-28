@@ -56,6 +56,17 @@ def evaluate(params: dict) -> Evaluation:
         _report("construct", err)
         return Evaluation({}, False, f"construct: {type(err).__name__}: {err}", [], time.perf_counter() - started, {})
 
+    # Pre-solve rack packaging. The inner tie rod point is calculated, not
+    # searched, so it can land anywhere; outside its window there is no rack.
+    limits = getattr(optimizer, "TRACKROD_INBOARD_LIMITS", {})
+    for axis, (lo, hi) in limits.items():
+        value = derived_flat[f"trackrod_inboard.{axis}"]
+        if not lo <= value <= hi:
+            msg = f"inner tie rod {axis} = {value:.1f} mm outside ({lo}, {hi})"
+            _report("presolve", msg)
+            return Evaluation({}, False, f"presolve: {msg}", [],
+                              time.perf_counter() - started, hardpoints)
+
     # Pre-solve shock length. The design pose is one frame of the bump sweep,
     # so a shock already shorter than the minimum here must fail the post-solve
     # check too: skip the solve. The length is kept as the candidate's

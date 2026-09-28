@@ -282,6 +282,15 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
                 setup["left"]["deriv_damper_length_wrt_hub_z"]
             )
 
+        elif metric == "toe_range":
+            # Toe max - min over the sweep, deg, worse side: the same number
+            # as the report's toe "range" column.
+            frames = usable_frames(analysis, sweep_name)
+            outcomes[const_name] = max(
+                float(np.ptp([f.corner_metrics[side]["toe_angle"] for f in frames]))
+                for side in frames[0].corner_metrics
+            )
+
         elif metric == "min_damper_length":
             outcomes[const_name] = min_damper_length(analysis, sweep_name)
 

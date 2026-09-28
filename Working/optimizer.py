@@ -1,4 +1,5 @@
-from opt.construct import strut_bottom_fractions, strut_bottom_point
+from opt.construct import (strut_bottom_fractions, strut_bottom_point,
+                           trackrod_inboard_yz)
 from opt.evaluate import run_optimization
 #TO RUN: type into terminal: uv run python Working/optimizer.py 
 #Once done to export them to yamls run: uv run python Working/export_pareto.py 
@@ -38,7 +39,7 @@ SWEEP_LIMITS = {
 #                     WARNING: add an objective that reads the SHAPE of the
 #                     steer curve and this must go back up.
 SWEEP_STEPS = {
-    "01_bump_parallel": 15,
+    "01_bump_parallel": 13,
     "04_steer_design": 3,
 }
 
@@ -54,8 +55,8 @@ FREE_PARAMETERS = {
     "trackrod_outboard.z": (400.0, 550.0), #bellow top of wheel + margin
     "trackrod_outboard.y": (350.0, 435.0),
     "trackrod_inboard.x": (-350.0, -50.0),
-    "trackrod_inboard.z": (400.0, 560.0),
-    "trackrod_inboard.y": (142.875, 340.0),
+    # trackrod_inboard y and z are not searched: they are calculated for zero
+    # bump steer (opt/construct.py) and must land in TRACKROD_INBOARD_LIMITS.
     # Inboard pivot x, absolute. Front and rear ranges never overlap, so the
     # front pivot is always ahead of the rear one by at least 50 mm.
     "lower_wishbone_inboard_front.x": (25.0, 250.0),
@@ -66,13 +67,20 @@ FREE_PARAMETERS = {
     # LCA mount: inside the LCA triangle in plan, `height` mm straight up from
     # the LCA plane. u: 0 = ball joint, 1 = inboard pivot axis (area-uniform).
     # v: 0 = front pivot side, 1 = rear pivot side.
-    "strut_bottom.u_frac": (0.15, 1.0),
+    "strut_bottom.u_frac": (0.08, 1.0),
     "strut_bottom.v_frac": (0.0, 1.0),
     "strut_bottom.height": (10.0, 50.0),
     # Chassis mount: same x as the LCA mount, y and z absolute. z starts at
     # 275 so it is always above the highest possible LCA mount (200 + 50).
     "strut_top.y": (200.0, 410.0),
     "strut_top.z": (275.0, 490.0),
+}
+
+# Packaging window for the calculated inner tie rod point (rack end), mm. A
+# candidate whose zero-bump-steer point falls outside is rejected before solving.
+TRACKROD_INBOARD_LIMITS = {
+    "y": (142.875, 340.0),
+    "z": (400.0, 560.0),
 }
 
 KNOWN_DESIGN = {
@@ -87,18 +95,18 @@ KNOWN_DESIGN = {
     "trackrod_outboard.z": 525.2,
     "trackrod_outboard.y": 394.5,   # was 407.4: 32% Ackermann; 394.5 gives 95%
     "trackrod_inboard.x": -130,
-    "trackrod_inboard.z": 516.2,
-    "trackrod_inboard.y": 320.7,
     # Previously derived as outboard x +/- 50, kept so the seed is unchanged.
     "lower_wishbone_inboard_front.x": 67.37,
     "lower_wishbone_inboard_rear.x": -32.63,
     "upper_wishbone_inboard_front.x": 30.54,
     "upper_wishbone_inboard_rear.x": -69.46,
     # Absolute spring mounts; converted to strut_bottom u/v/height and
-    # strut_top y/z by resolve_spring_seed(). Chosen so the seed passes every
-    # constraint (motion ratio 0.80, 148.7 mm at full bump).
-    "strut_top": (10.43, 365.75, 341.13),
-    "strut_bottom": (10.43, 443.12, 166.76),
+    # strut_top y/z by resolve_spring_seed(). Chosen inside the current ranges
+    # (u_frac 0.153) so the seed passes every constraint: motion ratio 0.635,
+    # 252 mm at full bump, joint_force 4200 N. The old mounts (10.43, 365.75,
+    # 341.13) / (10.43, 443.12, 166.76) gave MR 0.80 but sit at u_frac 0.033.
+    "strut_top": (19.45, 331.95, 448.37),
+    "strut_bottom": (19.45, 405.43, 174.11),
 }
 
 #: The force objective: this share of the mean joint force plus the rest of the
@@ -181,6 +189,24 @@ def derive_parameters(free, fixed):
     derived["axle_inboard.y"] = half_track + fixed["wheel_offset"] - 100.0
     derived["axle_inboard.z"] = fixed["rolling_radius"]
 
+    # Inner tie rod y, z: calculated for zero bump steer over the bump sweep's
+    # travel. x stays a free parameter (it doesn't affect front-view motion).
+    def xyz(name):
+        return [derived.get(f"{name}.{a}", 0.0) for a in "xyz"]
+
+    bump = SWEEP_LIMITS["01_bump_parallel"]
+    trackrod_out = [p["trackrod_outboard.x"], p["trackrod_outboard.y"],
+                    p["trackrod_outboard.z"]]
+    inner_y, inner_z = trackrod_inboard_yz(
+        [0.0, p["lower_wishbone_inboard.y"], lca_in_z], xyz("lower_wishbone_outboard"),
+        [0.0, p["upper_wishbone_inboard.y"], uca_in_z], xyz("upper_wishbone_outboard"),
+        trackrod_out, xyz("axle_outboard"),
+        (min(bump["start"], bump["stop"]), max(bump["start"], bump["stop"])),
+    )
+    derived["trackrod_inboard.x"] = p["trackrod_inboard.x"]
+    derived["trackrod_inboard.y"] = float(inner_y)
+    derived["trackrod_inboard.z"] = float(inner_z)
+
     # Inboard pivot x: free parameters, one per pivot.
     for arm in ("lower", "upper"):
         for end in ("front", "rear"):
@@ -219,7 +245,10 @@ OBJECTIVES = {
 
 CONSTRAINTS = {
     "rc_height": ("01_bump_parallel", "roll_center_z", (0.0, 40.0)),
-    "bump_steer": ("01_bump_parallel", "bump_steer", (-0.2, 0.2)), #Added to reduce number of designs coming through with too high of bump steer. TEST as of 7:40pm 09/26/2026
+    # Toe max - min over the bump sweep, deg, worse side: the report's toe
+    # "range" column. With the calculated inner tie rod this is normally
+    # ~0.05-0.2 deg, so it only catches what the front-view model misses.
+    "toe_range": ("01_bump_parallel", "toe_range", (0.0, 1.0)),
     "ackermann": ("04_steer_design", "ackermann", (60.0, 110.0)),
     "kingpin": ("01_bump_parallel", "kpi", (9.0, 11.0)),
     "max_turn": ("04_steer_design", "max_turn", (17.5, 90.0)),
@@ -279,7 +308,8 @@ def resolve_spring_seed(fixed):
         print(f"KNOWN_DESIGN spring mounts differ in x by "
               f"{top[0] - bottom[0]:.1f} mm; the chassis mount is moved to "
               f"the LCA mount's x")
-    for name in ("strut_bottom.height", "strut_top.y", "strut_top.z"):
+    for name in ("strut_bottom.u_frac", "strut_bottom.v_frac",
+                 "strut_bottom.height", "strut_top.y", "strut_top.z"):
         lo, hi = FREE_PARAMETERS[name]
         if not lo <= KNOWN_DESIGN[name] <= hi:
             print(f"KNOWN_DESIGN {name} = {KNOWN_DESIGN[name]:.2f} is outside "

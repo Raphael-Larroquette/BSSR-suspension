@@ -144,7 +144,7 @@ def report_failures(algorithm):
         print(f"   gen {algorithm.n_gen}: {int(failed.sum())} of {len(batch)} new "
               f"candidates failed - {int(short.sum())} shock too short at design "
               f"height (not solved), {int((failed & ~short).sum())} failed to "
-              "solve (lock-out / cannot assemble / too few steps)")
+              "solve or rack out of range (lock-out / cannot assemble / too few steps)")
     except Exception:  # noqa: BLE001
         pass
 
