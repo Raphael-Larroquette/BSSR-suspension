@@ -8,6 +8,16 @@ CAR_NAME = "aurora"
 POPULATION_SIZE = 1320   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
 GENERATIONS = 180
 
+# Worker processes. None = one per logical CPU (128 on the 64-core machine).
+# Windows caps one process pool at 60 workers, so they are split into as few
+# pools as that allows (128 -> 3 pools of 43, 43, 42) - see opt/problem.py.
+# Try 64 (one per physical core) vs None and keep whichever is faster per
+# generation. Each worker holds ~200 MB of RAM.
+POOL_WORKERS = None
+# Largest pool. None = 60 on Windows (its limit), everything in one pool
+# elsewhere. Only lower it to test multi-pool behaviour on a small machine.
+WORKERS_PER_POOL = None
+
 BUMP_WEIGHTING = 1.5
 
 # Shortest the shock may ever be, eye to eye, in mm. Checked twice with this

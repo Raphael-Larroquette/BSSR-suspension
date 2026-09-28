@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from pymoo.algorithms.moo.nsga3 import NSGA3
 from pymoo.core.callback import Callback
-from pymoo.core.problem import ElementwiseProblem, StarmapParallelization
+from pymoo.core.problem import ElementwiseProblem
 from pymoo.optimize import minimize
 from pymoo.util.ref_dirs import get_reference_directions
 from scipy.stats import qmc
@@ -203,39 +203,96 @@ def limit_worker_threads(threads="1"):
 #: Hard ceiling for a single Pool on Windows. multiprocessing waits on one OS
 #: handle per worker through WaitForMultipleObjects, which accepts at most 64,
 #: so a larger pool dies with "need at most 63 handles". 60 leaves headroom for
-#: the pool's own notifier handles. This is a Windows limit, not a tunable: to
-#: use more than ~60 processes you need several independent runs, or Linux/WSL2,
-#: where fork-based pools have no such cap.
+#: the pool's own notifier handles. The limit is per Pool, not per program, so
+#: more workers than this are run as several pools side by side - see
+#: pool_sizes() and MultiPoolRunner.
 WINDOWS_MAX_WORKERS = 60
 
 
-def pool_size(pop_size):
+def pool_sizes(pop_size):
     """
-    Decide how many worker processes to start.
+    Decide how many worker processes to start, and how to split them into pools.
 
-    Never more than there are candidates to evaluate. A bare ``Pool()`` starts
-    one worker per CPU no matter how small the population is, and each worker
-    carries its own numpy, scipy, pymoo and model - on the order of 200 MB. On a
-    many-core machine that is tens of GB for a 16-candidate smoke test, which
-    exhausts memory and takes the terminal down with it.
+    Total workers: ``POOL_WORKERS`` in optimizer.py, or every logical CPU when
+    it is None or 0. Never more than there are candidates to evaluate: each
+    worker carries its own numpy, scipy, pymoo and model (on the order of
+    200 MB), so a many-core machine running a 16-candidate smoke test would
+    otherwise start tens of GB of idle processes.
 
-    ``POOL_WORKERS`` in optimizer.py caps it further, for leaving cores free or
-    holding RAM down on a box whose core count outruns its memory. On Windows a
-    further hard cap applies - see WINDOWS_MAX_WORKERS.
+    Pools: as few as possible, each at most ``WORKERS_PER_POOL`` (optimizer.py;
+    default WINDOWS_MAX_WORKERS on Windows, unlimited elsewhere), with the
+    workers spread evenly. 128 workers on Windows -> three pools of 43, 43, 42.
 
-    Note that ``os.cpu_count()`` reports LOGICAL processors, so a 64-core machine
-    with SMT says 128. This workload gains almost nothing from SMT, so the
-    Windows ceiling costs little in practice.
+    ``os.cpu_count()`` reports LOGICAL processors, so a 64-core machine with SMT
+    says 128. Whether SMT helps this workload is worth measuring on the machine:
+    compare the seconds per generation at POOL_WORKERS = 64 and 128.
+
+    Returns:
+        list of pool sizes, one per pool.
     """
     import optimizer
 
     available = os.cpu_count() or 1
     requested = getattr(optimizer, "POOL_WORKERS", None)
-    workers = available if requested in (None, 0) else int(requested)
-    workers = min(workers, pop_size, available)
-    if os.name == "nt":
-        workers = min(workers, WINDOWS_MAX_WORKERS)
-    return max(1, workers)
+    total = available if requested in (None, 0) else int(requested)
+    total = max(1, min(total, pop_size, available))
+
+    cap = getattr(optimizer, "WORKERS_PER_POOL", None)
+    if cap in (None, 0):
+        cap = WINDOWS_MAX_WORKERS if os.name == "nt" else total
+    cap = max(1, min(int(cap), WINDOWS_MAX_WORKERS if os.name == "nt" else total))
+
+    n_pools = -(-total // cap)                     # ceiling division
+    base, extra = divmod(total, n_pools)
+    return [base + (1 if i < extra else 0) for i in range(n_pools)]
+
+
+class MultiPoolRunner:
+    """
+    pymoo elementwise runner that spreads each generation over several Pools.
+
+    Does what pymoo's StarmapParallelization does with one pool: takes the
+    evaluation function and the batch X, returns one result per row of X in
+    the same order. Candidates are dealt out in proportion to pool size and
+    interleaved (pool 0, 1, 2, 0, 1, 2, ...), so fast-failing and slow
+    candidates, which are mixed along X, end up mixed in every pool. All pools
+    run at once; within a pool, chunksize=1 lets an idle worker take the next
+    candidate as soon as it is free.
+    """
+
+    def __init__(self, pools, sizes):
+        self.pools = pools
+        self.sizes = sizes
+
+    def _deal(self, n):
+        """Candidate indices for each pool, proportional to its size."""
+        counts = [0] * len(self.sizes)
+        groups = [[] for _ in self.sizes]
+        for i in range(n):
+            k = min(range(len(self.sizes)),
+                    key=lambda j: (counts[j] + 1) / self.sizes[j])
+            groups[k].append(i)
+            counts[k] += 1
+        return groups
+
+    def __call__(self, f, X):
+        jobs = []
+        for pool, idx in zip(self.pools, self._deal(len(X))):
+            if idx:
+                jobs.append((idx, pool.starmap_async(f, [[X[i]] for i in idx],
+                                                     chunksize=1)))
+        out = [None] * len(X)
+        for idx, job in jobs:
+            for i, result in zip(idx, job.get()):
+                out[i] = result
+        return out
+
+    def __getstate__(self):
+        # The problem (and this runner with it) is pickled into every worker
+        # with each candidate; pools cannot be pickled and are not needed there.
+        state = self.__dict__.copy()
+        state.pop("pools", None)
+        return state
 
 
 def run_pymoo():
@@ -245,13 +302,21 @@ def run_pymoo():
     n_gen = optimizer.GENERATIONS
 
     limit_worker_threads()
-    workers = pool_size(pop_size)
+    sizes = pool_sizes(pop_size)
     print(
-        f"population {pop_size}, {n_gen} generations, {workers} worker processes "
+        f"population {pop_size}, {n_gen} generations, {sum(sizes)} worker "
+        f"processes in {len(sizes)} pool(s) of {', '.join(map(str, sizes))} "
         f"({os.cpu_count()} CPUs visible)"
     )
-    pool = Pool(processes=workers)
-    runner = StarmapParallelization(pool.starmap)
+    pools = []
+    try:
+        for size in sizes:
+            pools.append(Pool(processes=size))
+    except Exception:
+        for pool in pools:
+            pool.terminate()
+        raise
+    runner = MultiPoolRunner(pools, sizes)
     problem = SuspensionProblem(elementwise_runner=runner)
 
     sobol = qmc.Sobol(d=problem.n_var, scramble=True, seed=0)
@@ -287,11 +352,16 @@ def run_pymoo():
             verbose=True,
             callback=callback,
         )
+    except BaseException:
+        # A crash or Ctrl+C: stop every worker in every pool now rather than
+        # waiting for them to finish their current candidate.
+        for pool in pools:
+            pool.terminate()
+        raise
     finally:
-        # Cleanup only, no behaviour change: without this a crash or Ctrl+C
-        # leaves every worker process running.
-        pool.close()
-        pool.join()
+        for pool in pools:
+            pool.close()
+            pool.join()
 
     print("Pareto Front found:")
     print(res.F)
