@@ -32,18 +32,18 @@ axle_config:
 hardpoints:
   left:
   # Lower wishbone.
-    lower_wishbone_inboard_front: {x: 248.014, y: 223.308, z: 141.433}
-    lower_wishbone_inboard_rear: {x: -249.864, y: 223.308, z: 141.433}
-    lower_wishbone_outboard: {x: 17.879, y: 475.738, z: 132.887}
+    lower_wishbone_inboard_front: {x: 225.506, y: 349.188, z: 134.198}
+    lower_wishbone_inboard_rear: {x: -229.309, y: 349.188, z: 134.198}
+    lower_wishbone_outboard: {x: 17.724, y: 475.598, z: 134.146}
 
   # Upper wishbone.
-    upper_wishbone_inboard_front: {x: 227.432, y: 316.835, z: 495.59}
-    upper_wishbone_inboard_rear: {x: -173.409, y: 316.835, z: 495.59}
-    upper_wishbone_outboard: {x: -26.544, y: 409.681, z: 494.685}
+    upper_wishbone_inboard_front: {x: 169.838, y: 264.589, z: 522.665}
+    upper_wishbone_inboard_rear: {x: -189.644, y: 264.589, z: 522.665}
+    upper_wishbone_outboard: {x: -30.013, y: 404.875, z: 522.936}
 
   # Track rod (inner / outer steering rod ends).
-    trackrod_inboard: {x: -138.755, y: 222.457, z: 423.35}
-    trackrod_outboard: {x: -130.226, y: 389.499, z: 443.151}
+    trackrod_inboard: {x: -186.269, y: 268.913, z: 519.072}
+    trackrod_outboard: {x: -136.894, y: 409.064, z: 519.35}
 
   # Axle axis. axle_outboard is where the axis meets the hub mounting face;
   # axle_inboard is any second point on the same axis, ~100-200 mm inboard.
@@ -51,8 +51,8 @@ hardpoints:
     axle_outboard: {x: 0.0, y: 523.737, z: 278.5}
 
   # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
-    strut_bottom: {x: 18.726, y: 472.914, z: 182.866}
-    strut_top: {x: 18.726, y: 429.118, z: 538.754}
+    strut_bottom: {x: 8.237, y: 439.793, z: 184.125}
+    strut_top: {x: 8.237, y: 331.444, z: 418.096}
 
   # No `right:` block, so the left corner is mirrored through Y = 0.
 
