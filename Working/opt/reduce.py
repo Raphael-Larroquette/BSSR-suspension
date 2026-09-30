@@ -109,6 +109,17 @@ def ackermann_percent(frame) -> float:
     return 100.0 * (inner - outer) / ideal_delta
 
 
+def worst_ackermann_percent(frames) -> float:
+    """Ackermann % of whichever end of the steer sweep is furthest from 100%.
+
+    The first and last frame are the two full locks, so this judges the design
+    on both directions at once. Shared by the `ackermann` constraint metric and
+    the `ackermann_error` objective, so the two can never disagree.
+    """
+    pcts = [ackermann_percent(f) for f in (frames[0], frames[-1])]
+    return max(pcts, key=lambda p: abs(p - 100.0))
+
+
 _WHEELBASE = None
 
 
@@ -235,6 +246,13 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
 
         if metric == "joint_force":
             outcomes[obj_name] = joint_force_score(analysis)
+        elif metric == "ackermann_error":
+            # |Ackermann % - 100| on the worse lock, percentage points. A frame
+            # too close to centre to measure reads 0 %, so it scores 100 rather
+            # than looking perfect. Errors are not swallowed here: a candidate
+            # whose Ackermann cannot be read is reported as failed, not scored.
+            frames = usable_frames(analysis, sweep_name)
+            outcomes[obj_name] = abs(worst_ackermann_percent(frames) - 100.0)
         elif metric == "bump_steer":
             outcomes[obj_name] = travel_integral(
                 analysis, "toe_angle", bump_weight, sweep_name
@@ -265,8 +283,7 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
             frames = usable_frames(analysis, sweep_name)
             try:
                 # Both locks, and the worse one is what the constraint sees.
-                pcts = [ackermann_percent(f) for f in (frames[0], frames[-1])]
-                outcomes[const_name] = max(pcts, key=lambda p: abs(p - 100.0))
+                outcomes[const_name] = worst_ackermann_percent(frames)
             except Exception as e:
                 import traceback
 

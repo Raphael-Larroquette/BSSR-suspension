@@ -38,11 +38,12 @@ SWEEP_LIMITS = {
 
 # Steps the OPTIMISER solves each sweep at. run.yaml's own counts (22 and 65)
 # are what the reports use; the search reads far fewer frames than it solves.
-#   01_bump_parallel  three objectives integrate this curve, so it needs real
+#   01_bump_parallel  `bump_scrub` integrates this curve, and `toe_range` and
+#                     `shock_length` read its extremes, so it needs real
 #                     resolution. 11 costs ~0.3% on the integrals, uniform
 #                     across candidates so rankings are unaffected. Below 9 the
 #                     trapezoid error starts to matter.
-#   04_steer_design   only `ackermann` (last frame, full lock) and `max_turn`
+#   04_steer_design   only `ackermann_error` (both full locks) and `max_turn`
 #                     (the two extremes) are read, and steer is monotonic in
 #                     rack travel, so 3 frames capture both locks exactly -
 #                     measured identical to 4 decimals against 65.
@@ -247,8 +248,12 @@ def derive_parameters(free, fixed):
 
 OBJECTIVES = {
     "fvsa_length": ("01_bump_parallel", "fvsa_length", "maximize"),
-    "bump_steer": ("01_bump_parallel", "bump_steer", "minimize"),
     "bump_scrub": ("01_bump_parallel", "bump_scrub", "minimize"),
+    # |Ackermann % - 100|, in percentage points, at full lock. Scored on
+    # whichever lock is worse, so both directions have to be good. Replaces the
+    # old 60-110% constraint: 100% is the target, not a band edge, so anti-
+    # Ackermann (negative %) is penalised as hard as over-Ackermann.
+    "ackermann_error": ("04_steer_design", "ackermann_error", "minimize"),
     # "forces" is not a sweep: it is the static force solve at design height.
     "joint_force": ("forces", "joint_force", "minimize"),
 }
@@ -259,7 +264,6 @@ CONSTRAINTS = {
     # "range" column. With the calculated inner tie rod this is normally
     # ~0.05-0.2 deg, so it only catches what the front-view model misses.
     "toe_range": ("01_bump_parallel", "toe_range", (0.0, 1.0)),
-    "ackermann": ("04_steer_design", "ackermann", (60.0, 110.0)),
     "kingpin": ("01_bump_parallel", "kpi", (9.0, 11.0)),
     "max_turn": ("04_steer_design", "max_turn", (17.5, 90.0)),
     "fvsa_sign": ("01_bump_parallel", "fvsa_length", (1000.0, None)),
