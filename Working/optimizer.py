@@ -5,8 +5,8 @@ from opt.evaluate import run_optimization
 #Once done to export them to yamls run: uv run python Working/export_pareto.py 
 #to solve, type uv run python Working/run_all.py --sets front --geometry "Working\models\pareto1\front.yaml" --only 01, 02 --no-forces 
 CAR_NAME = "aurora"
-POPULATION_SIZE = 1320   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
-GENERATIONS = 180
+POPULATION_SIZE = 1980   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
+GENERATIONS = 200
 
 # Worker processes. None = one per logical CPU (128 on the 64-core machine).
 # Windows caps one process pool at 60 workers, so they are split into as few
