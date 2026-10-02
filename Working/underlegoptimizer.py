@@ -1,12 +1,36 @@
 from opt.construct import (strut_bottom_fractions, strut_bottom_point,
                            trackrod_inboard_yz)
 from opt.evaluate import run_optimization
-# TO RUN:     uv run python Working/optimizer.py
+# TO RUN:     uv run python Working/underlegoptimizer.py
 #             -> Working/models/opt_<timestamp>/opt_<timestamp>.csv (the Pareto front)
 # EXPORT:     uv run python Working/export_pareto.py [opt_<timestamp>]
 #             -> opt_<timestamp>/pareto1, pareto2, ... (default: the latest run)
 # SOLVE ALL:  uv run python Working/run_all.py --batch opt_<timestamp> --sets front --only 01 --no-forces
-CAR_NAME = "aurora"
+# CHECK SEED: uv run python Working/check_design.py Working/underlegoptimizer.py
+#
+# This file IS the run's configuration. Copy it to make a variant: whichever
+# script you launch is the one used (see opt/settings.py).
+
+# ---------------------------------------------------------------------------
+# References. Everything this run reads is named here; nothing in opt/ names a
+# file of its own. Paths are relative to Working/ (or absolute).
+# ---------------------------------------------------------------------------
+# Template model folder: any folder with front.yaml, rear.yaml and forces.yaml -
+# a car in models/, or a candidate from a previous run such as
+# "models/opt_2026-10-02_1430/pareto21". Candidates are patched into its
+# <AXLE>.yaml; the other axle and the force config come from the same folder.
+# The tyre radius and wheel offset are read from it too.
+TEMPLATE = "models/aurora"
+AXLE = "front"                              # the axle being optimised
+SWEEP_SET = "sweep_sets/front/run.yaml"     # which sweeps the objectives read
+CASES = "cases.csv"                         # load cases for the joint_force objective
+
+# Design rules derive_parameters() builds every candidate with.
+TRACK_WIDTH = 1000.0          # mm, contact patch to contact patch
+CASTER_DEG = 7.0              # deg
+MIN_ARM_SEPARATION = 200.0    # mm, minimum vertical gap UCA above LCA (inboard and outboard)
+
+# Search size.
 POPULATION_SIZE = 1980   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
 GENERATIONS = 10
 
@@ -124,7 +148,7 @@ KNOWN_DESIGN = {
 
 #: The force objective: this share of the mean joint force plus the rest of the
 #: largest one. Both are |F| in N over every front joint and every load case in
-#: forces/<CAR_NAME>/forces.yaml.
+#: <TEMPLATE>/forces.yaml, over the cases in CASES.
 FORCE_WEIGHTS = {"mean": 0.75, "max": 0.25}
 
 
@@ -278,7 +302,7 @@ if MIN_SHOCK_LENGTH is None:
     del CONSTRAINTS["shock_length"]
 
 # Auto-convert absolute Z coordinates in KNOWN_DESIGN to the z_frac required by the optimizer
-min_sep = 200.0  # From evaluate.py FIXED_PARAMS
+min_sep = MIN_ARM_SEPARATION
 
 if "upper_wishbone_outboard.z" in KNOWN_DESIGN:
     lca_z = KNOWN_DESIGN.get("lower_wishbone_outboard.z", 185.0)
@@ -333,4 +357,4 @@ def resolve_spring_seed(fixed):
 
 
 if __name__ == "__main__":
-    run_optimization()
+    run_optimization(__file__)

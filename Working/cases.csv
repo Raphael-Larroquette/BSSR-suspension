@@ -1,4 +1,7 @@
-# Force cases for the static suspension load solve. See ../FORCES.md.
+# Force cases for the static suspension load solve. See models/FORCES.md.
+#
+# ONE set of load cases for every model: run_all.py passes this file to each
+# model's force solve, and optimizer scripts name it as CASES.
 #
 # Each number is an acceleration in g.
 #   bump   - TOTAL vertical load factor, gravity included. 1 is static, and the

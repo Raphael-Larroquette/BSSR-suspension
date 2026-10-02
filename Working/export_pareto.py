@@ -60,31 +60,31 @@ def resolve_run(value: str | None) -> Path:
              f"{', '.join(r.name for r in runs) or '(none)'}")
 
 
-def template_car(rows: list[dict]) -> str:
-    """The model the run patched its hardpoints into.
+def from_csv(rows: list[dict], column: str, override: str | None,
+             flag: str) -> str:
+    """One provenance value the optimizer wrote on every row, or the CLI's.
 
-    Read from the CSV's `template_car` column; runs from before that column
-    existed fall back to CAR_NAME in optimizer.py.
+    The CSV says which template folder and axle its hardpoints belong to, so
+    exporting never depends on what any optimizer script says today. A CSV
+    from before those columns existed needs the value on the command line.
     """
-    cars = {row.get("template_car") for row in rows} - {None, ""}
-    if len(cars) > 1:
-        sys.exit(f"the CSV names several template cars: {', '.join(sorted(cars))}")
-    if cars:
-        return cars.pop()
-    sys.path.insert(0, str(HERE))
-    import optimizer
+    if override is not None:
+        return override
+    values = {row.get(column) for row in rows} - {None, ""}
+    if len(values) > 1:
+        sys.exit(f"the CSV names several values for {column}: "
+                 f"{', '.join(sorted(values))}")
+    if not values:
+        sys.exit(f"the CSV has no `{column}` column (it predates it). "
+                 f"Say which with {flag}, e.g. {flag} "
+                 + ("models/aurora" if column == "template" else "front"))
+    return values.pop()
 
-    print(f"note: CSV has no template_car column; using CAR_NAME = "
-          f"'{optimizer.CAR_NAME}' from optimizer.py")
-    return optimizer.CAR_NAME
 
-
-def axle_file() -> str:
-    """The geometry file the optimizer varies (AXLE in optimizer.py, else front)."""
-    sys.path.insert(0, str(HERE))
-    import optimizer
-
-    return f"{getattr(optimizer, 'AXLE', 'front')}.yaml"
+def resolve_template(value: str) -> Path:
+    """A template folder: absolute, or relative to Working/."""
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else (HERE / path).resolve()
 
 
 def hardpoints_from_row(row: dict) -> dict[str, dict[str, float]]:
@@ -134,6 +134,11 @@ def main() -> None:
     parser.add_argument("run", nargs="?", default=None,
                         help="optimizer run folder: a name under Working/models/ "
                         "or a path (default: the latest run)")
+    parser.add_argument("--template", default=None,
+                        help="template model folder, relative to Working/; only "
+                        "for a CSV without a `template` column")
+    parser.add_argument("--axle", default=None,
+                        help="front or rear; only for a CSV without an `axle` column")
     args = parser.parse_args()
 
     run = resolve_run(args.run)
@@ -143,11 +148,15 @@ def main() -> None:
     if not rows:
         sys.exit(f"{csv_path} has no rows.")
 
-    car = template_car(rows)
-    template = MODELS_DIR / car
+    # A pre-October CSV recorded the template by car name only.
+    legacy_car = {row.get("template_car") for row in rows} - {None, ""}
+    if args.template is None and len(legacy_car) == 1:
+        args.template = f"models/{legacy_car.pop()}"
+    template = resolve_template(
+        from_csv(rows, "template", args.template, "--template"))
     if not template.is_dir():
         sys.exit(f"template model not found: {template}")
-    geometry_name = axle_file()
+    geometry_name = f"{from_csv(rows, 'axle', args.axle, '--axle')}.yaml"
 
     print(f"run      : {run}")
     print(f"template : {template}")

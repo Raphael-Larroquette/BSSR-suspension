@@ -7,8 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Everything about a model now lives in its folder under `Working/models/<car>/`:
-  `front.yaml`, `rear.yaml`, and the force solve's `forces.yaml` + `cases.csv`
-  (moved from `Working/forces/<car>/`). Results are written inside it:
+  `front.yaml`, `rear.yaml`, and the force solve's `forces.yaml` (moved from
+  `Working/forces/<car>/`). The load cases are shared by every model in
+  `Working/cases.csv`; `cases:` in `forces.yaml` is now optional, with
+  `--cases` supplying it (run_all.py does). The Aurora configs are back on
+  `moment_reference: centroid`. Results are written inside it:
   `sweep_outputs/<set>/` (was `outputs/<set>/`), `report/<set>/`, and `forces/`
   (was `<config dir>/outputs/`). All three are git-ignored at any depth.
   `force.md` moved to `Working/models/FORCES.md`. The Aurora models are
@@ -18,9 +21,19 @@ All notable changes to this project will be documented in this file.
   follow the model; `--cars` and `--forces-config` are gone. The CLI is launched
   as `python -m kinematics.cli` on the running interpreter.
 - The optimizer writes each run to `Working/models/opt_<timestamp>/` as
-  `opt_<timestamp>.csv` (with a `template_car` column), the only tracked file in
-  the folder. `export_pareto.py [RUN]` (default: latest) writes `pareto1/`, ...
-  into that folder. `run_all_pareto.py` is a stub pointing at `--batch`.
+  `opt_<timestamp>.csv` (with `template`, `axle` and `optimizer_script`
+  columns), the only tracked file in the folder. `export_pareto.py [RUN]`
+  (default: latest) writes `pareto1/`, ... into that folder from those columns.
+- Optimizer scripts are self-contained: the launched script is the active
+  configuration for the parent and every worker (`opt/settings.py`), instead of
+  `opt/` always importing `optimizer.py` (which made `underlegoptimizer.py` run
+  `optimizer.py`'s settings). Each script states `TEMPLATE` (a model folder
+  path, replacing `CAR_NAME`), `AXLE`, `SWEEP_SET`, `CASES`, `TRACK_WIDTH`,
+  `CASTER_DEG` and `MIN_ARM_SEPARATION`; the tyre radius and wheel offset are
+  read from the template. `check_design.py [script]`.
+- Force tests run on a frozen fixture in `tests/data/aurora/`, so editing a
+  working model no longer breaks them; each working `forces.yaml` is only
+  checked to load and solve. `run_all_pareto.py` is a stub pointing at `--batch`.
 - GIFs render only the unique frames (the ping-pong return leg reuses them) on
   `--gif-workers` processes, converted to palette images in the worker; output
   is pixel-identical. `gif.dpi` (required) joins `gif.fps` in `run.yaml`, and

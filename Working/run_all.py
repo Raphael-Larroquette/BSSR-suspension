@@ -11,7 +11,8 @@ Cross-platform, and independent of your current working directory.
                                                               every model in a folder
 
 A MODEL is a folder under Working/models/ holding front.yaml and/or rear.yaml,
-and optionally forces.yaml. Everything a run writes lands inside it:
+and optionally forces.yaml. Load cases are shared: Working/cases.csv. Everything
+a run writes lands inside the model folder:
 
     models/<model>/sweep_outputs/<set>/   one CSV per sweep, and the animations
     models/<model>/report/<set>/          report.md, plots, summary.csv
@@ -61,6 +62,10 @@ FORCES_CONFIG_NAME = "forces.yaml"
 
 # Geometry files that make a folder a model.
 GEOMETRY_NAMES = ("front.yaml", "rear.yaml")
+
+# The load cases every model's force solve uses (a forces.yaml with its own
+# `cases:` key overrides this for that model).
+CASES_FILE = HERE / "cases.csv"
 
 # What a batch writes each model's console output to, inside the model folder.
 BATCH_LOG_NAME = "run.log"
@@ -182,6 +187,11 @@ def force_command(config: Path, dry_run: bool) -> list[str]:
     forces/ beside the configuration.
     """
     cmd = [*KINEMATICS, "forces", "--config", str(config)]
+    # One set of load cases for every model, unless a model names its own.
+    import yaml
+
+    if (yaml.safe_load(config.read_text()) or {}).get("cases") is None:
+        cmd += ["--cases", str(CASES_FILE)]
     if dry_run:
         # The force CLI's own --dry-run validates every input and solves
         # without writing, so forwarding it keeps --dry-run a complete check.

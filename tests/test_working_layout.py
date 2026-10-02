@@ -27,8 +27,35 @@ def _load(path: Path) -> Any:
 @pytest.mark.parametrize("car", ["aurora", "aurora_evo"])
 def test_each_aurora_model_is_self_contained(car: str) -> None:
     folder = WORKING / "models" / car
-    for name in ("front.yaml", "rear.yaml", "forces.yaml", "cases.csv"):
+    for name in ("front.yaml", "rear.yaml", "forces.yaml"):
         assert (folder / name).is_file(), name
+    assert (WORKING / "cases.csv").is_file()
+
+
+def _working_force_configs() -> list[Path]:
+    return sorted((WORKING / "models").glob("*/forces.yaml"))
+
+
+@pytest.mark.parametrize(
+    "config", _working_force_configs(), ids=lambda p: p.parent.name)
+def test_every_working_force_config_solves(config: Path) -> None:
+    """Validate and solve, asserting nothing about values the team tunes."""
+    pytest.importorskip("yaml")
+    from kinematics.cli.commands.forces import load_inputs
+
+    loaded = load_inputs(config, cases=WORKING / "cases.csv")
+    assert loaded.cases and loaded.run.corners
+
+
+def test_a_config_without_cases_needs_them_passed(tmp_path: Path) -> None:
+    from kinematics.cli.commands.forces import resolve_paths
+    from kinematics.cli.io.forces_loader import load_forces_config
+
+    config_path = WORKING / "models" / "aurora" / "forces.yaml"
+    config = load_forces_config(config_path)
+    assert config.cases is None
+    with pytest.raises(ValueError, match="names no load cases"):
+        resolve_paths(config, config_path)
 
 
 def test_sweep_sets_default_to_a_model_that_exists() -> None:

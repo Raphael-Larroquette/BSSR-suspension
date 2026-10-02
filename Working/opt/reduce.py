@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+from .settings import current as current_settings
 
 #: Fewest frames a reduction will work from after bad solves are dropped. Below
 #: three there is not enough curve left to integrate meaningfully.
@@ -147,7 +148,7 @@ def joint_force_score(solved):
     constant to the mean and could pin the max at a value no candidate moves.
     Weights come from FORCE_WEIGHTS in optimizer.py.
     """
-    import optimizer
+    settings = current_settings()
     from kinematics.core.loads.results import disambiguate_part_names
 
     run, axle = solved
@@ -175,7 +176,7 @@ def joint_force_score(solved):
         raise ValueError(f"force solve returned no joints for the {axle} axle")
 
     forces = np.fromiter(magnitudes.values(), float)
-    weights = getattr(optimizer, "FORCE_WEIGHTS", {"mean": 0.75, "max": 0.25})
+    weights = getattr(settings, "FORCE_WEIGHTS", {"mean": 0.75, "max": 0.25})
     return weights["mean"] * forces.mean() + weights["max"] * forces.max()
 
 
@@ -189,11 +190,10 @@ def min_damper_length(analysis, sweep_name=""):
     nearest solved frames out to the travel SWEEP_LIMITS asked for, so a
     candidate cannot pass just because its full-bump frame did not solve.
     """
-    import optimizer
-
+    settings = current_settings()
     frames = usable_frames(analysis, sweep_name)
     worst = math.inf
-    limits = getattr(optimizer, "SWEEP_LIMITS", {}).get(sweep_name, {})
+    limits = getattr(settings, "SWEEP_LIMITS", {}).get(sweep_name, {})
     ends = [limits[k] for k in ("start", "stop") if k in limits]
 
     for side in frames[0].corner_metrics:

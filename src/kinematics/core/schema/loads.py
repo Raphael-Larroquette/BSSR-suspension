@@ -139,7 +139,9 @@ class ForcesConfig(ForcesModel):
     version: str
     vehicle: VehicleMassConfig
     geometry: GeometryPathsConfig
-    cases: str
+    # Optional: a caller that shares one case file across configurations
+    # passes it as --cases instead. resolve_paths() requires one or the other.
+    cases: str | None = None
     solve: SolveConfig
     structure: StructureConfig
     output: OutputConfig

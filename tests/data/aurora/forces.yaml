@@ -1,4 +1,6 @@
-# Static force solve for Aurora. Key reference and assumptions: ../FORCES.md
+# FROZEN TEST FIXTURE - do not edit to follow the working models. The tests'
+# expected values (case count, moment reference, golden joint forces) were
+# generated from exactly these files. Key reference: Working/models/FORCES.md
 # Precedence: CLI > this file. Relative paths resolve against this file.
 
 version: "0.1.0"
@@ -12,9 +14,7 @@ geometry:
   front: front.yaml
   rear: rear.yaml
 
-# No `cases:` here: the load cases are shared by every model, in Working/cases.csv,
-# which run_all.py passes as --cases. Add `cases: <file>` only to give this
-# model its own.
+cases: cases.csv
 
 solve:
   # centroid | origin | {x,y,z}. Equivalent; centroid is better conditioned.

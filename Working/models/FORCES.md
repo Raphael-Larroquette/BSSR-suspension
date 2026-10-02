@@ -17,8 +17,13 @@ where the rear contact patch is.
 
 ```bash
 uv run python Working/run_all.py --no-sweeps          # forces only
-uv run kinematics forces --config Working/models/aurora/forces.yaml
+uv run kinematics forces --config Working/models/aurora/forces.yaml --cases Working/cases.csv
 ```
+
+**The load cases are shared.** Every model is solved against the one
+`Working/cases.csv`, so the models' `forces.yaml` files name no `cases:`; `run_all.py`
+passes `--cases` for them, and optimizer scripts name it as `CASES`. A model that needs
+its own cases adds `cases: <file>` to its `forces.yaml`, and that wins.
 
 `run_all.py` runs this as its last stage after the sweeps, because both read the same
 geometry — a hardpoint edit invalidates both.
@@ -65,7 +70,7 @@ and the derived contact centres from the design condition. **No sweep is require
 `joints:` block is not read at all.** `cg_position` and `wheelbase` must be identical in
 both files.
 
-### `cases.csv`
+### `cases.csv` (`Working/cases.csv`)
 
 `#` comment lines ignored. One header row, then one row per case:
 
@@ -94,14 +99,14 @@ wheels, and the patch force points **right** (−Y).
 
 ### `forces.yaml`
 
-Mass, structure filter, and every solver policy. **Every key is required**, so `--dry-run`
-is a complete configuration check.
+Mass, structure filter, and every solver policy. **Every key is required** except `cases`
+(which `--cases` can supply instead), so `--dry-run` is a complete configuration check.
 
 | Key | Values |
 | --- | --- |
 | `vehicle.mass`, `vehicle.g` | kg, m/s² |
 | `geometry.front` / `.rear` | paths, relative to this file |
-| `cases` | path to the case CSV |
+| `cases` | *optional*: path to the case CSV. Omitted in the working models, which share `Working/cases.csv` via `--cases` |
 | `solve.moment_reference` | `centroid` \| `origin` \| `{x,y,z}` — all mathematically equivalent; `centroid` is far better conditioned, `origin` is easier to hand-check |
 | `solve.pivot_axial.default` | `even`, or a bare point name that takes the whole axial load |
 | `solve.pivot_axial.overrides` | keyed by part name, side-agnostic point name |

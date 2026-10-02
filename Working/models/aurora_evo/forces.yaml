@@ -12,11 +12,13 @@ geometry:
   front: front.yaml
   rear: rear.yaml
 
-cases: cases.csv   # CLI --cases overrides
+# No `cases:` here: the load cases are shared by every model, in Working/cases.csv,
+# which run_all.py passes as --cases. Add `cases: <file>` only to give this
+# model its own.
 
 solve:
   # centroid | origin | {x,y,z}. Equivalent; centroid is better conditioned.
-  moment_reference: origin
+  moment_reference: centroid
 
   # How to split load along a coaxial pivot pair: `even`, or a bare point name that
   # takes all of it. Overrides are keyed by part name, side-agnostic point name.

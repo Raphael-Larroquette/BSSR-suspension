@@ -95,11 +95,18 @@ def resolve_paths(
             return path
         return Path(os.path.normpath(base / path))
 
+    if cases is None:
+        if config.cases is None:
+            raise ValueError(
+                f"{config_path} names no load cases. Add `cases: <file>` to it, "
+                "or pass --cases (Working/run_all.py passes Working/cases.csv)."
+            )
+        cases = relative(config.cases)
     return ForcePaths(
         config=config_path,
         front=front or relative(config.geometry.front),
         rear=rear or relative(config.geometry.rear),
-        cases=cases or relative(config.cases),
+        cases=cases,
     )
 
 

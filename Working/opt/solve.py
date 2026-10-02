@@ -10,14 +10,13 @@ Two things this module deliberately does NOT do any more:
   uses — rather than reimplementing it here, so the optimiser cannot drift into
   solving something the reports no longer solve.
 
-* It does not hard-code ``models/aurora/front.yaml`` as the template. The car
-  comes from ``optimizer.CAR_NAME``, which is what ``export_pareto.py`` already
-  honours when it copies the template folder. With the path fixed here and
-  CAR_NAME respected there, the two agreed only by coincidence: you could
-  optimise Aurora's geometry and have the results written into another car's
-  folder.
+* It names no file of its own. The template model folder (TEMPLATE), the axle
+  (AXLE), the sweep set (SWEEP_SET) and the load cases (CASES) all come from the
+  active optimizer script - see opt/settings.py. The template folder supplies
+  the candidate's geometry file, the other axle, and forces.yaml, which is what
+  makes any model folder, including an exported pareto, usable as a template.
 
-Both the template and the generated sweep specs are cached per car, so the
+Both the template and the generated sweep specs are cached per template, so the
 cost is paid once per process rather than once per candidate — which matters
 when a run evaluates several thousand of them across a worker pool.
 """
@@ -30,16 +29,14 @@ import warnings
 from pathlib import Path
 
 import yaml
+
 from kinematics.core.analysis import analyze_sweep
 from kinematics.core.input import build_suspension, build_sweep
 
+from .settings import current as current_settings
+from .settings import resolve, template_dir
+
 WORKING = Path(__file__).resolve().parent.parent
-
-#: Axle a run optimises, unless optimizer.py names another one.
-DEFAULT_AXLE = "front"
-
-#: Car whose model file is the template, unless optimizer.py names another one.
-DEFAULT_CAR = "aurora"
 
 _TEMPLATES = {}
 _SWEEP_SPECS = {}
@@ -47,43 +44,62 @@ _SWEEP_SOURCES = {}
 _RUNNER = None
 
 
-def _setting(name, default):
-    """Read one setting from optimizer.py, falling back to a default."""
-    import optimizer
-
-    return getattr(optimizer, name, default)
-
-
 def target_car():
-    """Return the (car, axle) this run optimises."""
-    return _setting("CAR_NAME", DEFAULT_CAR), _setting("AXLE", DEFAULT_AXLE)
+    """Return (template folder, axle) for this run."""
+    return template_dir(), str(current_settings().AXLE)
 
 
 def model_path(car=None, axle=None):
     """Return the model file the candidate hardpoints are patched into."""
     if car is None or axle is None:
         car, axle = target_car()
-    path = WORKING / "models" / car / f"{axle}.yaml"
+    path = Path(car) / f"{axle}.yaml"
     if not path.is_file():
-        available = sorted(p.name for p in (WORKING / "models").iterdir() if p.is_dir())
         raise FileNotFoundError(
-            f"no model at {path}. CAR_NAME is '{car}' and AXLE is '{axle}'; "
-            f"models/ holds: {', '.join(available)}"
+            f"no model at {path}. TEMPLATE is {car} and AXLE is '{axle}', so "
+            f"the template folder needs a {axle}.yaml"
         )
     return path
 
 
 def run_config_path(axle=None):
-    """Return the sweep set for this axle. run.yaml IS the sweep set."""
-    if axle is None:
-        _, axle = target_car()
-    path = WORKING / "sweep_sets" / axle / "run.yaml"
+    """Return the sweep set (SWEEP_SET). run.yaml IS the sweep set."""
+    path = resolve(current_settings().SWEEP_SET)
     if not path.is_file():
         raise FileNotFoundError(
-            f"no sweep set at {path}. run.yaml is the whole sweep set; see "
+            f"SWEEP_SET not found: {path}. It names a sweep set's run.yaml; see "
             "Working/sweep_sets/RUNNING.md"
         )
     return path
+
+
+def cases_path():
+    """Return the load-case file (CASES) the force objective solves."""
+    path = resolve(current_settings().CASES)
+    if not path.is_file():
+        raise FileNotFoundError(f"CASES not found: {path}")
+    return path
+
+
+def template_wheel():
+    """
+    (design tyre radius, wheel offset) in mm, from the template's geometry file.
+
+    Read through the solver's own tyre schema, so a stated `loaded_radius` wins
+    over the unloaded radius exactly as it does everywhere else in the solver.
+    """
+    from kinematics.core.schema.config import TireConfig
+
+    data = template()
+    wheel = next(
+        (block["wheel"] for key, block in data.items()
+         if key.endswith("_config") and isinstance(block, dict) and "wheel" in block),
+        None,
+    )
+    if wheel is None or "tire" not in wheel:
+        raise KeyError(f"{model_path().name} declares no wheel/tire to read the "
+                       "rolling radius and wheel offset from")
+    return TireConfig(**wheel["tire"]).design_radius, float(wheel.get("offset", 0.0))
 
 
 def load_runner():
@@ -163,8 +179,7 @@ def build_sweep_spec(name, car=None, axle=None):
     scratch directory and read straight back. That keeps this a call into the
     team's own generation rather than a second copy of its rules.
     """
-    import optimizer
-
+    settings = current_settings()
     if car is None or axle is None:
         car, axle = target_car()
     runner, config_path, run_config, drives = _sweep_source(car, axle)
@@ -196,7 +211,7 @@ def build_sweep_spec(name, car=None, axle=None):
             written = runner.generate_sweep_file(name, entry, drives, outdir)
         spec = yaml.safe_load(Path(written).read_text(encoding="utf-8"))
 
-    limits = getattr(optimizer, "SWEEP_LIMITS", {})
+    limits = getattr(settings, "SWEEP_LIMITS", {})
     if name in limits:
         _apply_limits(spec, limits[name])
 
@@ -204,7 +219,7 @@ def build_sweep_spec(name, car=None, axle=None):
     # solve at; the search reads far fewer frames than it solves, so paying for
     # full resolution is waste. See SWEEP_STEPS in optimizer.py for which
     # frames each reduction actually reads, and why a coarser sweep is safe.
-    steps = getattr(optimizer, "SWEEP_STEPS", {})
+    steps = getattr(settings, "SWEEP_STEPS", {})
     if name in steps:
         wanted = int(steps[name])
         if wanted < 2:
@@ -294,12 +309,15 @@ _FORCE_INPUTS = {}
 
 
 def force_config_path(car=None):
-    """models/<car>/forces.yaml - the same configuration run_all.py solves."""
+    """<TEMPLATE>/forces.yaml - the same configuration run_all.py solves."""
     if car is None:
         car, _ = target_car()
-    path = WORKING / "models" / car / "forces.yaml"
+    path = Path(car) / "forces.yaml"
     if not path.is_file():
-        raise FileNotFoundError(f"no force configuration at {path}")
+        raise FileNotFoundError(
+            f"no force configuration at {path}. The template model needs a "
+            "forces.yaml for the joint_force objective; copy one from models/aurora"
+        )
     return path
 
 
@@ -315,7 +333,7 @@ def _force_inputs():
 
         config_path = force_config_path(car)
         config = load_forces_config(config_path)
-        paths = resolve_paths(config, config_path)
+        paths = resolve_paths(config, config_path, cases=cases_path())
         other = paths.rear if axle == "front" else paths.front
         _FORCE_INPUTS[key] = (
             config,
@@ -330,8 +348,8 @@ def solve_candidate_forces(suspension):
     """
     Static joint forces for this candidate, with the other axle from the config.
 
-    Solved in-process at design height over every case in the force
-    configuration's cases.csv - the same solve `run_all.py` runs, without
+    Solved in-process at design height over every case in CASES - the same
+    solve `run_all.py` runs, without
     writing anything. Returns ``(ForceRun, axle)`` so the reduction can keep
     only the candidate axle's joints.
     """

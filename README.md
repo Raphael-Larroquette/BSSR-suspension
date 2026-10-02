@@ -283,10 +283,11 @@ Working/
   run_all.py              THE command
   optimizer.py            the hardpoint optimizer; export_pareto.py turns its result into models
   models/
-    <car>/                a model: front.yaml, rear.yaml, forces.yaml + cases.csv
+    <car>/                a model: front.yaml, rear.yaml, forces.yaml
     opt_<timestamp>/      one optimizer run: opt_<timestamp>.csv + its pareto1, pareto2, ...
     MODELS.md               geometry + joints syntax reference
     FORCES.md               the force workflow, forces.yaml and cases.csv
+  cases.csv               the load cases every model's force solve uses
   sweep_sets/<set>/       kinematic sweeps: one run.yaml, which is the whole set
     RUNNING.md              run.yaml keys, what each sweep drives, CLI flags
     SWEEPS.md               sweep-file grammar (for `file:` sweeps); the sweep catalogue
@@ -407,7 +408,7 @@ SUSProg.
 | which bearings get a misalignment number | the `joints:` block of that same file | [`MODELS.md` §5](Working/models/MODELS.md) |
 | anything about a sweep — what it drives, its ranges and step count, whether it runs, which channels it reports or plots | `Working/sweep_sets/<set>/run.yaml` | [`RUNNING.md`](Working/sweep_sets/RUNNING.md) |
 | a sweep the `travel`/`damper`/`rack` vocabulary can't express | a hand-written sweep YAML, named with `file:` | [`SWEEPS.md`](Working/sweep_sets/SWEEPS.md) |
-| load cases | `Working/models/<car>/cases.csv` | [`FORCES.md`](Working/models/FORCES.md) |
+| load cases (shared by every model) | `Working/cases.csv` | [`FORCES.md`](Working/models/FORCES.md) |
 | mass, solver policy, structural filter | `Working/models/<car>/forces.yaml` | [`FORCES.md`](Working/models/FORCES.md) |
 
 Tuning the `joints:` block never needs a re-solve — the sweeps export the
@@ -450,10 +451,10 @@ A car is a folder. Nothing is registered anywhere — `run_all.py` discovers
    the whole set. Keys: [`RUNNING.md`](Working/sweep_sets/RUNNING.md).
 
 5. **Forces:** the copied `forces.yaml` already reads the `front.yaml` / `rear.yaml`
-   beside it; set the mass and edit `cases.csv`. Then run:
+   beside it; set the mass. Load cases are shared, in `Working/cases.csv`. Then run:
 
    ```bash
-   uv run kinematics forces --config Working/models/gen13/forces.yaml --describe
+   uv run kinematics forces --config Working/models/gen13/forces.yaml --cases Working/cases.csv --describe
    ```
 
    `--describe` prints the exact part and joint names the config refers to — run it first
@@ -470,16 +471,24 @@ A car is a folder. Nothing is registered anywhere — `run_all.py` discovers
 
 ```bash
 uv run python Working/optimizer.py                     # 1. search; settings at the top of the file
+                                                       #    (or any copy, e.g. underlegoptimizer.py)
 uv run python Working/export_pareto.py                 # 2. one model folder per Pareto point
 uv run python Working/run_all.py --batch opt_2026-10-02_1430 --sets front --only 01,02 --no-forces
                                                        # 3. solve + animate every point
 ```
 
-1. Each run creates `Working/models/opt_<timestamp>/` and writes its Pareto front there as
-   `opt_<timestamp>.csv`. **That CSV is the only file in the run folder git tracks.**
-2. `export_pareto.py` fills the run folder with `pareto1/`, `pareto2/`, ... — copies of the
-   template model (`CAR_NAME`) with the optimised hardpoints patched in. With no argument
+1. **An optimizer script is the whole configuration of a run.** Whichever script you
+   launch is the one used; nothing in `opt/` names a file. Its top block states every
+   reference: `TEMPLATE` (any model folder, including a pareto from an earlier run),
+   `AXLE`, `SWEEP_SET`, `CASES`, and the design rules (`TRACK_WIDTH`, `CASTER_DEG`,
+   `MIN_ARM_SEPARATION`). The tyre radius and wheel offset are read from the template.
+   Copy the script to make a variant. `check_design.py <script>` evaluates its seed.
+2. Each run creates `Working/models/opt_<timestamp>/` and writes its Pareto front there as
+   `opt_<timestamp>.csv`, with the template, axle and script on every row. **That CSV is
+   the only file in the run folder git tracks.**
+3. `export_pareto.py` fills the run folder with `pareto1/`, `pareto2/`, ... — copies of the
+   template model the CSV names, with the optimised hardpoints patched in. With no argument
    it exports the latest run; name a run to export another. Re-exporting replaces them.
    Because they are git-ignored, run this on whichever machine you review results on.
-3. `--batch` runs every model in the folder. Each candidate's console output goes to its
+4. `--batch` runs every model in the folder. Each candidate's console output goes to its
    own `run.log`; the terminal shows one line per finished candidate.

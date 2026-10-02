@@ -345,7 +345,7 @@ def test_moment_reference_does_not_change_the_answer(suspensions):
 # --------------------------------------------------------------------------
 # Configuration and input files
 # --------------------------------------------------------------------------
-def test_the_shipped_aurora_configuration_solves(aurora_forces_dir):
+def test_the_fixture_configuration_solves(aurora_forces_dir):
     loaded = load_inputs(aurora_forces_dir / "forces.yaml")
     assert len(loaded.cases) == 4
     assert len(loaded.run.corners) == 3

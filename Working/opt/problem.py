@@ -12,7 +12,10 @@ from pymoo.util.ref_dirs import get_reference_directions
 from scipy.stats import qmc
 
 from .evaluate import evaluate, write_log_rows
+from .evaluate import fixed_params
+from .settings import relative_to_working, script_path
 from .solve import target_car
+from .settings import current as current_settings
 
 FAIL = 1.0e6
 
@@ -21,6 +24,11 @@ MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 
 #: A run folder is RUN_PREFIX + its start time; .gitignore keys on the prefix.
 RUN_PREFIX = "opt_"
+
+#: Columns appended to every Pareto CSV row: the template model folder and axle
+#: the hardpoints were patched into, and the optimizer script that ran (paths
+#: relative to Working/). export_pareto.py reads these and nothing else.
+PROVENANCE_COLUMNS = ["template", "axle", "optimizer_script"]
 
 
 def new_run_folder(now=None):
@@ -73,16 +81,15 @@ def constraint_scales(constraints):
 
 class SuspensionProblem(ElementwiseProblem):
     def __init__(self, **kwargs):
-        import optimizer
+        settings = current_settings()
+        self.names = list(settings.FREE_PARAMETERS.keys())
 
-        self.names = list(optimizer.FREE_PARAMETERS.keys())
+        self.obj_names = list(settings.OBJECTIVES.keys())
+        self.constr_names = list(settings.CONSTRAINTS.keys())
+        self.constr_scales = constraint_scales(settings.CONSTRAINTS)
 
-        self.obj_names = list(optimizer.OBJECTIVES.keys())
-        self.constr_names = list(optimizer.CONSTRAINTS.keys())
-        self.constr_scales = constraint_scales(optimizer.CONSTRAINTS)
-
-        xl = np.array([optimizer.FREE_PARAMETERS[n][0] for n in self.names])
-        xu = np.array([optimizer.FREE_PARAMETERS[n][1] for n in self.names])
+        xl = np.array([settings.FREE_PARAMETERS[n][0] for n in self.names])
+        xu = np.array([settings.FREE_PARAMETERS[n][1] for n in self.names])
 
         super().__init__(
             n_var=len(self.names),
@@ -94,8 +101,7 @@ class SuspensionProblem(ElementwiseProblem):
         )
 
     def _evaluate(self, x, out, *args, **kwargs):
-        import optimizer
-
+        settings = current_settings()
         params = dict(zip(self.names, map(float, x)))
         result = evaluate(params)
 
@@ -111,7 +117,7 @@ class SuspensionProblem(ElementwiseProblem):
 
         F = []
         for obj_name in self.obj_names:
-            sweep, metric, sense = optimizer.OBJECTIVES[obj_name]
+            sweep, metric, sense = settings.OBJECTIVES[obj_name]
             val = result.outcomes.get(obj_name, FAIL)
             if sense == "maximize":
                 F.append(-val)
@@ -129,11 +135,10 @@ class SuspensionProblem(ElementwiseProblem):
         given (FAIL for a failed candidate); otherwise its value is taken as
         FAIL, as before.
         """
-        import optimizer
-
+        settings = current_settings()
         G = []
         for const_name in self.constr_names:
-            sweep, metric, bounds = optimizer.CONSTRAINTS[const_name]
+            sweep, metric, bounds = settings.CONSTRAINTS[const_name]
             if const_name not in outcomes and missing is not None:
                 G.extend([missing, missing])
                 continue
@@ -257,14 +262,13 @@ def pool_sizes(pop_size):
     Returns:
         list of pool sizes, one per pool.
     """
-    import optimizer
-
+    settings = current_settings()
     available = os.cpu_count() or 1
-    requested = getattr(optimizer, "POOL_WORKERS", None)
+    requested = getattr(settings, "POOL_WORKERS", None)
     total = available if requested in (None, 0) else int(requested)
     total = max(1, min(total, pop_size, available))
 
-    cap = getattr(optimizer, "WORKERS_PER_POOL", None)
+    cap = getattr(settings, "WORKERS_PER_POOL", None)
     if cap in (None, 0):
         cap = WINDOWS_MAX_WORKERS if os.name == "nt" else total
     cap = max(1, min(int(cap), WINDOWS_MAX_WORKERS if os.name == "nt" else total))
@@ -323,10 +327,9 @@ class MultiPoolRunner:
 
 
 def run_pymoo():
-    import optimizer
-
-    pop_size = optimizer.POPULATION_SIZE
-    n_gen = optimizer.GENERATIONS
+    settings = current_settings()
+    pop_size = settings.POPULATION_SIZE
+    n_gen = settings.GENERATIONS
 
     run_dir = new_run_folder()
     print(f"run folder: {run_dir}")
@@ -352,12 +355,10 @@ def run_pymoo():
     sobol = qmc.Sobol(d=problem.n_var, scramble=True, seed=0)
     initial = qmc.scale(sobol.random(pop_size), problem.xl, problem.xu)
 
-    if hasattr(optimizer, "KNOWN_DESIGN"):
-        from .evaluate import FIXED_PARAMS
-
-        optimizer.resolve_spring_seed(FIXED_PARAMS)
+    if hasattr(settings, "KNOWN_DESIGN"):
+        settings.resolve_spring_seed(fixed_params())
         # Put known design in initial population
-        known = np.array([optimizer.KNOWN_DESIGN[n] for n in problem.names])
+        known = np.array([settings.KNOWN_DESIGN[n] for n in problem.names])
         initial[0] = known
 
     # Always use NSGA-III per user request, scaling the partitions based on
@@ -399,10 +400,12 @@ def run_pymoo():
     if res.F is not None:
         import csv
 
-        from .evaluate import FIXED_PARAMS
-
         csv_path = run_dir / f"{run_dir.name}.csv"
-        car, _ = target_car()
+        template, axle = target_car()
+        # Where the run came from, on every row, so export_pareto.py rebuilds
+        # the same geometry without reading any optimizer script.
+        provenance = [relative_to_working(template), axle,
+                      relative_to_working(script_path())]
         with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
 
@@ -410,31 +413,28 @@ def run_pymoo():
             X_array = res.X if len(res.X.shape) > 1 else [res.X]
 
             # Use the first solution to figure out the column names of the full geometry
-            sample_derived = optimizer.derive_parameters(
-                dict(zip(problem.names, X_array[0])), FIXED_PARAMS
+            sample_derived = settings.derive_parameters(
+                dict(zip(problem.names, X_array[0])), fixed_params()
             )
             derived_names = list(sample_derived.keys())
 
-            # Header. `template_car` records which model the hardpoints were
-            # patched into, so export_pareto.py rebuilds the same geometry even
-            # if CAR_NAME has been changed since.
-            header = (list(optimizer.OBJECTIVES.keys()) + derived_names
-                      + ["template_car"])
+            header = (list(settings.OBJECTIVES.keys()) + derived_names
+                      + PROVENANCE_COLUMNS)
             writer.writerow(header)
 
             # Data
             for f_val, x_val in zip(F_array, X_array):
                 # Reverse negative scores back to positive if it was a maximization objective
                 f_real = []
-                for i, obj_name in enumerate(optimizer.OBJECTIVES.keys()):
-                    sense = optimizer.OBJECTIVES[obj_name][2]
+                for i, obj_name in enumerate(settings.OBJECTIVES.keys()):
+                    sense = settings.OBJECTIVES[obj_name][2]
                     f_real.append(-f_val[i] if sense == "maximize" else f_val[i])
 
-                derived = optimizer.derive_parameters(
-                    dict(zip(problem.names, x_val)), FIXED_PARAMS
+                derived = settings.derive_parameters(
+                    dict(zip(problem.names, x_val)), fixed_params()
                 )
                 writer.writerow(list(f_real) + [derived[k] for k in derived_names]
-                                + [car])
+                                + provenance)
 
         print(f"Saved Pareto front to {csv_path}")
         print("Next: uv run python Working/export_pareto.py "
