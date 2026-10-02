@@ -294,10 +294,10 @@ _FORCE_INPUTS = {}
 
 
 def force_config_path(car=None):
-    """forces/<car>/forces.yaml - the same configuration run_all.py solves."""
+    """models/<car>/forces.yaml - the same configuration run_all.py solves."""
     if car is None:
         car, _ = target_car()
-    path = WORKING / "forces" / car / "forces.yaml"
+    path = WORKING / "models" / car / "forces.yaml"
     if not path.is_file():
         raise FileNotFoundError(f"no force configuration at {path}")
     return path

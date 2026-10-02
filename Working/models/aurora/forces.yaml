@@ -1,0 +1,53 @@
+# Static force solve for Aurora. Key reference and assumptions: ../FORCES.md
+# Precedence: CLI > this file. Relative paths resolve against this file.
+
+version: "0.1.0"
+
+vehicle:
+  mass: 285.0   # kg, total as-raced including driver; treated as a point mass at cg_position
+  g: 9.80665    # m/s^2
+
+geometry:
+  # Both required; must agree on cg_position and wheelbase. CLI --front / --rear override.
+  front: front.yaml
+  rear: rear.yaml
+
+cases: cases.csv   # CLI --cases overrides
+
+solve:
+  # centroid | origin | {x,y,z}. Equivalent; centroid is better conditioned.
+  moment_reference: origin
+
+  # How to split load along a coaxial pivot pair: `even`, or a bare point name that
+  # takes all of it. Overrides are keyed by part name, side-agnostic point name.
+  pivot_axial:
+    default: even
+    overrides: {}
+      # Lower Wishbone: lower_wishbone_inboard_front
+      # Upper Wishbone: upper_wishbone_inboard_front
+      # Semi-Trailing Arm: trailing_arm_pivot_a
+
+  rack: grounded                    # grounded only; floating NOT IMPLEMENTED
+  brake_torque_reaction: unsprung   # outboard brake; sprung (inboard) NOT IMPLEMENTED
+  on_wheel_lift: report             # report | fail
+
+  tolerances:
+    rank: 1.0e-9
+    residual: 1.0e-8
+
+# Turns the kinematic body graph into a structural one. These are the built-in
+# defaults written out explicitly. A weld group applies only if its FIRST entry
+# (the merged part name) is present, so rules for other architectures are inert.
+structure:
+  weld:
+    - ["Upright", "Axle", "Wheel"]
+    - ["Semi-Trailing Arm", "Semi-Trailing Arm Carrier", "Axle", "Wheel"]
+  attach: []
+  ground: ["Steering Rack"]
+  ignore: []
+
+# Writes forces.csv and load_transfer.csv into forces/ beside this file, unless --out.
+output:
+  frame: vehicle        # vehicle (ISO 8855) | part (Y mirrored, for mirrored CAD)
+  moments: auto         # auto | always | never
+  per_part_files: false

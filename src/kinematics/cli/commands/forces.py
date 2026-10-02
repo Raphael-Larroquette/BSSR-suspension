@@ -43,7 +43,7 @@ DEFAULT_CONFIG_NAME = "forces.yaml"
 # Results land beside the configuration that produced them, in a folder the
 # repository ignores, so a run never scatters files into whatever directory it
 # happened to be invoked from.
-DEFAULT_OUTPUT_DIR = "outputs"
+DEFAULT_OUTPUT_DIR = "forces"
 DEFAULT_OUTPUT_NAME = "forces.csv"
 LOAD_TRANSFER_NAME = "load_transfer.csv"
 

@@ -1,26 +1,28 @@
-import subprocess
+#!/usr/bin/env python3
+"""
+Moved. Running every Pareto candidate is now a flag on the one entry point.
 
-for i in range(1, 88):  # Loops from pareto1 to pareto87
-    geometry_path = f"Working\\models\\pareto{i}\\front.yaml"
+This file is a signpost for stale commands and muscle memory; delete it once
+nobody is reaching for it.
+"""
 
-    cmd = [
-        "uv",
-        "run",
-        "python",
-        "Working/run_all.py",
-        "--sets",
-        "front",
-        "--geometry",
-        geometry_path,
-        "--only",
-        "01, 02",  # Change to "01" if you only want 01
-        "--no-forces",
-    ]
+import sys
 
-    print(f"\n--- Running Pareto {i}/87 ---")
-    print("Executing:", " ".join(cmd))
+MESSAGE = """\
+Working/run_all_pareto.py no longer exists as a command.
 
-    # Run the command and wait for it to finish
-    subprocess.run(cmd, check=True)
+An optimizer run now lives in its own folder, Working/models/opt_<timestamp>/,
+and every candidate in it runs with one command:
 
-print("\nAll Pareto runs completed successfully!")
+    uv run python Working/optimizer.py        -> opt_<timestamp>/opt_<timestamp>.csv
+    uv run python Working/export_pareto.py    -> pareto1, pareto2, ... in that folder
+    uv run python Working/run_all.py --batch opt_<timestamp> --sets front
+                                     --only 01,02 --no-forces
+
+--batch runs several candidates at once, renders each animation on several
+processes, and writes each candidate's console output to <candidate>/run.log.
+See README.md.\
+"""
+
+if __name__ == "__main__":
+    sys.exit(MESSAGE)

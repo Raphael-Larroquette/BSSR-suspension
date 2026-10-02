@@ -10,7 +10,7 @@ The vocabulary cannot express `mode: absolute`, an explicit `values:` list (non-
 spacing), a point driven along a non-principal direction, or any drive coordinate other
 than the wheel centre, the damper and the rack. Those need a `file:` sweep, which is used
 verbatim — `run.yaml` overrides nothing in it. The fastest start is to copy a generated
-file out of `outputs/<set>/_resolved_sweeps/` and edit it.
+file out of `sweep_outputs/<set>/_resolved_sweeps/` and edit it.
 
 Source of truth: `src/kinematics/core/schema/sweep.py` and
 `src/kinematics/core/targeting.py`. Declaring bearing joints is in

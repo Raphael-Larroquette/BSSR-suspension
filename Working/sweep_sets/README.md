@@ -23,7 +23,7 @@ CHARACTERISTICS.md     every characteristic the sets produce, with caveats
 ```
 
 Results land beside the geometry they were run against:
-`../models/aurora/outputs/<set name>/` and `../models/aurora/report/<set name>/`.
+`../models/aurora/sweep_outputs/<set name>/` and `../models/aurora/report/<set name>/`.
 
 ## Run
 

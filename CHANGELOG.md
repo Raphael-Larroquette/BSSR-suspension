@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Everything about a model now lives in its folder under `Working/models/<car>/`:
+  `front.yaml`, `rear.yaml`, and the force solve's `forces.yaml` + `cases.csv`
+  (moved from `Working/forces/<car>/`). Results are written inside it:
+  `sweep_outputs/<set>/` (was `outputs/<set>/`), `report/<set>/`, and `forces/`
+  (was `<config dir>/outputs/`). All three are git-ignored at any depth.
+  `force.md` moved to `Working/models/FORCES.md`. The Aurora models are
+  `models/aurora/` and `models/aurora_evo/`.
+- `run_all.py` takes `--model NAME|PATH` and `--batch FOLDER` (every model in a
+  folder, `--parallel N` at once, each logging to `<model>/run.log`). Forces
+  follow the model; `--cars` and `--forces-config` are gone. The CLI is launched
+  as `python -m kinematics.cli` on the running interpreter.
+- The optimizer writes each run to `Working/models/opt_<timestamp>/` as
+  `opt_<timestamp>.csv` (with a `template_car` column), the only tracked file in
+  the folder. `export_pareto.py [RUN]` (default: latest) writes `pareto1/`, ...
+  into that folder. `run_all_pareto.py` is a stub pointing at `--batch`.
+- GIFs render only the unique frames (the ping-pong return leg reuses them) on
+  `--gif-workers` processes, converted to palette images in the worker; output
+  is pixel-identical. `gif.dpi` (required) joins `gif.fps` in `run.yaml`, and
+  `kinematics sweep` gains `--fps`, `--dpi` and `--animation-workers`.
+
 ### Added
 
 - Added a static suspension force solve: `kinematics forces` takes a front and

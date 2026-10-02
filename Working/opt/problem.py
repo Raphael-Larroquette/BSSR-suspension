@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from multiprocessing.pool import Pool
 from pathlib import Path
 
@@ -11,8 +12,34 @@ from pymoo.util.ref_dirs import get_reference_directions
 from scipy.stats import qmc
 
 from .evaluate import evaluate, write_log_rows
+from .solve import target_car
 
 FAIL = 1.0e6
+
+#: Where optimizer runs are kept: one folder per run, beside the car models.
+MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+
+#: A run folder is RUN_PREFIX + its start time; .gitignore keys on the prefix.
+RUN_PREFIX = "opt_"
+
+
+def new_run_folder(now=None):
+    """
+    Create Working/models/opt_<YYYY-MM-DD_HHMM>/ for this run and return it.
+
+    The run's Pareto front is written inside it as opt_<YYYY-MM-DD_HHMM>.csv,
+    the only file in it that git tracks. export_pareto.py later fills the same
+    folder with one model folder per Pareto point, and run_all.py --batch runs
+    them. A second run started in the same minute gets a _2, _3, ... suffix.
+    """
+    stamp = (now or datetime.now()).strftime("%Y-%m-%d_%H%M")
+    base = MODELS_DIR / f"{RUN_PREFIX}{stamp}"
+    folder, n = base, 1
+    while folder.exists():
+        n += 1
+        folder = base.with_name(f"{base.name}_{n}")
+    folder.mkdir(parents=True)
+    return folder
 
 
 def constraint_scales(constraints):
@@ -301,6 +328,9 @@ def run_pymoo():
     pop_size = optimizer.POPULATION_SIZE
     n_gen = optimizer.GENERATIONS
 
+    run_dir = new_run_folder()
+    print(f"run folder: {run_dir}")
+
     limit_worker_threads()
     sizes = pool_sizes(pop_size)
     print(
@@ -339,7 +369,7 @@ def run_pymoo():
     )
     algorithm = NSGA3(pop_size=pop_size, ref_dirs=ref_dirs, sampling=initial)
 
-    log_path = Path("Working/opt_log.csv")
+    log_path = run_dir / "opt_log.csv"
     callback = LogGeneration(log_path)
 
     try:
@@ -371,7 +401,8 @@ def run_pymoo():
 
         from .evaluate import FIXED_PARAMS
 
-        csv_path = Path(__file__).resolve().parent.parent / "opt_pareto.csv"
+        csv_path = run_dir / f"{run_dir.name}.csv"
+        car, _ = target_car()
         with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
 
@@ -384,8 +415,11 @@ def run_pymoo():
             )
             derived_names = list(sample_derived.keys())
 
-            # Header
-            header = list(optimizer.OBJECTIVES.keys()) + derived_names
+            # Header. `template_car` records which model the hardpoints were
+            # patched into, so export_pareto.py rebuilds the same geometry even
+            # if CAR_NAME has been changed since.
+            header = (list(optimizer.OBJECTIVES.keys()) + derived_names
+                      + ["template_car"])
             writer.writerow(header)
 
             # Data
@@ -399,6 +433,9 @@ def run_pymoo():
                 derived = optimizer.derive_parameters(
                     dict(zip(problem.names, x_val)), FIXED_PARAMS
                 )
-                writer.writerow(list(f_real) + [derived[k] for k in derived_names])
+                writer.writerow(list(f_real) + [derived[k] for k in derived_names]
+                                + [car])
 
         print(f"Saved Pareto front to {csv_path}")
+        print("Next: uv run python Working/export_pareto.py "
+              f"{run_dir.name}   (or with no argument: the latest run)")

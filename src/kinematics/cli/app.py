@@ -1,6 +1,7 @@
 from importlib import import_module
 from pathlib import Path
 from types import ModuleType
+from typing import Annotated
 
 import typer
 
@@ -32,6 +33,18 @@ def sweep(
     animation_out: Path | None = typer.Option(
         None, help="Optional animation output path (.mp4, .gif, etc.)"
     ),
+    # Annotated, so the Python defaults are plain values and sweep() stays
+    # callable directly (the e2e tests do) without passing these.
+    fps: Annotated[int, typer.Option(help="Animation frames per second")] = 20,
+    dpi: Annotated[
+        int,
+        typer.Option(
+            help="Animation resolution; render time and file size scale with dpi^2"
+        ),
+    ] = 200,
+    animation_workers: Annotated[
+        int, typer.Option(help="Processes rendering GIF frames; 0 = every CPU")
+    ] = 0,
 ):
     """
     Run a sweep from file and write results to Parquet or CSV format.
@@ -59,8 +72,10 @@ def sweep(
             suspension=run.suspension,
             solution_states=run.evaluated.states,
             output_path=animation_out,
-            fps=20,
+            fps=fps,
+            dpi=dpi,
             show_live=False,
+            workers=animation_workers,
         )
 
         typer.echo(f"Wrote animation: {animation_out}")
@@ -82,7 +97,7 @@ def forces(
     ),
     out: Path | None = typer.Option(
         None,
-        help="Output path (.csv or .xlsx). Defaults to <config dir>/outputs/forces.csv",
+        help="Output path (.csv or .xlsx). Defaults to <config dir>/forces/forces.csv",
     ),
     mass: float | None = typer.Option(None, help="Override the vehicle mass in kg"),
     per_part_files: Path | None = typer.Option(

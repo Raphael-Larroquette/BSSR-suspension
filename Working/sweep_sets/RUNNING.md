@@ -5,7 +5,7 @@ A **sweep set** is one `run.yaml`. It names itself (`name:`), a default geometry
 whatever geometry it is pointed at:
 
 ```
-<geometry folder>/outputs/<name>/     <geometry folder>/report/<name>/
+<geometry folder>/sweep_outputs/<name>/     <geometry folder>/report/<name>/
 ```
 
 How to run it and every CLI flag: root `README.md` §5. This page is the key reference.
@@ -15,7 +15,7 @@ How to run it and every CLI flag: root `README.md` §5. This page is the key ref
 ## Sweep files are generated
 
 There are no sweep files to author. Each sweep's targets are built from its `travel`,
-`damper` and `rack` keys, written to `outputs/<name>/_resolved_sweeps/<sweep>.yaml`, and
+`damper` and `rack` keys, written to `sweep_outputs/<name>/_resolved_sweeps/<sweep>.yaml`, and
 that file is what is solved — so its hash lands in the CSV provenance header and you can
 read exactly what ran. Those files are regenerated every run: **never edit them**, and
 nothing reads them back.
@@ -55,7 +55,7 @@ why `03_single_wheel_bump` and `07_bump_at_steer` keep theirs.
 | key | type | front value | meaning |
 | --- | --- | --- | --- |
 | `version` | int | `1` | configuration format version |
-| `name` | str | `front` | names the `outputs/<name>/` and `report/<name>/` folders |
+| `name` | str | `front` | names the `sweep_outputs/<name>/` and `report/<name>/` folders |
 | `geometry` | path | `../../models/aurora/front.yaml` | default geometry, **relative to this file**; `--geometry` overrides |
 | `reporter` | `susreport` \| `susreport_rear` | `susreport` | which module builds `report.md` |
 | `side` | `left` \| `right` \| `null` | `left` | which corner the per-corner rows report. **`null` for a corner model** |
@@ -104,8 +104,11 @@ firing on good rows.
 | key | value | meaning |
 | --- | --- | --- |
 | `fps` | `20` | frames per second |
+| `dpi` | `200` | resolution; render time and file size scale with dpi² (100 is ~4× faster) |
 
 A per-sweep `gif:` mapping merges over this block.
+
+Each animation renders its frames on `--gif-workers` processes (default: every CPU).
 
 ## `sweeps.<name>`
 
@@ -191,10 +194,11 @@ Shared code — CSV parsing, solver health, tables, plots, report assembly — i
 
 ## Parallelism
 
-Each sweep is an independent `uv run kinematics sweep` subprocess submitted to a pool of
-`jobs` workers. Two stages stay serial: the **report** (it needs every CSV) and
-**animations** (the writer holds every frame in memory). So expect roughly `jobs`× on the
-solve phase and no change elsewhere.
+Each sweep is an independent `kinematics sweep` subprocess submitted to a pool of `jobs`
+workers. Animations then run one at a time, each rendering its unique frames on
+`--gif-workers` processes (default: every CPU); the ping-pong return leg reuses them. The
+**report** is serial (it needs every CSV). `run_all.py --batch` adds a third level:
+several models at once, sharing the CPUs between them.
 
 ## Calling the report builder directly
 
@@ -206,7 +210,7 @@ A reporter never solves — it only reads CSVs — so it also runs standalone on
 CSVs:
 
 ```bash
-uv run python Working/sweep_sets/susreport.py Working/models/aurora/outputs/front \
+uv run python Working/sweep_sets/susreport.py Working/models/aurora/sweep_outputs/front \
     --out Working/models/aurora/report/front --config Working/sweep_sets/front/run.yaml
 ```
 

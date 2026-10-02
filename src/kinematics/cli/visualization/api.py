@@ -27,6 +27,7 @@ def create_animation(
     codec: str = "libx264",
     dpi: int = 200,
     show_live: bool = True,
+    workers: int | None = 1,
 ) -> None:
     """Load the optional animation renderer only when animation is requested."""
     from kinematics.cli.visualization.animation import create_animation as render
@@ -41,6 +42,7 @@ def create_animation(
         codec=codec,
         dpi=dpi,
         show_live=show_live,
+        workers=workers,
     )
 
 
@@ -105,6 +107,8 @@ def visualize_suspension_sweep(
     output_path: Path,
     fps: int = 20,
     show_live: bool = False,
+    dpi: int = 200,
+    workers: int | None = 1,
 ) -> None:
     """
     Create an animation of a suspension sweep.
@@ -118,6 +122,8 @@ def visualize_suspension_sweep(
         output_path: Path where the animation file will be saved.
         fps: Frames per second for the animation.
         show_live: Whether to show the animation during creation.
+        dpi: Resolution of each frame. Time and file size scale with its square.
+        workers: Processes rendering GIF frames; None or 0 uses every CPU.
 
     """
     render_model = build_render_model(suspension)
@@ -135,7 +141,9 @@ def visualize_suspension_sweep(
         render_model.visualizer,
         output_path,
         fps=fps,
+        dpi=dpi,
         show_live=show_live,
+        workers=workers,
     )
 
 

@@ -10,7 +10,9 @@ Working/models/aurora/
   rear.yaml     scope: corner  one centreline trailing arm
 ```
 
-One folder per car. `outputs/` and `report/` land beside it and are git-ignored.
+One folder per car: `front.yaml`, `rear.yaml`, and `forces.yaml` + `cases.csv` for the
+force solve ([`FORCES.md`](FORCES.md)). `sweep_outputs/`, `report/` and `forces/` are
+written inside it by `run_all.py` and are git-ignored.
 
 Coordinates, units and signs: see the root `README.md` §3. What the outputs *mean*:
 `../sweep_sets/CHARACTERISTICS.md`.

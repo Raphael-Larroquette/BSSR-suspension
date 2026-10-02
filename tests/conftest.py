@@ -20,9 +20,12 @@ def working_dir() -> Path:
 
 @pytest.fixture
 def aurora_dir(working_dir: Path) -> Path:
-    return working_dir / "models" / "aurora"
+    # The golden values in these tests were generated from this geometry (the
+    # original Aurora model, renamed aurora_evo when the recreated Aurora took
+    # models/aurora). Pinned, so editing a working model never breaks a test.
+    return working_dir / "models" / "aurora_evo"
 
 
 @pytest.fixture
 def aurora_forces_dir(working_dir: Path) -> Path:
-    return working_dir / "forces" / "aurora"
+    return working_dir / "models" / "aurora_evo"

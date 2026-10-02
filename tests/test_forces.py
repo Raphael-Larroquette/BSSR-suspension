@@ -543,7 +543,7 @@ def test_every_joint_reports_its_resultant(suspensions, tmp_path):
     assert float(cells[7]) == pytest.approx(np.linalg.norm(components), abs=1e-3)
 
 
-def test_a_run_writes_into_the_cars_outputs_folder(aurora_forces_dir, tmp_path):
+def test_a_run_writes_into_the_cars_forces_folder(aurora_forces_dir, tmp_path):
     config = tmp_path / "forces.yaml"
     source = yaml.safe_load((aurora_forces_dir / "forces.yaml").read_text())
     root = aurora_forces_dir.resolve()
@@ -553,6 +553,6 @@ def test_a_run_writes_into_the_cars_outputs_folder(aurora_forces_dir, tmp_path):
     config.write_text(yaml.safe_dump(source))
 
     run = run_force_files(config)
-    assert run.output_path == tmp_path / "outputs" / "forces.csv"
-    assert run.load_transfer_path == tmp_path / "outputs" / "load_transfer.csv"
+    assert run.output_path == tmp_path / "forces" / "forces.csv"
+    assert run.load_transfer_path == tmp_path / "forces" / "load_transfer.csv"
     assert run.output_path.exists() and run.load_transfer_path.exists()

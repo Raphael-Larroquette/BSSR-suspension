@@ -18,7 +18,7 @@ RUNNING.md for the full key reference and CHARACTERISTICS.md for what the
 channels mean.
 
 SWEEP FILES ARE GENERATED, not authored. A sweep's targets are built from its
-`travel` / `damper` / `rack` keys and written to outputs/<set>/_resolved_sweeps/,
+`travel` / `damper` / `rack` keys and written to sweep_outputs/<set>/_resolved_sweeps/,
 so a range exists in exactly one place. A sweep the vocabulary cannot express is
 written as an ordinary sweep YAML and named with `file:`; it is then used
 verbatim, never merged, so that stays one place too.
@@ -32,10 +32,11 @@ Layout it assumes:
         front/           <- a sweep set: run.yaml, and nothing else it needs
         rear/            <- another one
       models/
-        aurora/          <- a car: geometry files, and results per sweep set
-          front.yaml  rear.yaml
-          outputs/front/  outputs/rear/
-          report/front/   report/rear/
+        aurora/          <- a car: geometry, force config, and results
+          front.yaml  rear.yaml  forces.yaml  cases.csv
+          sweep_outputs/front/  sweep_outputs/rear/   (git-ignored)
+          report/front/         report/rear/          (git-ignored)
+          forces/                                     (git-ignored)
 
 A sweep set names itself and its default geometry, and results land beside
 whatever geometry it is pointed at - so the same set runs against another car
@@ -68,6 +69,17 @@ HERE = Path(__file__).resolve().parent  # Working/sweep_sets
 # generated or copied from a `file:`, so this directory is the complete record.
 RESOLVED_DIRNAME = "_resolved_sweeps"
 
+# How the kinematics CLI is launched: the interpreter running this file, which
+# `uv run python Working/run_all.py` makes the project's own environment. The
+# same CLI as `uv run kinematics`, without a `uv run` start-up per sweep, and
+# with a `__main__` that worker processes can import on Windows.
+KINEMATICS = [sys.executable, "-m", "kinematics.cli"]
+
+# The two result folders a sweep set writes beside the geometry it ran. Both are
+# git-ignored (see .gitignore) because everything in them regenerates.
+SWEEP_OUTPUTS_DIRNAME = "sweep_outputs"
+REPORT_DIRNAME = "report"
+
 
 class SweepSetError(RuntimeError):
     """A sweep set could not be configured, solved, or reported.
@@ -95,6 +107,7 @@ class SweepOptions:
     no_gifs: bool = False
     no_joints: bool = False
     jobs: int | None = None
+    gif_workers: int | None = None
     report_only: bool = False
     solve_only: bool = False
     dry_run: bool = False
@@ -121,7 +134,7 @@ REQUIRED_CONFIG = {
     "side": None,
     "jobs": None,
     "report": ("plots", "gifs"),
-    "gif": ("fps",),
+    "gif": ("fps", "dpi"),
     "sweeps": None,
 }
 
@@ -621,8 +634,8 @@ def run_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> None:
     # Results live beside the geometry, in a folder named after the sweep set.
     # That is what lets one sweep set run against several cars.
     set_name = str(config["name"])
-    outputs = geometry.parent / "outputs" / set_name
-    report = geometry.parent / "report" / set_name
+    outputs = geometry.parent / SWEEP_OUTPUTS_DIRNAME / set_name
+    report = geometry.parent / REPORT_DIRNAME / set_name
     outputs.mkdir(parents=True, exist_ok=True)
     report.mkdir(parents=True, exist_ok=True)
 
@@ -690,11 +703,18 @@ def run_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> None:
         if gif_only is not None:
             wants_gif = any(matches(s, name) for s in gif_only)
 
+        # The top-level `gif:` block, with a per-sweep `gif:` mapping over it.
+        gif_settings = dict(config["gif"])
+        if isinstance(sweep_cfg.get("gif"), dict):
+            gif_settings.update(
+                {k: v for k, v in sweep_cfg["gif"].items() if k != "enabled"})
+
         plan.append({
             "name": name,
             "source": source,
             "cfg": sweep_cfg,
             "gif": wants_gif,
+            "gif_settings": gif_settings,
         })
 
     if not plan:
@@ -780,7 +800,7 @@ def run_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> None:
             item["resolved"] = sweep_file
             queue.append({
                 "name": item["name"],
-                "cmd": ["uv", "run", "kinematics", "sweep",
+                "cmd": [*KINEMATICS, "sweep",
                         "--geometry", str(geometry),
                         "--sweep", str(sweep_file),
                         "--out", str(outputs / f"{item['name']}.csv")],
@@ -832,17 +852,25 @@ def run_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> None:
                 f"{set_name}: {len(failures)} sweep(s) failed to solve"
             )
 
-        # ---- animations, serially ------------------------------------
-        # The animation writer holds every frame in memory, so several at once
-        # thrash rather than go faster. This stays serial whatever --jobs says.
+        # ---- animations ---------------------------------------------
+        # One animation at a time, each rendering its frames on
+        # `gif_workers` processes (0 = every logical CPU). Parallel within an
+        # animation rather than across them: it uses every core even when
+        # only one sweep has a gif, and memory stays at one animation's
+        # frames. See kinematics/cli/visualization/animation.py.
         gif_items = [i for i in plan if i["gif"]]
+        gif_workers = opts.gif_workers if opts.gif_workers is not None else 0
         for item in gif_items:
+            settings = item["gif_settings"]
             print(f"\n-> animation ({item['name']})")
-            cmd = ["uv", "run", "kinematics", "sweep",
+            cmd = [*KINEMATICS, "sweep",
                    "--geometry", str(geometry),
                    "--sweep", str(item["resolved"]),
                    "--out", str(outputs / f"{item['name']}.csv"),
-                   "--animation-out", str(outputs / f"{item['name']}.gif")]
+                   "--animation-out", str(outputs / f"{item['name']}.gif"),
+                   "--fps", str(int(settings["fps"])),
+                   "--dpi", str(int(settings["dpi"])),
+                   "--animation-workers", str(int(gif_workers))]
             run(cmd)
 
     if opts.solve_only:
