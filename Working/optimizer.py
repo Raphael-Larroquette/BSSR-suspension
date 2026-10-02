@@ -5,8 +5,7 @@ from opt.evaluate import run_optimization
 #             -> Working/models/opt_<timestamp>/opt_<timestamp>.csv (the Pareto front)
 # EXPORT:     uv run python Working/export_pareto.py [opt_<timestamp>]
 #             -> opt_<timestamp>/pareto1, pareto2, ... (default: the latest run)
-# SOLVE ALL:  uv run python Working/run_all.py --batch opt_<timestamp> --sets front --only 01,02 --no-forces
-# Template model: Working/models/<CAR_NAME>/ (its front.yaml, rear.yaml, forces.yaml).
+# SOLVE ALL:  uv run python Working/run_all.py --batch opt_<timestamp> --sets front --only 01 --no-forces
 CAR_NAME = "aurora"
 POPULATION_SIZE = 1980   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
 GENERATIONS = 200

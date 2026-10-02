@@ -1,9 +1,11 @@
 from opt.construct import (strut_bottom_fractions, strut_bottom_point,
                            trackrod_inboard_yz)
 from opt.evaluate import run_optimization
-#TO RUN: type into terminal: uv run python Working/optimizer.py 
-#Once done to export them to yamls run: uv run python Working/export_pareto.py 
-#to solve, type uv run python Working/run_all.py --sets front --geometry "Working\models\pareto1\front.yaml" --only 01, 02 --no-forces 
+# TO RUN:     uv run python Working/optimizer.py
+#             -> Working/models/opt_<timestamp>/opt_<timestamp>.csv (the Pareto front)
+# EXPORT:     uv run python Working/export_pareto.py [opt_<timestamp>]
+#             -> opt_<timestamp>/pareto1, pareto2, ... (default: the latest run)
+# SOLVE ALL:  uv run python Working/run_all.py --batch opt_<timestamp> --sets front --only 01 --no-forces
 CAR_NAME = "aurora"
 POPULATION_SIZE = 1980   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
 GENERATIONS = 10
