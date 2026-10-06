@@ -17,7 +17,7 @@ config:
       section_width: 95
       rim_diameter: 16   # inches
       loaded_radius: 278.5
-  cg_position: {x: -627.2, y: -39.844, z: 320}
+  cg_position: {x: -693.5, y: -11.7, z: 350} #CG z is arbitrtay because gen 12 mass budget calculated of 308 is unrealistic
   wheelbase: 2240.00
   axle_position: rear
   driven_axle: rear

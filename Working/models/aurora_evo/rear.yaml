@@ -17,7 +17,7 @@ config:
       section_width: 95
       rim_diameter: 16   # inches
       loaded_radius: 278.5
-  cg_position: {x: -627.2, y: -39.844, z: 320}
+  cg_position: {x: -695.96, y: -8.94, z: 386.62} #c,y from weigh in z from updated calculations #pesamistic
   wheelbase: 2240.00
   axle_position: rear
   driven_axle: rear
