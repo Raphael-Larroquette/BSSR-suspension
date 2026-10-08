@@ -84,8 +84,8 @@ FREE_PARAMETERS = {
     "lower_wishbone_outboard.y": (400.0, 500.0),
     "lower_wishbone_outboard.z": (77.0, 200.0),
     "upper_wishbone_outboard.z_frac": (0.0, 1.0),
-    "lower_wishbone_inboard.y": (50.0, 207.25), #inside the underleg area
-    "lower_wishbone_inboard.z": (93.191, 200), #lower is 77mm ride hight + BAB thickness
+    "lower_wishbone_inboard.y": (250.0, 350.0), #outside the underleg area
+    "lower_wishbone_inboard.z": (93.191, 350), #lower is 77mm ride hight + BAB thickness
     "upper_wishbone_inboard.y": (100.0, 400.0),
     "upper_wishbone_inboard.z_frac": (0.0, 1.0),  # Fractional span ensures safety
     "trackrod_outboard.x": (-250.0, -50.0), # behind caster , ADD DRIVER CLASH
@@ -96,8 +96,8 @@ FREE_PARAMETERS = {
     # bump steer (opt/construct.py) and must land in TRACKROD_INBOARD_LIMITS.
     # Inboard pivot x, absolute. Front and rear ranges never overlap, so the
     # front pivot is always ahead of the rear one by at least 50 mm.
-    "lower_wishbone_inboard_front.x": (0, 90.65), #underleg area, assume all inboard front hardpoints must be in front of the wheel center
-    "lower_wishbone_inboard_rear.x": (-227.23, -5.0), #underleg area)
+    "lower_wishbone_inboard_front.x": (0, 200.0), #underleg area, assume all inboard front hardpoints must be in front of the wheel center
+    "lower_wishbone_inboard_rear.x": (-270.0, -5.0), #underleg area)
     "upper_wishbone_inboard_front.x": (0.0, 200.0),
     "upper_wishbone_inboard_rear.x": (-250.0, -0.0),
     # Spring mounts at design height, see opt/construct.py.
@@ -123,11 +123,11 @@ TRACKROD_INBOARD_LIMITS = {
 KNOWN_DESIGN = {
     "lower_wishbone_outboard.y": 476.136,
     "lower_wishbone_outboard.z": 137.151,
-    "upper_wishbone_outboard.z": 524.47,
-    "lower_wishbone_inboard.y": 104.654,
+    "upper_wishbone_outboard.z": 437.0,
+    "lower_wishbone_inboard.y": 295.84,
     "lower_wishbone_inboard.z": 136.358,
     "upper_wishbone_inboard.y": 209.174,
-    "upper_wishbone_inboard.z": 514.018,
+    "upper_wishbone_inboard.z": 422.12,
     "trackrod_outboard.x": -128.565,
     "trackrod_outboard.z": 524.387,
     "trackrod_outboard.y": 408.764,   # was 407.4: 32% Ackermann; 394.5 gives 95%
@@ -143,7 +143,7 @@ KNOWN_DESIGN = {
     # 252 mm at full bump, joint_force 4200 N. The old mounts (10.43, 365.75,
     # 341.13) / (10.43, 443.12, 166.76) gave MR 0.80 but sit at u_frac 0.033.
     "strut_top": (19.45, 330.367, 454.21),
-    "strut_bottom": (3.155, 370.985, 186.049),
+    "strut_bottom": (3.155, 370.985, 186.049),#change? how was this and the one above calculated? not underchassis
 }
 
 #: The force objective: this share of the mean joint force plus the rest of the
