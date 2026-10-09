@@ -1,10 +1,8 @@
-# Static force solve for Aurora EVO. Key reference and assumptions: ../FORCES.md
-# Precedence: CLI > this file. Relative paths resolve against this file.
 
 version: "0.1.0"
 
 vehicle:
-  mass: 294.5   #kg, from FSGP weigh in
+  mass: 291.6   # kg, total as-raced including driver; treated as a point mass at cg_position
   g: 9.80665    # m/s^2
 
 geometry:
