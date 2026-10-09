@@ -1,12 +1,13 @@
 from opt.construct import (strut_bottom_fractions, strut_bottom_point,
                            trackrod_inboard_yz)
 from opt.evaluate import run_optimization
-# TO RUN:     uv run python Working/underlegoptimizer.py
+# TO RUN:     uv run python Working/nonunderleg.py
 #             -> Working/models/opt_<timestamp>/opt_<timestamp>.csv (the Pareto front)
 # EXPORT:     uv run python Working/export_pareto.py [opt_<timestamp>]
 #             -> opt_<timestamp>/pareto1, pareto2, ... (default: the latest run)
 # SOLVE ALL:  uv run python Working/run_all.py --batch opt_<timestamp> --sets front --only 01 --no-forces
-# CHECK SEED: uv run python Working/check_design.py Working/underlegoptimizer.py
+# SOLVE one: uv run python Working/run_all.py --model opt_,timestamp/pareto## --only 01 --no-forces
+# CHECK SEED: uv run python Working/check_design.py Working/nonunderleg.py
 #
 # This file IS the run's configuration. Copy it to make a variant: whichever
 # script you launch is the one used (see opt/settings.py).
@@ -32,7 +33,7 @@ MIN_ARM_SEPARATION = 200.0    # mm, minimum vertical gap UCA above LCA (inboard 
 
 # Search size.
 POPULATION_SIZE = 1320   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
-GENERATIONS = 300
+GENERATIONS = 400
 
 # Worker processes. None = one per logical CPU (128 on the 64-core machine).
 # Windows caps one process pool at 60 workers, so they are split into as few
