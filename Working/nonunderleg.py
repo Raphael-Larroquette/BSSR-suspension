@@ -45,7 +45,9 @@ POOL_WORKERS = None
 # elsewhere. Only lower it to test multi-pool behaviour on a small machine.
 WORKERS_PER_POOL = None
 
-BUMP_WEIGHTING = 1.5
+# Bump-side multiplier inside the travel integrals (droop counts 1x).
+BUMP_WEIGHTING = 1.5          # bump_scrub
+CAMBER_BUMP_WEIGHTING = 2.0   # camber_gain
 
 # Shortest the shock may ever be, eye to eye, in mm. Checked twice with this
 # one number: before solving (design length, free - a shock already too short
@@ -274,7 +276,12 @@ def derive_parameters(free, fixed):
 
 
 OBJECTIVES = {
-    "fvsa_length": ("01_bump_parallel", "fvsa_length", "maximize"),
+    # Camber gain 1/FVSA at EVERY frame of the bump sweep, not just design
+    # height: (1/span) * integral of w(z)*|1/FVSA(z)| dz, deg/mm, with
+    # w = CAMBER_BUMP_WEIGHTING in bump and 1 in droop. Minimising it is
+    # "maximise FVSA everywhere, bump first". Replaces fvsa_length, which read
+    # the design pose only - exactly where parallel arms make it infinite.
+    "camber_gain": ("01_bump_parallel", "camber_gain", "minimize"),
     "bump_scrub": ("01_bump_parallel", "bump_scrub", "minimize"),
     # |Ackermann % - 100|, in percentage points, at full lock. Scored on
     # whichever lock is worse, so both directions have to be good. Replaces the
@@ -293,7 +300,11 @@ CONSTRAINTS = {
     "toe_range": ("01_bump_parallel", "toe_range", (0.0, 1.0)),
     "kingpin": ("01_bump_parallel", "kpi", (9.0, 11.0)),
     "max_turn": ("04_steer_design", "max_turn", (17.5, 90.0)),
+    # FVSA is signed (+ = instant centre inboard), so this is "inboard and at
+    # least 1 m away" - at the design pose only.
     "fvsa_sign": ("01_bump_parallel", "fvsa_length", (1000.0, None)),
+    # Sweep-wide version (inboard at every frame), not yet chosen:
+    # "fvsa_inboard": ("01_bump_parallel", "min_camber_gain", (0.0, None)),
     # Damper travel / wheel travel, at design height.
     "motion_ratio": ("01_bump_parallel", "motion_ratio", (0.6, 1.01)),
     # Shortest damper length anywhere in the bump sweep. See MIN_SHOCK_LENGTH.

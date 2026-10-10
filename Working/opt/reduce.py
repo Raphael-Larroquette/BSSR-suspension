@@ -216,6 +216,79 @@ def min_damper_length(analysis, sweep_name=""):
     return worst
 
 
+#: Cap on |camber gain| for a frame whose FVSA is exactly 0 (the instant centre
+#: sitting on the contact patch), so one degenerate frame cannot make the
+#: objective infinite. Real designs are orders of magnitude below this.
+MAX_CAMBER_GAIN_DEG_PER_MM = 1.0e3
+
+
+def camber_gain_curve(analysis, sweep_name=""):
+    """
+    Camber gain R = 1/FVSA (deg/mm) at every usable frame, for every corner.
+
+    1/FVSA is the camber change per mm of wheel travel at that pose - checked
+    against the measured slope of the camber curve to within ~4 % on the
+    Oct 2026 Pareto designs. It is used instead of FVSA itself because FVSA
+    passes through +/-infinity wherever the arms are parallel and flips sign
+    there, while 1/FVSA passes smoothly through zero.
+
+    Sign follows the solver's FVSA: positive = instant centre INBOARD of the
+    contact centre. A frame with no instant centre (arms exactly parallel, so
+    FVSA is undefined) is infinite FVSA, i.e. R = 0 - not a failure.
+
+    Returns:
+        (travel, {side: R}) with travel sorted ascending, in mm.
+    """
+    frames = usable_frames(analysis, sweep_name)
+    sides = list(frames[0].corner_metrics)
+    travel = np.array([f.corner_metrics[sides[0]]["wheel_travel"] for f in frames])
+    order = np.argsort(travel)
+
+    def gain(fvsa):
+        if fvsa is None or not math.isfinite(fvsa):
+            return 0.0
+        if fvsa == 0.0:
+            return MAX_CAMBER_GAIN_DEG_PER_MM
+        return math.degrees(1.0 / fvsa)
+
+    curves = {
+        side: np.array([gain(f.corner_metrics[side].get("fvsa_length"))
+                        for f in frames])[order]
+        for side in sides
+    }
+    return travel[order], curves
+
+
+def camber_gain_score(analysis, bump_weight, sweep_name=""):
+    """
+    Bump-weighted mean |camber gain| over the sweep, deg/mm (minimise).
+
+        (1 / span) * integral of w(z) * |1/FVSA(z)| dz,   w = bump_weight for z >= 0
+
+    The same shape as `bump_scrub`, applied to the camber gain at every pose
+    instead of FVSA at the design pose alone. Read from the first corner, as
+    the other bump-sweep objectives are.
+    """
+    travel, curves = camber_gain_curve(analysis, sweep_name)
+    gain = np.abs(next(iter(curves.values())))
+    weight = np.where(travel >= 0.0, bump_weight, 1.0)
+    span = travel[-1] - travel[0]
+    return float(np.trapezoid(gain * weight, travel)) / span if span > 0 else 0.0
+
+
+def min_camber_gain(analysis, sweep_name=""):
+    """
+    Smallest camber gain R = 1/FVSA (deg/mm) at any frame, either corner.
+
+    R >= 0 at every frame means the front-view instant centre is inboard (or
+    at infinity) throughout the travel, not just at design height. Negative
+    means it crossed outboard somewhere - the parallel-arm designs whose
+    camber curve humps negative in both bump and droop.
+    """
+    _, curves = camber_gain_curve(analysis, sweep_name)
+    return float(min(curve.min() for curve in curves.values()))
+
+
 def travel_integral(
     analysis, key: str, bump_weight: float = 1.5, sweep_name=""
 ) -> float:
@@ -261,6 +334,11 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
             outcomes[obj_name] = travel_integral(
                 analysis, "half_track", bump_weight, sweep_name
             )
+        elif metric == "camber_gain":
+            # Its own bump weight, so camber and scrub can be tuned apart.
+            # Falls back to BUMP_WEIGHTING for a script that predates it.
+            weight = getattr(current_settings(), "CAMBER_BUMP_WEIGHTING", bump_weight)
+            outcomes[obj_name] = camber_gain_score(analysis, weight, sweep_name)
         else:
             try:
                 outcomes[obj_name] = float(
@@ -311,12 +389,23 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
         elif metric == "min_damper_length":
             outcomes[const_name] = min_damper_length(analysis, sweep_name)
 
+        elif metric == "min_camber_gain":
+            outcomes[const_name] = min_camber_gain(analysis, sweep_name)
+
         elif metric == "max_turn":
             toes = [
                 list(f.corner_metrics.values())[0]["toe_angle"]
                 for f in usable_frames(analysis, sweep_name)
             ]
             outcomes[const_name] = min(abs(max(toes)), abs(min(toes)))
+
+        elif metric == "fvsa_length":
+            # Arms parallel within the solver's tolerance leave no instant
+            # centre and the metric reads None: that is an infinitely long
+            # swing arm, which passes a minimum-length bound. Previously
+            # float(None) raised and the candidate was thrown out as failed.
+            value = list(analysis.references["setup"].corner_metrics.values())[0][metric]
+            outcomes[const_name] = math.inf if value is None else float(value)
 
         else:
             try:
