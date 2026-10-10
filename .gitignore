@@ -192,6 +192,8 @@ Working/models/**/sweep_outputs/
 Working/models/**/report/
 Working/models/**/forces/
 Working/models/**/run.log
+Working/models/**/logs/
+Working/models/**/batch_summary.*
 # The pre-October-2026 name for sweep_outputs/, still on older checkouts.
 Working/models/**/outputs/
 

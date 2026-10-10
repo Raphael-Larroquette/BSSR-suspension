@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-The entry point for everything under Working/: the kinematic sweep sets, then
-the static force solve, for one model or a whole folder of them.
-Cross-platform, and independent of your current working directory.
+The entry point for everything under Working/: the kinematic sweep sets, the
+static force solve, the reports and the animations, for one model or a whole
+folder of them. Cross-platform, and independent of your current directory.
 
     uv run python Working/run_all.py                          Aurora, everything
     uv run python Working/run_all.py --model aurora_evo       another model
     uv run python Working/run_all.py --sets front --no-forces one sweep set only
-    uv run python Working/run_all.py --batch opt_2026-10-02_1430 ...
+    uv run python Working/run_all.py --batch opt_2026-10-02_1430 --sets front
                                                               every model in a folder
 
 A MODEL is a folder under Working/models/ holding front.yaml and/or rear.yaml,
@@ -15,44 +15,63 @@ and optionally forces.yaml. Load cases are shared: Working/cases.csv. Everything
 a run writes lands inside the model folder:
 
     models/<model>/sweep_outputs/<set>/   one CSV per sweep, and the animations
-    models/<model>/report/<set>/          report.md, plots, summary.csv
+    models/<model>/report/<set>/          report.md, solve_status.csv, plots
     models/<model>/forces/                forces.csv, load_transfer.csv
+    models/<model>/logs/                  one log per task (tracebacks live here)
+    models/<model>/run.log                one line per task, newest run only
 
---model and --batch take a folder name under Working/models/ or a path. A batch
-runs every model folder directly inside the one named (an optimizer run's
-pareto1, pareto2, ...), several at once, each logging to <model>/run.log.
+and a batch also writes <batch>/batch_summary.md and .csv.
 
-THIS IS THE ONLY COMMAND; `sweep_sets/runner.py` is a library this file calls.
-A sweep set is chosen with --sets (folder name) or --config (path); every other
-flag narrows what runs inside the sets chosen. Each set's run.yaml names the
-geometry FILE it reads (front.yaml or rear.yaml); --model picks the folder.
+HOW A RUN GOES
+
+    1. plan     every (model, sweep set) is validated and its sweep files are
+                generated. Nothing is solved yet.
+    2. solve    every sweep of every model, and every force solve, on one pool
+                of worker processes sized to this machine.
+    3. report   each set's report (built from the sweeps that solved) and an
+       animate  animation for every sweep that solved and asked for one, on a
+                second pool.
+    4. summary  a table of what solved, what failed, and where.
+
+A sweep that fails never stops the others: its report says it is missing, and
+the summary says at which step and pose it stopped. See sweep_sets/scheduler.py
+for how the pool is sized from the cores and memory available.
+
+THIS IS THE ONLY COMMAND; sweep_sets/runner.py, scheduler.py and tasks.py are
+libraries this file uses. A sweep set is chosen with --sets (folder name) or
+--config (path); every other flag narrows what runs inside the sets chosen.
 
 Forces run by default, because a sweep set and the force solve read the SAME
 geometry: a hardpoint edit invalidates both. A model without a forces.yaml is
 skipped for forces, with a note.
 
-Stages run independently: every stage is attempted, and the exit code names
-everything that failed.
-
 See the repository README.md for the workflow, sweep_sets/RUNNING.md for the
-run.yaml keys, and models/FORCES.md for the force solve.
+run.yaml keys, and FORCES.md for the force solve.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import re
-import subprocess
 import sys
 import time
-import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent  # Working/
 SWEEP_SETS_DIR = HERE / "sweep_sets"
 MODELS_DIR = HERE / "models"
+
+# The libraries live beside the sweep sets. Pool workers inherit this path.
+if str(SWEEP_SETS_DIR) not in sys.path:
+    sys.path.insert(0, str(SWEEP_SETS_DIR))
+
+import scheduler  # noqa: E402 - stdlib only; must precede anything importing numpy
+
+# One BLAS thread per process, in this process and every worker it starts. Must
+# happen before numpy is first imported. See scheduler.py.
+scheduler.pin_threads()
 
 # A sweep set is a folder with a run.yaml.
 SWEEP_SET_GLOB = "*/run.yaml"
@@ -67,14 +86,37 @@ GEOMETRY_NAMES = ("front.yaml", "rear.yaml")
 # `cases:` key overrides this for that model).
 CASES_FILE = HERE / "cases.csv"
 
-# What a batch writes each model's console output to, inside the model folder.
-BATCH_LOG_NAME = "run.log"
+# What each run writes inside a model folder, and beside a batch.
+RUN_LOG_NAME = "run.log"
+LOGS_DIRNAME = "logs"
+BATCH_SUMMARY_NAME = "batch_summary"
 
 # Overrides that describe ONE set and cannot mean anything across several.
 PER_SET_FLAGS = ("geometry", "side")
 
-# The kinematics CLI, on this interpreter. See sweep_sets/runner.py.
-KINEMATICS = [sys.executable, "-m", "kinematics.cli"]
+# Flags that no longer exist, and what replaced them.
+REMOVED_FLAGS = {
+    "--parallel": "--workers (one pool now serves every model)",
+    "--gif-workers": "--workers (each animation is one task on the shared pool)",
+    "--jobs": "--workers (one pool now serves every model and sweep)",
+}
+
+# Starting memory budget per worker, MB. Replaced by measured peaks as tasks
+# finish; generous so the first wave never over-commits.
+SOLVE_WORKER_MB = 600.0
+RENDER_WORKER_MB = 900.0
+
+# Recycle render workers after this many tasks, so a slow matplotlib leak
+# cannot grow across a 400-animation batch.
+RENDER_TASKS_PER_WORKER = 25
+
+# One letter per status, for the console and summary matrices (ASCII, so a
+# Windows console prints it).
+STATUS_LETTER = {
+    "ok": ".", "warn": "w", "lockout": "L", "geometry": "G", "resource": "M",
+    "error": "E", "skipped": "s", "missing": "?",
+}
+GOOD = ("ok", "warn", "skipped")
 
 
 # ==========================================================================
@@ -164,132 +206,406 @@ def default_geometry(config: Path) -> Path:
 
 
 # ==========================================================================
-# Stages
+# Planning
 # ==========================================================================
-def import_runner():
-    """Import the sweep-set library that lives beside the sets.
+@dataclass
+class ModelRun:
+    """One model folder and everything planned against it."""
 
-    Lazy and by path: --help and --list should not pay for yaml, and
-    sweep_sets/ is a working directory rather than an installed module.
-    """
-    if str(SWEEP_SETS_DIR) not in sys.path:
-        sys.path.insert(0, str(SWEEP_SETS_DIR))
-    import runner
-
-    return runner
+    folder: Path
+    name: str
+    sets: list  # runner.SetPlan
+    forces: Path | None
+    plan_errors: list[str]
 
 
-def force_command(config: Path, dry_run: bool) -> list[str]:
-    """Build the command for one model's force solve.
-
-    A subprocess, unlike the sweep sets, because `kinematics forces` is the
-    CLI command with its own diagnostics and exit codes. Results go to
-    forces/ beside the configuration.
-    """
-    cmd = [*KINEMATICS, "forces", "--config", str(config)]
-    # One set of load cases for every model, unless a model names its own.
+def forces_cases(config: Path) -> Path | None:
+    """The shared cases.csv, unless this forces.yaml names its own."""
     import yaml
 
     if (yaml.safe_load(config.read_text()) or {}).get("cases") is None:
-        cmd += ["--cases", str(CASES_FILE)]
-    if dry_run:
-        # The force CLI's own --dry-run validates every input and solves
-        # without writing, so forwarding it keeps --dry-run a complete check.
-        cmd.append("--dry-run")
-    return cmd
+        return CASES_FILE
+    return None
+
+
+def plan_models(args, models: list[Path | None], sweep_sets: list[Path],
+                selected_sets: list[Path], runner) -> list[ModelRun]:
+    """Plan every (model, set). A set that will not plan is recorded, not fatal."""
+    runs: dict[Path, ModelRun] = {}
+
+    def run_for(folder: Path) -> ModelRun:
+        if folder not in runs:
+            runs[folder] = ModelRun(folder, folder.name, [], None, [])
+        return runs[folder]
+
+    def options(geometry: Path | None):
+        return runner.SweepOptions(
+            geometry=geometry,
+            side=args.side,
+            only=parse_list(args.only),
+            skip=parse_list(args.skip) or [],
+            plots=parse_list(args.plots),
+            gifs=parse_list(args.gifs),
+            no_plots=args.no_plots,
+            no_gifs=args.no_gifs,
+            no_joints=args.no_joints,
+            report_only=args.report_only,
+            solve_only=args.solve_only,
+            dry_run=args.dry_run,
+            on_bad_solve=args.on_bad_solve,
+        )
+
+    for model in models:
+        for config in sweep_sets:
+            if model is not None:
+                geometry = model / default_geometry(config).name
+                if not geometry.is_file():
+                    run_for(model)  # a front-only model is normal: note, not fail
+                    continue
+            else:
+                geometry = args.geometry or default_geometry(config)
+            folder = geometry.parent
+            try:
+                plan = runner.plan_sweep_set(config, options(geometry))
+            except runner.SweepSetError as error:
+                run_for(folder).plan_errors.append(f"{label(config)}: {error}")
+                continue
+            run_for(plan.model).sets.append(plan)
+
+        if args.no_forces:
+            continue
+        if model is not None:
+            folders = [model]
+        elif args.geometry is not None:
+            folders = [args.geometry.parent]
+        else:
+            # Forces follow the geometry each selected set names, even with
+            # --no-sweeps.
+            folders = list(dict.fromkeys(default_geometry(c).parent
+                                         for c in selected_sets))
+        for folder in folders:
+            config = folder / FORCES_CONFIG_NAME
+            if config.is_file():
+                run_for(folder).forces = config
+
+    return list(runs.values())
 
 
 # ==========================================================================
-# Batch: one child run_all.py per model, several at once
+# Tasks
 # ==========================================================================
-# Flags that configure the batch itself, so are not passed on to each model.
-BATCH_ONLY_FLAGS = {"--batch": True, "--parallel": True, "--gif-workers": True}
+def identity(run: ModelRun, set_name: str, sweep: str, kind: str) -> dict:
+    """The fields every result of this task carries back, whatever happens."""
+    return {"model": run.name, "folder": str(run.folder), "set": set_name,
+            "sweep": sweep, "kind": kind}
 
 
-def forwarded_args(argv: list[str]) -> list[str]:
-    """The command line minus the batch-only flags (and their values)."""
-    out, skip = [], False
-    for arg in argv:
-        if skip:
-            skip = False
-            continue
-        name = arg.split("=", 1)[0]
-        if name in BATCH_ONLY_FLAGS:
-            skip = "=" not in arg and BATCH_ONLY_FLAGS[name]
-            continue
-        out.append(arg)
+def solve_tasks(runs: list[ModelRun], report_only: bool) -> list:
+    """Phase 2: every sweep of every model, and every force solve."""
+    tasks = []
+    for run in runs:
+        logs = run.folder / LOGS_DIRNAME
+        if not report_only:
+            for plan in run.sets:
+                for sweep in plan.sweeps:
+                    ident = identity(run, plan.name, sweep.name, "solve")
+                    tasks.append(scheduler.Task(
+                        key=f"solve|{run.folder}|{plan.name}|{sweep.name}",
+                        weight=float(sweep.steps or 1),
+                        payload={
+                            "kind": "solve", "identity": ident,
+                            "geometry": str(plan.geometry),
+                            "sweep": str(sweep.resolved),
+                            "csv": str(sweep.csv),
+                            "frames": str(sweep.frames) if sweep.animate else "",
+                            "log": str(logs / plan.name / f"{sweep.name}.log"),
+                        }))
+        if run.forces is not None:
+            cases = forces_cases(run.forces)
+            tasks.append(scheduler.Task(
+                key=f"forces|{run.folder}",
+                weight=1000.0,  # the longest single task; start it first
+                payload={
+                    "kind": "forces",
+                    "identity": identity(run, "", "", "forces"),
+                    "config": str(run.forces),
+                    "cases": str(cases) if cases else "",
+                    "log": str(logs / "forces.log"),
+                }))
+    return tasks
+
+
+def existing_results(run: ModelRun, plan) -> list[dict]:
+    """--report-only: treat each planned sweep's CSV on disk as its result."""
+    out = []
+    for sweep in plan.sweeps:
+        status = "ok" if sweep.csv.is_file() else "missing"
+        out.append({**identity(run, plan.name, sweep.name, "solve"),
+                    "status": status,
+                    "message": "" if status == "ok" else "no CSV on disk"})
     return out
 
 
-def batch_sizes(n_models: int, parallel: int | None,
-                gif_workers: int | None) -> tuple[int, int]:
-    """
-    How many models run at once, and how many GIF workers each one gets.
+def render_tasks(runs: list[ModelRun], solved: dict, args) -> list:
+    """Phase 3: each set's report, and an animation per sweep that solved."""
+    tasks = []
+    for run in runs:
+        logs = run.folder / LOGS_DIRNAME
+        for plan in run.sets:
+            results = [solved.get((str(run.folder), plan.name, s.name))
+                       for s in plan.sweeps]
+            results = [r for r in results if r is not None]
+            if args.report_only:
+                results = existing_results(run, plan)
+            if plan.report_wanted:
+                tasks.append(scheduler.Task(
+                    key=f"report|{run.folder}|{plan.name}",
+                    weight=1e6,  # reports are what matters most; run them first
+                    payload={
+                        "kind": "report",
+                        "identity": identity(run, plan.name, "", "report"),
+                        "resolved_config": str(plan.resolved_config),
+                        "outputs": str(plan.outputs),
+                        "report": str(plan.report),
+                        "reporter": plan.reporter,
+                        "results": results,
+                        "log": str(logs / plan.name / "_report.log"),
+                    }))
+            if args.report_only:
+                continue
+            ok = {r["sweep"] for r in results if r.get("status") in ("ok", "warn")}
+            for sweep in plan.sweeps:
+                if not sweep.animate or sweep.name not in ok:
+                    continue
+                tasks.append(scheduler.Task(
+                    key=f"animate|{run.folder}|{plan.name}|{sweep.name}",
+                    weight=2.0 * (sweep.steps or 1),
+                    payload={
+                        "kind": "animate",
+                        "identity": identity(run, plan.name, sweep.name, "animate"),
+                        "geometry": str(plan.geometry),
+                        "frames": str(sweep.frames),
+                        "out": str(sweep.animation),
+                        "fps": sweep.fps,
+                        "dpi": sweep.dpi,
+                        "log": str(logs / plan.name / f"{sweep.name}.animate.log"),
+                    }))
+    return tasks
 
-    Auto: one model per 8 logical CPUs (at least 1, at most 16), and the CPUs
-    shared between them for frame rendering. 16 CPUs -> 2 models x 8 workers;
-    128 -> 16 x 8. Every concurrent model holds one animation's frames in
-    memory (~10 MB per frame at dpi 200), so lower --parallel if RAM runs out.
-    """
-    cpus = os.cpu_count() or 1
-    if not parallel:
-        parallel = max(1, min(16, cpus // 8))
-    parallel = max(1, min(parallel, n_models))
-    if not gif_workers:
-        gif_workers = max(1, cpus // parallel)
-    return parallel, gif_workers
+
+# ==========================================================================
+# Reporting what happened
+# ==========================================================================
+def describe(result: dict) -> str:
+    """One line: what failed and where, or nothing for a clean result."""
+    import runner
+
+    status = result.get("status", "?")
+    if status == "ok":
+        return ""
+    parts = [runner.describe_failure(result), result.get("message", "")]
+    return "; ".join(p for p in parts if p)
 
 
-def run_batch(folder: Path, args, argv: list[str]) -> None:
-    """Run every model in `folder` as its own run_all.py, `parallel` at once."""
-    models = discover_batch(folder)
-    if not models:
-        sys.exit(f"no models in {folder}: no subfolder holds "
-                 f"{' or '.join(GEOMETRY_NAMES)}.\n"
-                 "Did export_pareto.py run for this optimizer run?")
-    parallel, gif_workers = batch_sizes(len(models), args.parallel,
-                                        args.gif_workers)
-    passthrough = forwarded_args(argv)
+def task_name(result: dict) -> str:
+    """How a task is named in the console, run.log and the summary."""
+    kind = result.get("kind", "?")
+    if kind == "forces":
+        return "forces"
+    if kind == "report":
+        return f"{result.get('set')} report"
+    name = f"{result.get('set')}/{result.get('sweep')}"
+    return name + (" (animation)" if kind == "animate" else "")
 
-    print(f"batch    : {folder}")
-    print(f"models   : {len(models)} ({models[0].name} ... {models[-1].name})")
-    print(f"parallel : {parallel} model(s) at once, {gif_workers} GIF worker(s) each")
-    print(f"logs     : <model>/{BATCH_LOG_NAME}")
-    print(f"each runs: run_all.py --model <model> {' '.join(passthrough)}\n")
 
-    def one(model: Path) -> tuple[Path, int, float]:
-        cmd = [sys.executable, str(Path(__file__).resolve()), "--model", str(model),
-               "--gif-workers", str(gif_workers), *passthrough]
-        started = time.perf_counter()
-        with open(model / BATCH_LOG_NAME, "w", encoding="utf-8") as log:
-            log.write("$ " + " ".join(cmd) + "\n\n")
-            log.flush()
-            code = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT).returncode
-        return model, code, time.perf_counter() - started
+class Progress:
+    """Prints one line per finished task."""
 
-    failed: list[str] = []
-    started = time.perf_counter()
-    with ThreadPoolExecutor(max_workers=parallel) as pool:
-        futures = [pool.submit(one, model) for model in models]
-        for done, future in enumerate(as_completed(futures), start=1):
-            model, code, seconds = future.result()
-            status = "ok" if code == 0 else f"FAILED - see {model / BATCH_LOG_NAME}"
-            print(f"   [{done:>{len(str(len(models)))}}/{len(models)}] "
-                  f"{model.name:20s} {seconds:6.0f} s  {status}", flush=True)
-            if code != 0:
-                failed.append(model.name)
+    def __init__(self, total: int, show_model: bool):
+        self.total = total
+        self.done = 0
+        self.show_model = show_model
+        self.width = len(str(total))
 
-    minutes = (time.perf_counter() - started) / 60
-    if failed:
-        sys.exit(f"\n{len(failed)} of {len(models)} model(s) failed "
-                 f"({minutes:.1f} min): {', '.join(failed)}")
-    print(f"\ndone. {len(models)} model(s) in {minutes:.1f} min.")
+    def __call__(self, result: dict) -> None:
+        self.done += 1
+        where = f"{result.get('model', ''):14s} " if self.show_model else ""
+        detail = describe(result)
+        line = (f"   [{self.done:>{self.width}}/{self.total}] {where}"
+                f"{task_name(result):34s} {result.get('status', '?'):8s} "
+                f"{result.get('seconds', 0):6.1f} s")
+        if detail:
+            line += f"  {detail}"
+        print(line[:240], flush=True)
+
+
+def write_run_log(run: ModelRun, results: list[dict], header: list[str]) -> Path:
+    """<model>/run.log: one line per task of this model, newest run only."""
+    lines = list(header)
+    for message in run.plan_errors:
+        lines.append(f"PLAN FAILED  {message}")
+    if run.plan_errors:
+        lines.append("")
+    lines.append(f"{'task':40s} {'status':9s} {'time':>8s}  detail")
+    for r in results:
+        lines.append(f"{task_name(r):40s} {r.get('status', '?'):9s} "
+                     f"{r.get('seconds', 0):7.1f}s  {describe(r)}")
+        if r.get("status") not in GOOD and r.get("log"):
+            lines.append(f"{'':40s} log: {r['log']}")
+    path = run.folder / RUN_LOG_NAME
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def summary_matrix(
+    runs: list[ModelRun], by_model: dict
+) -> tuple[list[str], list[list[str]]]:
+    """Columns: every set/sweep solved anywhere, then forces, report(s), anims."""
+    columns: list[str] = []
+    for run in runs:
+        for r in by_model.get(str(run.folder), []):
+            if r.get("kind") == "solve":
+                col = f"{r['set']}/{r['sweep']}"
+                if col not in columns:
+                    columns.append(col)
+    rows = []
+    for run in runs:
+        results = by_model.get(str(run.folder), [])
+        cells = {f"{r['set']}/{r['sweep']}": r
+                 for r in results if r.get("kind") == "solve"}
+        row = [run.name]
+        for col in columns:
+            r = cells.get(col)
+            row.append(STATUS_LETTER.get(r["status"], "?") if r else "-")
+        forces = [r for r in results if r.get("kind") == "forces"]
+        row.append(STATUS_LETTER.get(forces[0]["status"], "?") if forces else "-")
+        reports = [r for r in results if r.get("kind") == "report"]
+        row.append("".join(STATUS_LETTER.get(r["status"], "?") for r in reports) or "-")
+        anims = [r for r in results if r.get("kind") == "animate"]
+        good = sum(r.get("status") in GOOD for r in anims)
+        row.append(f"{good}/{len(anims)}" if anims else "-")
+        rows.append(row)
+    return ["model", *columns, "forces", "report", "anims"], rows
+
+
+def write_batch_summary(folder: Path, runs: list[ModelRun], by_model: dict,
+                        header: list[str]) -> Path:
+    """<batch>/batch_summary.md (matrix, pass counts, failures) and .csv."""
+    import csv
+
+    columns, rows = summary_matrix(runs, by_model)
+    solve_cols = columns[1:-3]
+    lines = [f"# Batch summary: {folder.name}", "", *[f"- {h}" for h in header], ""]
+    lines += ["Status letters: `.` ok, `w` solved with solver warnings, "
+              "`L` lock-out (no pose exists at some step), `G` geometry does not "
+              "build, `M` out of memory after retries, `E` error, `?` missing, "
+              "`-` not run.", ""]
+
+    lines += ["## Matrix", "", "| " + " | ".join(columns) + " |",
+              "| " + " | ".join("---" for _ in columns) + " |"]
+    lines += ["| " + " | ".join(row) + " |" for row in rows]
+    lines.append("")
+
+    lines += ["## Pass count per sweep", "", "| sweep | solved | of |",
+              "| --- | --- | --- |"]
+    for i, col in enumerate(solve_cols, start=1):
+        ran = [row[i] for row in rows if row[i] != "-"]
+        lines.append(f"| {col} | {sum(c in '.w' for c in ran)} | {len(ran)} |")
+    lines.append("")
+
+    clean = [row[0] for row in rows
+             if all(c in ".w-" for c in row[1:len(solve_cols) + 1])
+             and row[-3] in ".w-"]
+    lines += [f"## Models with every sweep solved ({len(clean)} of {len(rows)})", "",
+              ", ".join(clean) or "(none)", ""]
+
+    lines += ["## Failures", ""]
+    any_failure = False
+    for run in runs:
+        for message in run.plan_errors:
+            any_failure = True
+            lines.append(f"- **{run.name}** plan: {message}")
+        for r in by_model.get(str(run.folder), []):
+            if r.get("status") in GOOD:
+                continue
+            any_failure = True
+            lines.append(f"- **{run.name}** {task_name(r)}: {r.get('status')} - "
+                         f"{describe(r)}  \n  log: `{r.get('log', '')}`")
+    if not any_failure:
+        lines.append("(none)")
+    lines.append("")
+
+    md = folder / f"{BATCH_SUMMARY_NAME}.md"
+    md.write_text("\n".join(lines), encoding="utf-8")
+
+    with open(folder / f"{BATCH_SUMMARY_NAME}.csv", "w", newline="",
+              encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["model", "kind", "set", "sweep", "status", "steps_ok",
+                         "n_steps", "fail_step", "at", "last_good", "message",
+                         "seconds", "peak_mb", "attempts", "log"])
+        for run in runs:
+            for r in by_model.get(str(run.folder), []):
+                writer.writerow([run.name, r.get("kind"), r.get("set"), r.get("sweep"),
+                                 r.get("status"), r.get("steps_ok", ""),
+                                 r.get("n_steps", ""), r.get("fail_step", ""),
+                                 r.get("at", ""), r.get("last_good", ""),
+                                 r.get("message", ""), r.get("seconds", ""),
+                                 r.get("peak_mb", ""), r.get("attempts", ""),
+                                 r.get("log", "")])
+    return md
+
+
+def print_matrix(runs: list[ModelRun], by_model: dict) -> None:
+    """The status matrix, one row per model, for the console."""
+    columns, rows = summary_matrix(runs, by_model)
+    if not rows:
+        return
+    sweep_columns = columns[1:-3]
+    several_sets = len({c.split("/")[0] for c in sweep_columns}) > 1
+    # "01" for one set; "f01" / "r01" when several sets share the matrix.
+    short = [(c.split("/")[0][:1] if several_sets else "") + c.split("/")[-1][:2]
+             for c in sweep_columns]
+    cell = max([2, *map(len, short)])
+    width = max(len(r[0]) for r in rows) + 2
+    print("\n" + " " * width + " ".join(f"{c:>{cell}s}" for c in short)
+          + "   forces report anims")
+    for row in rows:
+        print(f"{row[0]:{width}s}" + " ".join(f"{c:>{cell}s}" for c in row[1:-3])
+              + f"   {row[-3]:>6s} {row[-2]:>6s} {row[-1]:>5s}")
+    print("   . ok   w warnings   L lock-out   G geometry   M memory   E error   "
+          "- not run")
+
+
+def dry_run(runs: list[ModelRun]) -> None:
+    """Print what would run, and validate each force configuration."""
+    for run in runs:
+        print(f"{run.name}  ({run.folder})")
+        for message in run.plan_errors:
+            print(f"   PLAN FAILED  {message}")
+        for plan in run.sets:
+            anims = [s.name for s in plan.sweeps if s.animate]
+            print(f"   {plan.name}: {len(plan.sweeps)} sweep(s) "
+                  f"({', '.join(s.name for s in plan.sweeps)})")
+            if anims:
+                print(f"      animations: {', '.join(anims)}")
+        if run.forces is not None:
+            from kinematics.cli.commands.forces import load_inputs
+
+            try:
+                loaded = load_inputs(run.forces, cases=forces_cases(run.forces))
+                print(f"   forces: valid, {len(loaded.cases)} case(s), "
+                      f"{len(loaded.run.corners)} corner(s)")
+            except Exception as error:  # noqa: BLE001
+                print(f"   forces: INVALID - {error}")
+    print("\n(dry run: nothing solved, nothing written)")
 
 
 # ==========================================================================
 # Entry point
 # ==========================================================================
 def build_parser() -> argparse.ArgumentParser:
+    """Every flag; see the module docstring for the workflow."""
     parser = argparse.ArgumentParser(
         prog="Working/run_all.py",
         description=__doc__,
@@ -316,12 +632,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="run every model folder inside this one (e.g. an optimizer run, "
         "opt_<timestamp>): a name under Working/models/ or a path",
-    )
-    which.add_argument(
-        "--parallel",
-        type=int,
-        default=None,
-        help="--batch only: models run at once (default: one per 8 CPUs)",
     )
 
     what = parser.add_argument_group("what runs")
@@ -379,28 +689,19 @@ def build_parser() -> argparse.ArgumentParser:
     sweeps.add_argument("--no-plots", action="store_true", help="no figures at all")
     sweeps.add_argument("--no-gifs", action="store_true", help="no animations at all")
     sweeps.add_argument(
-        "--gif-workers",
-        type=int,
-        default=None,
-        help="processes rendering each animation's frames (default: every "
-        "logical CPU; in a batch, the CPUs shared between the models)",
-    )
-    sweeps.add_argument(
         "--no-joints",
         action="store_true",
         help="drop the bearing misalignment section from the report",
     )
     sweeps.add_argument(
-        "--jobs", type=int, default=None, help="parallel solver processes"
-    )
-    sweeps.add_argument(
         "--report-only",
         action="store_true",
         help="rebuild the reports from the CSVs already in sweep_outputs/, "
-        "solving nothing",
+        "solving and animating nothing",
     )
     sweeps.add_argument(
-        "--solve-only", action="store_true", help="solve the sweeps and stop, no report"
+        "--solve-only", action="store_true",
+        help="solve the sweeps (and animate them), but build no report"
     )
     sweeps.add_argument(
         "--on-bad-solve",
@@ -408,6 +709,18 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("off", "warn", "fail"),
         help="what to do about non-converged or high-residual steps",
     )
+
+    machine = parser.add_argument_group(
+        "machine", "the pool is sized automatically; see sweep_sets/scheduler.py")
+    machine.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="most worker processes to run at once (default: as many as the "
+        "physical cores and free memory allow)",
+    )
+    for old in REMOVED_FLAGS:
+        machine.add_argument(old, default=None, help=argparse.SUPPRESS)
 
     other = parser.add_argument_group("other")
     other.add_argument(
@@ -418,22 +731,27 @@ def build_parser() -> argparse.ArgumentParser:
     other.add_argument(
         "--dry-run",
         action="store_true",
-        help="validate every configuration and print every command, but solve "
+        help="validate every configuration and print what would run, but solve "
         "nothing and write no results. A complete check of Working/",
     )
     return parser
 
 
 def main() -> None:
-    """Parse the command line and run the batch, or the stages for one model."""
+    """Parse the command line, plan, run both phases, and summarise."""
+    try:
+        sys.stdout.reconfigure(errors="replace")  # type: ignore[attr-defined]
+    except AttributeError:
+        pass
     parser = build_parser()
     argv = sys.argv[1:]
     args = parser.parse_args(argv)
 
-    # A path typed on the command line means "relative to where I am", so pin
-    # it to the current directory now. Left relative, --geometry would reach
-    # the runner and be resolved against the sweep set's folder, which is the
-    # rule for a `geometry:` written INSIDE run.yaml, not for one typed here.
+    for old, new in REMOVED_FLAGS.items():
+        if getattr(args, old.lstrip("-").replace("-", "_"), None) is not None:
+            parser.error(f"{old} was removed; use {new}")
+
+    # A path typed on the command line means "relative to where I am".
     for flag in ("geometry", "config"):
         path = getattr(args, flag, None)
         if path is not None:
@@ -453,150 +771,149 @@ def main() -> None:
         return
 
     if args.config and args.sets:
-        parser.error(
-            "--config names one sweep set by path and --sets names them by "
-            "folder; use one or the other"
-        )
+        parser.error("--config names one sweep set by path and --sets names them by "
+                     "folder; use one or the other")
     if args.report_only and args.solve_only:
         parser.error("--report-only and --solve-only are opposites")
     if sum(x is not None for x in (args.model, args.batch, args.geometry)) > 1:
         parser.error("--model, --batch and --geometry each say which geometry "
                      "to run; give one of them")
-    if args.parallel is not None and args.batch is None:
-        parser.error("--parallel only applies to --batch")
+    if args.workers is not None and args.workers < 1:
+        parser.error("--workers must be at least 1")
 
+    # ---- which models -------------------------------------------------
+    batch_folder = None
     if args.batch is not None:
-        run_batch(resolve_folder(args.batch, "batch folder"), args, argv)
-        return
+        batch_folder = resolve_folder(args.batch, "batch folder")
+        models: list[Path | None] = list(discover_batch(batch_folder))
+        if not models:
+            sys.exit(f"no models in {batch_folder}: no subfolder holds "
+                     f"{' or '.join(GEOMETRY_NAMES)}.\n"
+                     "Did export_pareto.py run for this optimizer run?")
+    elif args.model is not None:
+        models = [resolve_model(args.model)]
+    else:
+        models = [None]
 
-    model = resolve_model(args.model) if args.model is not None else None
-
-    # ---- which sweep sets --------------------------------------------
+    # ---- which sweep sets ---------------------------------------------
     if args.config:
         if not args.config.is_file():
             sys.exit(f"run configuration not found: {args.config}")
         sweep_sets = [args.config]
     else:
         sweep_sets = select(discover_sweep_sets(), parse_list(args.sets), "sweep set")
+    selected_sets = list(sweep_sets)
     if args.no_sweeps:
         sweep_sets = []
 
-    # ---- the geometry each set runs ----------------------------------
-    # A model swaps the folder and keeps the file run.yaml names, so the front
-    # set reads <model>/front.yaml. A set the model has no file for is
-    # skipped, not failed: a front-only model is a normal thing to have.
-    targets: list[tuple[Path, Path | None]] = []
-    skipped: list[str] = []
-    for config in sweep_sets:
-        if model is not None:
-            geometry = model / default_geometry(config).name
-            if not geometry.is_file():
-                skipped.append(f"{label(config)} (no {geometry.name} in {model.name})")
-                continue
-            targets.append((config, geometry))
-        else:
-            targets.append((config, args.geometry))
+    conflicting = [f for f in PER_SET_FLAGS if getattr(args, f, None) is not None]
+    if conflicting and len(sweep_sets) > 1:
+        names = ", ".join(f"--{f}" for f in conflicting)
+        sys.exit(f"{names} describes a single sweep set, but {len(sweep_sets)} are "
+                 f"selected ({', '.join(label(c) for c in sweep_sets)}).\n"
+                 "Narrow it with --sets or --config.")
 
-    # ---- which force configurations ----------------------------------
-    # Forces follow the geometry: the model folder, else the folder of each
-    # geometry being run.
-    if model is not None:
-        folders = [model]
-    elif args.geometry is not None:
-        folders = [args.geometry.parent]
-    else:
-        folders = list(dict.fromkeys(
-            default_geometry(config).parent for config in sweep_sets or
-            select(discover_sweep_sets(), parse_list(args.sets), "sweep set")))
-    force_configs: list[Path] = []
-    if not args.no_forces:
-        for folder in folders:
-            config = folder / FORCES_CONFIG_NAME
-            if config.is_file():
-                force_configs.append(config)
-            else:
-                skipped.append(f"forces ({folder.name} has no {FORCES_CONFIG_NAME})")
+    import runner
+    import tasks as task_functions
 
-    if not targets and not force_configs:
-        sys.exit(
-            "nothing to run. "
-            + ("; ".join(skipped) + ". " if skipped else "")
-            + "--no-sweeps and --no-forces together leave no work."
-        )
-
-    # These each describe one set; applying them to several would run every
-    # set against the same car, into the same output folder.
-    conflicting = [
-        flag for flag in PER_SET_FLAGS if getattr(args, flag, None) is not None
-    ]
-    if conflicting and len(targets) > 1:
-        names = ", ".join(f"--{flag.replace('_', '-')}" for flag in conflicting)
-        sys.exit(
-            f"{names} describes a single sweep set, but {len(targets)} are "
-            f"selected ({', '.join(label(c) for c, _ in targets)}).\n"
-            "Narrow it with --sets or --config."
-        )
-
-    runner = import_runner() if targets else None
-
-    def options(geometry: Path | None):
-        return runner.SweepOptions(
-            geometry=geometry,
-            side=args.side,
-            only=parse_list(args.only),
-            skip=parse_list(args.skip) or [],
-            plots=parse_list(args.plots),
-            gifs=parse_list(args.gifs),
-            no_plots=args.no_plots,
-            no_gifs=args.no_gifs,
-            no_joints=args.no_joints,
-            jobs=args.jobs,
-            gif_workers=args.gif_workers,
-            report_only=args.report_only,
-            solve_only=args.solve_only,
-            dry_run=args.dry_run,
-            on_bad_solve=args.on_bad_solve,
-        )
-
+    machine = scheduler.detect_machine()
+    started = time.perf_counter()
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"Working  : {HERE}")
-    if model is not None:
-        print(f"model    : {model}")
-    print(f"sweeps   : {', '.join(label(c) for c, _ in targets) or '(none)'}")
-    print(f"forces   : {', '.join(c.parent.name for c in force_configs) or '(none)'}")
-    for note in skipped:
-        print(f"skipped  : {note}")
+    print(f"machine  : {machine.describe()}")
+    if batch_folder is not None:
+        print(f"batch    : {batch_folder} ({len(models)} models)")
+    print(f"sweeps   : {', '.join(label(c) for c in sweep_sets) or '(none)'}")
+
+    # ---- 1. plan ------------------------------------------------------
+    runs = plan_models(args, models, sweep_sets, selected_sets, runner)
+    planned = sum(len(p.sweeps) for r in runs for p in r.sets)
+    plan_errors = sum(len(r.plan_errors) for r in runs)
+    print(f"planned  : {planned} sweep(s) across {len(runs)} model(s)"
+          + (f", {plan_errors} set(s) failed to plan" if plan_errors else ""))
+    if not runs or (planned == 0 and not any(r.forces for r in runs)
+                    and not plan_errors):
+        sys.exit("nothing to run. --no-sweeps and --no-forces together leave no "
+                 "work, or no selected model has the geometry the sets need.")
     if args.dry_run:
-        print("dry run  : every configuration is validated, nothing is written")
+        print()
+        dry_run(runs)
+        return
+
+    show_model = len(runs) > 1
+    all_results: list[dict] = []
+    phases: list[scheduler.PhaseReport] = []
+    interrupted = False
+
+    try:
+        # ---- 2. solve -------------------------------------------------
+        tasks = solve_tasks(runs, args.report_only)
+        print()
+        solved: dict = {}
+        if tasks:
+            results, phase = scheduler.run_phase(
+                "solve", tasks, task_functions.execute, worker_mb=SOLVE_WORKER_MB,
+                cap=args.workers, on_result=Progress(len(tasks), show_model))
+            phases.append(phase)
+            all_results += results
+            interrupted = phase.interrupted
+            solved = {(r["folder"], r["set"], r["sweep"]): r
+                      for r in results if r.get("kind") == "solve"}
+
+        # ---- 3. report + animate ---------------------------------------
+        tasks = [] if interrupted else render_tasks(runs, solved, args)
+        if tasks:
+            print()
+            results, phase = scheduler.run_phase(
+                "report + animate", tasks, task_functions.execute,
+                worker_mb=RENDER_WORKER_MB,
+                cap=args.workers, max_tasks_per_child=RENDER_TASKS_PER_WORKER,
+                on_result=Progress(len(tasks), show_model))
+            phases.append(phase)
+            all_results += results
+            interrupted = phase.interrupted
+    except KeyboardInterrupt:  # between phases
+        interrupted = True
+
+    # ---- 4. summary ----------------------------------------------------
+    if interrupted:
+        print("\ninterrupted - the summary covers only what finished")
+    minutes = (time.perf_counter() - started) / 60
+    header = [f"started {stamp}, {minutes:.1f} min"
+              + (" (INTERRUPTED)" if interrupted else ""),
+              "command: run_all.py " + " ".join(argv),
+              f"machine: {machine.describe()}"]
+    for phase in phases:
+        header.append(
+            f"{phase.label}: {phase.workers} worker(s) (limited by "
+            f"{phase.limited_by}), peak {phase.worker_peak_mb:.0f} MB/worker, "
+            f"{phase.retries} retried, {phase.seconds:.0f} s"
+            + (f", ended at {phase.final_limit} worker(s)"
+               if phase.final_limit != phase.workers else ""))
+
+    by_model: dict[str, list[dict]] = {}
+    for r in all_results:
+        by_model.setdefault(r.get("folder", ""), []).append(r)
+    for run in runs:
+        write_run_log(run, by_model.get(str(run.folder), []), [*header, ""])
+
     print()
+    for line in header[2:]:
+        print(line)
+    if show_model or len(runs) == 1:
+        print_matrix(runs, by_model)
+    if batch_folder is not None:
+        md = write_batch_summary(batch_folder, runs, by_model, header)
+        print(f"\nsummary  : {md}")
+    print(f"run logs : <model>/{RUN_LOG_NAME}, tracebacks in <model>/{LOGS_DIRNAME}/")
 
-    failed: list[str] = []
-
-    for config, geometry in targets:
-        name = label(config)
-        print(f"==> {name} (sweeps)")
-        try:
-            runner.run_sweep_set(config, options(geometry))
-        except runner.SweepSetError as error:
-            failed.append(f"{name} (sweeps)")
-            print(f"\n{error}", file=sys.stderr)
-        except Exception:  # noqa: BLE001 - a bug here must not skip the rest
-            failed.append(f"{name} (sweeps)")
-            traceback.print_exc()
-        print()
-
-    for config in force_configs:
-        name = config.parent.name
-        print(f"==> {name} (forces)")
-        cmd = force_command(config, args.dry_run)
-        print("   $", " ".join(cmd), flush=True)
-        if subprocess.run(cmd).returncode != 0:
-            failed.append(f"{name} (forces)")
-            print(f"   FAILED: {name} (forces)", file=sys.stderr)
-        print()
-
-    if failed:
-        sys.exit(f"{len(failed)} stage(s) failed: {', '.join(failed)}")
-    print(f"done. {len(targets) + len(force_configs)} stage(s) completed.")
+    failed = [r for r in all_results if r.get("status") not in GOOD]
+    if interrupted:
+        sys.exit(130)
+    if failed or plan_errors:
+        sys.exit(f"\n{len(failed)} task(s) failed, {plan_errors} set(s) failed to "
+                 f"plan ({minutes:.1f} min). See the summary above.")
+    print(f"\ndone. {len(all_results)} task(s) in {minutes:.1f} min.")
 
 
 if __name__ == "__main__":

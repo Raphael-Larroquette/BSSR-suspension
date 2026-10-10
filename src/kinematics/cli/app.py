@@ -5,7 +5,11 @@ from typing import Annotated
 
 import typer
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+# Locals off: a solver failure inside a sweep would otherwise print every local
+# variable of every frame, thousands of lines per failed sweep.
+app = typer.Typer(
+    add_completion=False, no_args_is_help=True, pretty_exceptions_show_locals=False
+)
 
 
 def require_visualization() -> ModuleType:
@@ -41,10 +45,7 @@ def sweep(
         typer.Option(
             help="Animation resolution; render time and file size scale with dpi^2"
         ),
-    ] = 200,
-    animation_workers: Annotated[
-        int, typer.Option(help="Processes rendering GIF frames; 0 = every CPU")
-    ] = 0,
+    ] = 100,
 ):
     """
     Run a sweep from file and write results to Parquet or CSV format.
@@ -75,7 +76,6 @@ def sweep(
             fps=fps,
             dpi=dpi,
             show_live=False,
-            workers=animation_workers,
         )
 
         typer.echo(f"Wrote animation: {animation_out}")

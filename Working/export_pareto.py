@@ -10,7 +10,7 @@ row of that CSV this writes <run>/pareto1/, pareto2/, ...: a copy of the templat
 model's YAMLs (front, rear, forces) with the optimised hardpoints patched in.
 Existing pareto folders in that run are replaced. Then run them all with:
 
-    uv run python Working/run_all.py --batch <run> --sets front --only 01,02 --no-forces
+    uv run python Working/run_all.py --batch <run> --sets front
 
 The pareto folders are git-ignored; only the CSV is tracked, and this script
 rebuilds them from it on any machine.
@@ -30,7 +30,8 @@ MODELS_DIR = HERE / "models"
 RUN_PREFIX = "opt_"
 
 # Results and logs in the template model are not copied into a candidate.
-NOT_COPIED = ("sweep_outputs", "report", "forces", "outputs", "run.log", "__pycache__")
+NOT_COPIED = ("sweep_outputs", "report", "forces", "outputs", "logs", "run.log",
+              "__pycache__")
 
 
 def find_runs() -> list[Path]:
@@ -180,7 +181,7 @@ def main() -> None:
 
     print(f"\nDone. Run every candidate with:\n"
           f"   uv run python Working/run_all.py --batch {run.name} "
-          "--sets front --only 01,02 --no-forces")
+          "--sets front")
 
 
 if __name__ == "__main__":

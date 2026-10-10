@@ -59,7 +59,10 @@ why `03_single_wheel_bump` and `07_bump_at_steer` keep theirs.
 | `geometry` | path | `../../models/aurora/front.yaml` | default geometry, **relative to this file**; `--geometry` overrides |
 | `reporter` | `susreport` \| `susreport_rear` | `susreport` | which module builds `report.md` |
 | `side` | `left` \| `right` \| `null` | `left` | which corner the per-corner rows report. **`null` for a corner model** |
-| `jobs` | int \| `auto` | `auto` | parallel solver processes; `auto` = min(8, CPU cores) |
+
+There is no `jobs` key any more: how many sweeps solve at once is decided for the whole
+run, from the computer's cores and memory (see "Parallelism" below). An old `run.yaml`
+that still has one is fine; the key is ignored.
 
 ## `decimals`
 
@@ -104,11 +107,15 @@ firing on good rows.
 | key | value | meaning |
 | --- | --- | --- |
 | `fps` | `20` | frames per second |
-| `dpi` | `200` | resolution; render time and file size scale with dpi² (100 is ~4× faster) |
+| `dpi` | `100` | resolution: frames are 16 x 10 in, so 100 is 1600 x 1000 px; render time scales with dpi² |
+| `format` | `gif` | `gif`, or `mp4` (H.264: about a tenth of the size, but needs a video player). Optional; default `gif` |
 
 A per-sweep `gif:` mapping merges over this block.
 
-Each animation renders its frames on `--gif-workers` processes (default: every CPU).
+Animations are written by ffmpeg, which `uv sync` installs (the `imageio-ffmpeg` package
+bundles it). Each one is a single task on the shared pool, drawn from the positions its
+solve saved in `sweep_outputs/<set>/_frames/`, so a sweep is never solved twice. Only
+sweeps that solved are animated.
 
 ## `sweeps.<name>`
 
@@ -194,17 +201,41 @@ Shared code — CSV parsing, solver health, tables, plots, report assembly — i
 
 ## Parallelism
 
-Each sweep is an independent `kinematics sweep` subprocess submitted to a pool of `jobs`
-workers. Animations then run one at a time, each rendering its unique frames on
-`--gif-workers` processes (default: every CPU); the ping-pong return leg reuses them. The
-**report** is serial (it needs every CSV). `run_all.py --batch` adds a third level:
-several models at once, sharing the CPUs between them.
+`run_all.py` runs everything on **one pool of worker processes**, in two phases:
+
+1. **solve**: every sweep of every model being run, and every force solve;
+2. **report + animate**: each set's report (built once all its sweeps are done), then one
+   animation per sweep that solved.
+
+Each worker imports the solver once and runs many tasks, single-threaded (BLAS/OpenMP
+pinned to one thread), so the parallelism is one task per process. The number of workers
+is the smallest of: the physical cores this process may use, what free memory allows (on
+Windows the commit limit, RAM + page file, which is what actually runs out), the number of
+tasks, `--workers`, and 61 on Windows. The memory each worker needs starts as an estimate
+and is replaced by what the workers report as they finish. A task that runs out of memory
+is retried with fewer workers; a worker that dies takes the pool with it, so the pool is
+rebuilt and the tasks it was running are retried.
+
+The logic is in `scheduler.py` (sizing, admission, retries) and `tasks.py` (what each task
+does and how its failure is classified).
+
+## What a run writes besides results
+
+| file | contents |
+| --- | --- |
+| `<model>/run.log` | one line per task of the latest run: status, time, and for a failed sweep the step and pose it stopped at |
+| `<model>/logs/<set>/<sweep>.log` | what that task printed; a traceback if it failed |
+| `<model>/report/<set>/solve_status.csv` | the status of every sweep in the set; also the table at the top of `report.md` |
+| `<batch>/batch_summary.md` / `.csv` | `--batch` only: models x sweeps matrix, pass counts, and every failure |
+
+Before a sweep is solved its old CSV, frames and animation are deleted, so a sweep that
+fails this time cannot leave last run's results for the report to pick up.
 
 ## Calling the report builder directly
 
-`runner` imports the reporter its `run.yaml` names and calls `run_report()` in-process, so
-a traceback or breakpoint lands in the run you started. The import is lazy, so
-`--solve-only` never pays for matplotlib.
+A pool worker imports the reporter its `run.yaml` names and calls `run_report()`; a
+traceback goes to `<model>/logs/<set>/_report.log`. To debug a report with breakpoints, run
+the reporter standalone as below.
 
 A reporter never solves — it only reads CSVs — so it also runs standalone on any folder of
 CSVs:
@@ -217,13 +248,13 @@ uv run python Working/sweep_sets/susreport.py Working/models/aurora/sweep_output
 With no `--config` it uses `front/run.yaml`; with no configuration at all it stops.
 
 In a normal run, `runner` hands it `<geometry folder>/report/<name>/_resolved_run.json`
-instead — the configuration after CLI overrides, written before solving. That file is the
-authoritative record of what ran, including the sweep list, which is how a sweep you
-switched off cannot sneak back in from a stale CSV.
+instead — the configuration after CLI overrides, written before solving and narrowed to
+the sweeps that solved once solving is done. That file is the authoritative record of what
+ran, which is how a sweep you switched off cannot sneak back in from a stale CSV.
 
 ## Where each setting is validated
 
-`runner` checks `name`, `geometry`, `reporter`, `side`, `jobs`, `report.plots`,
+`runner` checks `name`, `geometry`, `reporter`, `side`, `report.plots`,
 `report.gifs`, `gif.*`, every sweep's `run`, and — against the geometry — every enabled
 sweep's drive keys. The reporter checks the
 rest (`decimals`, `solver`, each sweep's `report` and `plots`) when the resolved

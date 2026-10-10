@@ -1,29 +1,15 @@
 """
-Animation utilities for suspension visualization.
+Animation entry point for suspension sweeps.
 
-This module provides animation functionality for suspension systems, making use of the
-common plotting utilities from plots.py.
+Files (``.gif``, ``.mp4``) are drawn by ``render2d``: four orthographic views on 2D
+axes, streamed frame by frame into ffmpeg, so memory stays flat however long the
+sweep is. See that module for why.
 
-GIFs are rendered frame by frame into palette images and written with Pillow. Two
-things make that much faster than matplotlib's own PillowWriter:
-
-* The animation plays forward then back (ping-pong), so only the unique frames are
-  rendered; the return leg reuses them.
-* With ``workers > 1`` the unique frames are rendered in parallel worker processes,
-  each holding its own copy of the figure. A frame is converted to a palette image in
-  the worker, so the parent holds ~1 byte per pixel per unique frame rather than 3 per
-  pixel per played frame.
-
-Frames are drawn by the same two functions on either path, so a parallel GIF is
-pixel-for-pixel the GIF a serial run writes. Video formats (ffmpeg) and live preview
-keep the serial matplotlib writer.
+A live preview (``show_live=True``) keeps the original interactive mplot3d figure,
+drawn serially through a matplotlib writer.
 """
 
-import os
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
-from io import BytesIO
-from multiprocessing import get_context
 from pathlib import Path
 
 import matplotlib.animation as animation
@@ -38,10 +24,6 @@ from kinematics.cli.visualization.plots import (
 
 #: Cross-tyre bands drawn on each wheel.
 NUM_BANDS = 36
-
-#: Most worker processes one pool may hold on Windows (its WaitForMultipleObjects
-#: limit, less headroom); ProcessPoolExecutor refuses more than 61 there.
-WINDOWS_MAX_WORKERS = 60
 
 
 @dataclass
@@ -117,99 +99,6 @@ def _draw_frame(
         scene.title_artist.set_text(f"Wheel Center Z: {dz:.1f} [mm]")
 
 
-def _grab_palette_frame(fig, dpi: int):
-    """
-    Render the figure and return it as a GIF-ready palette ('P') image.
-
-    Matches what matplotlib's PillowWriter followed by Pillow's GIF encoder does to
-    an opaque frame (RGBA -> RGB -> adaptive palette), so the GIF looks the same.
-    """
-    from PIL import Image
-
-    width, height = fig.get_size_inches()
-    size = (int(width * dpi), int(height * dpi))
-    buffer = BytesIO()
-    fig.savefig(buffer, format="rgba", dpi=dpi)
-    image = Image.frombuffer("RGBA", size, buffer.getbuffer(), "raw", "RGBA", 0, 1)
-    return image.convert("RGB").convert("P", palette=Image.Palette.ADAPTIVE)
-
-
-# Per-process state for parallel rendering: each worker builds the figure once.
-_WORKER: dict = {}
-
-
-def _init_worker(position_states, initial_positions, visualizer, dpi) -> None:
-    import matplotlib
-
-    matplotlib.use("Agg", force=True)
-    _WORKER["scene"] = _build_scene(position_states, initial_positions, visualizer)
-    _WORKER["states"] = position_states
-    _WORKER["dpi"] = dpi
-
-
-def _render_in_worker(frame: int):
-    scene = _WORKER["scene"]
-    _draw_frame(scene, _WORKER["states"][frame], frame)
-    return _grab_palette_frame(scene.fig, _WORKER["dpi"])
-
-
-def resolve_workers(workers: int | None, frames: int) -> int:
-    """
-    Turn a requested worker count into one this machine and this GIF can use.
-
-    None or 0 means one per logical CPU. Never more than there are frames, and never
-    more than one Windows process pool allows.
-    """
-    available = os.cpu_count() or 1
-    count = available if not workers else int(workers)
-    if os.name == "nt":
-        count = min(count, WINDOWS_MAX_WORKERS)
-    return max(1, min(count, frames))
-
-
-def render_gif_frames(
-    position_states: list[dict[str, tuple[float, float, float]]],
-    initial_positions: dict[str, tuple[float, float, float]],
-    visualizer: SuspensionVisualizer,
-    dpi: int = 200,
-    workers: int | None = 1,
-) -> list:
-    """Render one palette image per state, in order, on ``workers`` processes."""
-    count = resolve_workers(workers, len(position_states))
-    if count == 1:
-        scene = _build_scene(position_states, initial_positions, visualizer)
-        try:
-            frames = []
-            for index, positions in enumerate(position_states):
-                _draw_frame(scene, positions, index)
-                frames.append(_grab_palette_frame(scene.fig, dpi))
-            return frames
-        finally:
-            plt.close(scene.fig)
-
-    # "spawn" on every platform: it is the only start method Windows has, and on
-    # Linux it keeps a forked copy of the parent's matplotlib state out of workers.
-    with ProcessPoolExecutor(
-        max_workers=count,
-        mp_context=get_context("spawn"),
-        initializer=_init_worker,
-        initargs=(position_states, initial_positions, visualizer, dpi),
-    ) as pool:
-        return list(pool.map(_render_in_worker, range(len(position_states))))
-
-
-def write_pingpong_gif(frames: list, output_path: Path, fps: int) -> None:
-    """Write frames forward then back, reusing each image on the return leg."""
-    played = frames + frames[-2:0:-1]
-    played[0].save(
-        str(output_path),
-        save_all=True,
-        append_images=played[1:],
-        duration=int(1000 / fps),
-        loop=0,
-    )
-
-
 def create_animation(
     position_states: list[dict[str, tuple[float, float, float]]],
     initial_positions: dict[str, tuple[float, float, float]],
@@ -218,9 +107,8 @@ def create_animation(
     fps: int = 20,
     writer: str | None = None,
     codec: str = "libx264",
-    dpi: int = 200,
+    dpi: int = 100,
     show_live: bool = True,
-    workers: int | None = 1,
 ) -> None:
     """
     Create an animation showing suspension movement through multiple states.
@@ -229,32 +117,35 @@ def create_animation(
         position_states: List of position dictionaries for each frame.
         initial_positions: Initial position state for reference.
         visualizer: Suspension visualizer with links and wheel config.
-        output_path: Path where the animation will be saved.
+        output_path: Path where the animation will be saved (.gif or .mp4).
         fps: Frames per second for the animation.
-        writer: Animation writer to use ('ffmpeg', 'pillow', etc.).
-        codec: Video codec to use (for ffmpeg writer).
-        dpi: DPI for the output animation. Render time and file size scale with
-            its square.
-        show_live: Whether to show the animation live during creation.
-        workers: Processes rendering GIF frames. 1 renders in this process; None
-            or 0 uses every logical CPU. Ignored for video and live preview.
+        writer: Matplotlib writer for the live preview only ('ffmpeg', 'pillow').
+        codec: Video codec for the live preview's ffmpeg writer.
+        dpi: Resolution. Frames are 16 x 10 inches, so dpi 100 is 1600 x 1000 px;
+            render time scales with its square.
+        show_live: Show an interactive 3D preview while writing (slow, serial).
     """
     output_path = Path(output_path)
 
-    # Choose writer automatically if not provided.
+    if not show_live:
+        from kinematics.cli.visualization.render2d import write_animation
+
+        write_animation(
+            position_states,
+            initial_positions,
+            visualizer,
+            output_path,
+            fps=fps,
+            dpi=dpi,
+        )
+        return
+
     if writer is not None:
         chosen_writer = writer
     elif output_path.suffix.lower() in {".mp4", ".m4v", ".mov"}:
         chosen_writer = "ffmpeg"
     else:
         chosen_writer = "pillow"
-
-    if chosen_writer == "pillow" and not show_live:
-        frames = render_gif_frames(
-            position_states, initial_positions, visualizer, dpi=dpi, workers=workers
-        )
-        write_pingpong_gif(frames, output_path, fps)
-        return
 
     _create_animation_serial(
         position_states,

@@ -9,7 +9,6 @@ name: front                                # names sweep_outputs/<name>/ and rep
 geometry: ../../models/aurora/front.yaml   # default target; --geometry overrides
 reporter: susreport                        # susreport = axle, susreport_rear = corner
 side: left                                 # which corner the per-corner rows report
-jobs: auto                                 # min(8, CPU cores) parallel solves; see --gif-workers
 
 decimals:
   mm: 3
@@ -30,7 +29,8 @@ solver:
 
 gif:
   fps: 20        # per-sweep `gif:` mappings merge over this
-  dpi: 200       # resolution; render time and file size scale with dpi^2 (100 = 4x faster)
+  dpi: 100       # 1600 x 1000 px; render time scales with dpi^2
+  format: gif    # gif | mp4
 
 # Per-sweep settings:
 #   run     true | false           false = no CSV, and invisible to the bearing table

@@ -239,7 +239,9 @@ just setup
 
 That is three commands in one: `uv venv` creates the isolated environment in `.venv/`,
 `uv sync --all-extras --dev` installs every dependency (NumPy, SciPy, Pydantic, pandas,
-PyYAML, pyarrow, typer, matplotlib, openpyxl, and the dev tools), and `uv pip install -e .`
+PyYAML, pyarrow, typer, matplotlib, psutil, openpyxl, and the dev tools, plus
+`imageio-ffmpeg`, which downloads the **ffmpeg** program the animations are written with,
+so you never install ffmpeg yourself), and `uv pip install -e .`
 installs the `kinematics` package itself in editable mode so your source edits take effect
 immediately.
 
@@ -252,6 +254,10 @@ uv pip install -e .
 ```
 
 Expect a minute or two the first time.
+
+> Already set up from before October 2026? Run `uv sync --all-extras --dev` once to pick up
+> the two newer dependencies (`imageio-ffmpeg`, `psutil`). `uv run` also does this by
+> itself the first time it notices `pyproject.toml` changed.
 
 > You never activate the environment manually. Every command in this document starts with
 > `uv run`, which runs it inside `.venv/` for you.
@@ -303,11 +309,27 @@ uv run python Working/run_all.py
 ```
 
 That runs Aurora (`Working/models/aurora/`): it solves every enabled sweep in every sweep
-set, writes a CSV per sweep, renders the requested plots and animations, builds
-`report.md` for each set, and then runs the static force solve. `--model <name>` runs
-another model folder instead; `--batch <folder>` runs every model inside a folder (see
-§5.6). **There is no second entry point.** `sweep_sets/runner.py` is a library that
-`run_all.py` calls, not a command.
+set and the static force solve, then builds `report.md` for each set and renders the
+requested animations. `--model <name>` runs another model folder instead; `--batch
+<folder>` runs every model inside a folder (see §5.6). **There is no second entry point.**
+`sweep_sets/runner.py`, `scheduler.py` and `tasks.py` are libraries `run_all.py` uses, not
+commands.
+
+A run goes in four steps, whether it is one model or fifty:
+
+1. **plan**: every `run.yaml` is checked and its sweep files are generated;
+2. **solve**: every sweep and force solve of every model, on one pool of worker processes;
+3. **report + animate**: each set's report, then an animation for each sweep that solved;
+4. **summary**: one line per task, and a status table (see §5.3).
+
+A sweep that fails does not stop anything else. Its set's report is built from the sweeps
+that did solve, with a **Solve status** table at the top saying which one is missing, at
+which step it stopped, and the pose (wheel travel, rack) it could not reach.
+
+The pool is sized to the computer it runs on: one worker per physical core, fewer if free
+memory (on Windows, the commit limit: RAM plus page file) would not cover them, and never
+more than 61 on Windows. Workers that run out of memory are retried with fewer workers.
+`--workers N` caps it, e.g. to leave cores free for other work.
 
 ### 5.2 CLI overrides
 
@@ -320,8 +342,7 @@ only other place anything is configured — sweep files are generated from it.
 | --- | --- |
 | *(none)* | Aurora: every sweep set, then the force solve |
 | `--model NAME` | another model: a folder name under `Working/models/`, or a path |
-| `--batch FOLDER` | every model inside `FOLDER` (e.g. an optimizer run), several at once; each logs to `<model>/run.log` |
-| `--parallel N` | `--batch` only: models at once (default: one per 8 CPUs) |
+| `--batch FOLDER` | every model inside `FOLDER` (e.g. an optimizer run); writes `FOLDER/batch_summary.md` |
 | `--sets front,rear` | only these sweep sets, by folder name |
 | `--config PATH` | one sweep set by path to its `run.yaml`. Not with `--sets` |
 | `--no-sweeps` | skip the sweeps |
@@ -334,10 +355,8 @@ only other place anything is configured — sweep files are generated from it.
 | `--only A,B` / `--skip A,B` | run only / all but these sweeps |
 | `--plots A,B` / `--gifs A,B` | only these sweeps get a figure / an animation |
 | `--no-plots` / `--no-gifs` / `--no-joints` | drop all figures / animations / the bearing section |
-| `--jobs N` | parallel solver processes |
-| `--gif-workers N` | processes rendering each animation (default: every CPU) |
-| `--report-only` | rebuild reports from the CSVs already on disk, solve nothing |
-| `--solve-only` | solve and stop, no report |
+| `--report-only` | rebuild reports from the CSVs already on disk; solve and animate nothing |
+| `--solve-only` | solve and animate, but build no report |
 | `--on-bad-solve off\|warn\|fail` | what to do about non-converged or high-residual steps |
 | `--geometry PATH` † | run the set against one geometry file (prefer `--model`) |
 | `--side left\|right` † | which corner the per-corner rows report |
@@ -348,8 +367,12 @@ only other place anything is configured — sweep files are generated from it.
 
 | Flag | Effect |
 | --- | --- |
+| `--workers N` | at most `N` worker processes (default: as many as cores and memory allow) |
 | `--list` | print the sweep sets and models found, then stop |
-| `--dry-run` | validate every configuration and print every command, writing nothing |
+| `--dry-run` | validate every configuration and print what would run, writing nothing |
+
+`--parallel`, `--jobs` and `--gif-workers` were removed in October 2026: one pool now serves
+every model, sweep and animation, so `--workers` is the only knob.
 
 Sweep selectors take the numeric prefix or the full stem — `--only 01,09` and
 `--only 01_bump_parallel,09_steer_in_roll` are the same. A selector applies to **every**
@@ -384,16 +407,33 @@ directory:
 
 | Path | Contents |
 | --- | --- |
-| `Working/models/<car>/report/<set>/report.md` | **start here** — every characteristic, at design / min / max / range, plus the bearing misalignment table |
-| `Working/models/<car>/report/<set>/` | the plots, `summary.csv`, `joints.csv` |
-| `Working/models/<car>/sweep_outputs/<set>/` | one raw CSV per sweep, and the animations |
+| `Working/models/<car>/report/<set>/report.md` | **start here** — which sweeps solved, then every characteristic at design / min / max / range, plus the bearing misalignment table |
+| `Working/models/<car>/report/<set>/` | the plots, `summary.csv`, `joints.csv`, `solve_status.csv` |
+| `Working/models/<car>/sweep_outputs/<set>/` | one raw CSV per sweep, and the animations (`.gif`) |
+| `Working/models/<car>/run.log` | one line per task of the last run: status, time, where a failed sweep stopped |
+| `Working/models/<car>/logs/` | one log per task; a failed task's traceback is here |
 | `Working/models/<car>/sweep_outputs/<set>/_resolved_sweeps/` | the generated sweep files, i.e. exactly what was solved — read, never edit |
 | `Working/models/<car>/forces/forces.csv` | force at every joint, grouped by part — the FEA input |
 | `Working/models/<car>/forces/load_transfer.csv` | each wheel's vertical load, per case |
 
 All of it is git-ignored and reproducible from the inputs: commit the YAMLs, never the
-results. Animation resolution is `gif.dpi` in `run.yaml`; render time and file size scale
-with its square.
+results.
+
+Animations show four views (front, side, top, isometric) and play forward then back.
+`run.yaml`'s `gif:` block sets them: `fps`, `dpi` (100 gives 1600 x 1000 px; render time
+scales with its square) and `format` (`gif`, or `mp4` for a far smaller file that needs a
+video player). A 65-step sweep takes about 7 s to animate.
+
+Status words used in `run.log`, the report and the batch summary:
+
+| Status | Meaning |
+| --- | --- |
+| `ok` | solved |
+| `warn` | solved, but the solver flagged steps (see the report's solver warning) |
+| `lockout` | at some step no pose exists: the mechanism cannot reach that wheel travel and rack position. A geometry result, not a software fault |
+| `geometry` | the geometry file does not build |
+| `resource` | the computer ran out of memory, even after retrying with fewer workers |
+| `error` | anything else; the task's log in `logs/` has the traceback |
 
 To understand a number in `report.md`, go to
 [`Working/sweep_sets/CHARACTERISTICS.md`](Working/sweep_sets/CHARACTERISTICS.md) — it is
@@ -473,8 +513,8 @@ A car is a folder. Nothing is registered anywhere — `run_all.py` discovers
 uv run python Working/optimizer.py                     # 1. search; settings at the top of the file
                                                        #    (or any copy, e.g. underlegoptimizer.py)
 uv run python Working/export_pareto.py                 # 2. one model folder per Pareto point
-uv run python Working/run_all.py --batch opt_2026-10-02_1430 --sets front --only 01,02 --no-forces
-                                                       # 3. solve + animate every point
+uv run python Working/run_all.py --batch opt_2026-10-02_1430 --sets front
+                                                       # 3. solve, report, animate every point
 ```
 
 1. **An optimizer script is the whole configuration of a run.** Whichever script you
@@ -490,5 +530,9 @@ uv run python Working/run_all.py --batch opt_2026-10-02_1430 --sets front --only
    template model the CSV names, with the optimised hardpoints patched in. With no argument
    it exports the latest run; name a run to export another. Re-exporting replaces them.
    Because they are git-ignored, run this on whichever machine you review results on.
-4. `--batch` runs every model in the folder. Each candidate's console output goes to its
-   own `run.log`; the terminal shows one line per finished candidate.
+4. `--batch` runs every model in the folder on one shared pool. The terminal shows one
+   line per finished task and ends with a matrix of candidates against sweeps;
+   `opt_<timestamp>/batch_summary.md` (and `.csv`) keeps that matrix, the number of
+   candidates passing each sweep, the candidates that pass everything, and one line per
+   failure with the step and pose it stopped at. Each candidate also gets its own
+   `run.log`. Ctrl+C stops the run and still writes the summary of what finished.

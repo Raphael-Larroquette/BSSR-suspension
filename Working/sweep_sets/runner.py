@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Solve one sweep set and build its report.
+Plan one sweep set and build its report.
 
-This is a LIBRARY, not a command. It used to be `run_all.py` with its own
-argparse; there is now exactly one entry point for everything under Working/,
-`Working/run_all.py`, and this module is what it calls for each sweep set.
-The logic is unchanged - only the argument parsing moved.
+This is a LIBRARY, not a command. `Working/run_all.py` is the one entry point:
+it calls `plan_sweep_set` for every (model, set), hands the solves, reports and
+animations to a single process pool (scheduler.py, tasks.py), and pool workers
+call `build_report` here once a set's solves are done.
 
-    from runner import SweepOptions, run_sweep_set
-    run_sweep_set(Path("Working/sweep_sets/front/run.yaml"), SweepOptions())
+    from runner import SweepOptions, plan_sweep_set
+    plan = plan_sweep_set(Path("Working/sweep_sets/front/run.yaml"), SweepOptions())
 
 Everything that is not a hardpoint is configured in the `run.yaml` of the set
 being run: which sweeps run, WHAT EACH ONE DRIVES, which characteristics it
-reports, which get plots, which get gifs, how many decimals, how many parallel
-jobs. `SweepOptions` carries the command-line overrides for one invocation. See
+reports, which get plots, which get animations, how many decimals.
+`SweepOptions` carries the command-line overrides for one invocation. See
 RUNNING.md for the full key reference and CHARACTERISTICS.md for what the
 channels mean.
 
@@ -27,8 +27,8 @@ Layout it assumes:
     Working/
       run_all.py         <- the one entry point
       sweep_sets/        <- this file, the reporters, and the sweep sets
-        runner.py  susreport.py  susreport_rear.py  susreport_common.py
-        bearings.py
+        runner.py  scheduler.py  tasks.py
+        susreport.py  susreport_rear.py  susreport_common.py  bearings.py
         front/           <- a sweep set: run.yaml, and nothing else it needs
         rear/            <- another one
       models/
@@ -52,10 +52,7 @@ from __future__ import annotations
 
 import copy
 import json
-import os
-import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -69,11 +66,11 @@ HERE = Path(__file__).resolve().parent  # Working/sweep_sets
 # generated or copied from a `file:`, so this directory is the complete record.
 RESOLVED_DIRNAME = "_resolved_sweeps"
 
-# How the kinematics CLI is launched: the interpreter running this file, which
-# `uv run python Working/run_all.py` makes the project's own environment. The
-# same CLI as `uv run kinematics`, without a `uv run` start-up per sweep, and
-# with a `__main__` that worker processes can import on Windows.
-KINEMATICS = [sys.executable, "-m", "kinematics.cli"]
+# Positions per solved step, kept for the animation task (a few kB each).
+FRAMES_DIRNAME = "_frames"
+
+# Animation formats the renderer writes (`gif: {format: ...}` in run.yaml).
+ANIMATION_FORMATS = ("gif", "mp4")
 
 # The two result folders a sweep set writes beside the geometry it ran. Both are
 # git-ignored (see .gitignore) because everything in them regenerates.
@@ -106,8 +103,6 @@ class SweepOptions:
     no_plots: bool = False
     no_gifs: bool = False
     no_joints: bool = False
-    jobs: int | None = None
-    gif_workers: int | None = None
     report_only: bool = False
     solve_only: bool = False
     dry_run: bool = False
@@ -132,7 +127,6 @@ REQUIRED_CONFIG = {
     "geometry": None,
     "reporter": None,
     "side": None,
-    "jobs": None,
     "report": ("plots", "gifs"),
     "gif": ("fps", "dpi"),
     "sweeps": None,
@@ -249,16 +243,6 @@ def load_reporter(name: str):
     import susreport_common
     module = importlib.import_module(name)
     return susreport_common, module.REPORTER
-
-
-def resolve_jobs(value) -> int:
-    """Turn the `jobs` setting into a worker count."""
-    if isinstance(value, str) and value.strip().lower() == "auto":
-        return max(1, min(8, os.cpu_count() or 1))
-    try:
-        return max(1, int(value))
-    except (TypeError, ValueError):
-        return 1
 
 
 def matches(selector: str, stem: str) -> bool:
@@ -537,34 +521,357 @@ def _span(name: str, group: str, side, span) -> tuple[float, float]:
 
 
 # ==========================================================================
-# Execution
+# Planning: everything up to (not including) solving
 # ==========================================================================
-def run(cmd: list[str]) -> None:
-    print("   $", " ".join(cmd))
-    result = subprocess.run(cmd)
-    if result.returncode != 0:
-        raise SweepSetError(f"command failed: {' '.join(cmd)}")
+@dataclass
+class SweepPlan:
+    """One enabled sweep of one set, against one geometry."""
+
+    name: str
+    resolved: Path | None  # the generated or copied sweep file
+    csv: Path
+    frames: Path  # positions per step, written by the solve, read by animate
+    steps: int
+    animate: bool
+    animation: Path  # where the animation goes, if `animate`
+    fps: int
+    dpi: int
 
 
-def solve_one(job: dict) -> tuple[str, int, str]:
-    """Solve one sweep in a subprocess. Returns (name, returncode, output)."""
-    result = subprocess.run(job["cmd"], capture_output=True, text=True)
-    return job["name"], result.returncode, (result.stdout or "") + (result.stderr or "")
+@dataclass
+class SetPlan:
+    """One sweep set planned against one geometry: what to solve and report."""
+
+    name: str
+    config_path: Path
+    geometry: Path
+    model: Path  # the folder holding the geometry; logs and run.log go here
+    outputs: Path
+    report: Path
+    reporter: str
+    resolved_config: Path
+    sweeps: list[SweepPlan]
+    report_wanted: bool
 
 
-def _failure_reason(output: str) -> str:
-    """Pull the headline out of a subprocess traceback.
+def _animation_format(settings: dict, name: str) -> str:
+    fmt = str(settings.get("format", "gif")).strip().lower().lstrip(".")
+    if fmt not in ANIMATION_FORMATS:
+        raise SweepSetError(
+            f"sweep '{name}': gif.format must be one of "
+            f"{', '.join(ANIMATION_FORMATS)}, got {fmt!r}"
+        )
+    return fmt
 
-    A solver failure prints a full traceback, whose last non-empty line is the
-    exception and its message. That line is what the reader needs first.
+
+def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPlan:
+    """Validate one sweep set, generate its sweep files, and say what to run.
+
+    Nothing is solved here. Old results of every sweep that is about to run are
+    deleted first, so a sweep that fails this time cannot leave last run's CSV
+    behind for the report to pick up as if it were current.
+
+    Raises SweepSetError with a reader-ready message on any configuration fault.
     """
-    lines = [line.strip() for line in (output or "").splitlines() if line.strip()]
-    if not lines:
-        return "no output"
-    for line in reversed(lines):
-        if ": " in line and not line.startswith(("File ", "  ")):
-            return line
-    return lines[-1]
+    opts = opts or SweepOptions()
+    config_path = Path(config_path)
+    config = load_run_config(config_path)
+
+    # ---- CLI over run.yaml -------------------------------------------
+    if opts.geometry:
+        config["geometry"] = str(opts.geometry)
+    if opts.side:
+        config["side"] = opts.side
+    if opts.no_joints:
+        config["report"]["joints"] = False
+    if opts.no_plots:
+        config["report"]["plots"] = False
+    if opts.no_gifs:
+        config["report"]["gifs"] = False
+    if opts.on_bad_solve:
+        config.setdefault("solver", {})["on_bad_solve"] = opts.on_bad_solve
+
+    # Paths in run.yaml are relative to run.yaml itself, so a sweep set can be
+    # moved or copied without rewriting them.
+    config_dir = config_path.resolve().parent
+    geometry = Path(config["geometry"])
+    if not geometry.is_absolute():
+        geometry = (config_dir / geometry).resolve()
+    if not geometry.is_file():
+        raise SweepSetError(f"geometry not found: {geometry}")
+
+    # Results live beside the geometry, in a folder named after the sweep set.
+    # That is what lets one sweep set run against several cars.
+    set_name = str(config["name"])
+    outputs = geometry.parent / SWEEP_OUTPUTS_DIRNAME / set_name
+    report = geometry.parent / REPORT_DIRNAME / set_name
+
+    gif_only = opts.gifs
+    gifs_master = master_override(config["report"]["gifs"])
+
+    # ---- decide what runs --------------------------------------------
+    configured = config["sweeps"] or {}
+    if not isinstance(configured, dict) or not configured:
+        raise SweepSetError(
+            f"{config_path}: `sweeps:` is empty. A sweep set is its sweeps; "
+            "see RUNNING.md for the keys each one takes."
+        )
+
+    chosen: list[dict] = []
+    for name, sweep_cfg in configured.items():
+        name = str(name)
+        if not isinstance(sweep_cfg, dict):
+            raise SweepSetError(
+                f"{config_path}: sweep '{name}' must be a mapping of settings, "
+                f"got {sweep_cfg!r}"
+            )
+        if "run" not in sweep_cfg:
+            raise SweepSetError(
+                f"{config_path}: sweep '{name}' has no `run:` setting. "
+                "There are no built-in defaults."
+            )
+        enabled = truthy(sweep_cfg["run"], True)
+        if opts.only is not None:
+            enabled = any(matches(s, name) for s in opts.only)
+        if any(matches(s, name) for s in (opts.skip or [])):
+            enabled = False
+        if not enabled:
+            continue
+
+        # A sweep is generated from its drive keys unless it names a file.
+        source = sweep_cfg.get("file")
+        if source is not None:
+            source = Path(source)
+            if not source.is_absolute():
+                source = (config_dir / source).resolve()
+            clashing = [g for g in RANGE_GROUPS if sweep_cfg.get(g) is not None]
+            if clashing:
+                raise SweepSetError(
+                    f"sweep '{name}' names a `file:` and also sets "
+                    f"{', '.join(clashing)}. A `file:` sweep is used verbatim - "
+                    "put its ranges in that file, or drop the `file:` key and "
+                    "let the sweep be generated."
+                )
+
+        # `gif` is optional per sweep: absent means no animation.
+        wants_gif = truthy(sweep_cfg.get("gif"), False)
+        if isinstance(sweep_cfg.get("gif"), dict):
+            wants_gif = truthy(sweep_cfg["gif"].get("enabled"), True)
+        if gifs_master is not None:
+            wants_gif = gifs_master
+        if gif_only is not None:
+            wants_gif = any(matches(s, name) for s in gif_only)
+
+        # The top-level `gif:` block, with a per-sweep `gif:` mapping over it.
+        gif_settings = dict(config["gif"])
+        if isinstance(sweep_cfg.get("gif"), dict):
+            gif_settings.update(
+                {k: v for k, v in sweep_cfg["gif"].items() if k != "enabled"})
+
+        chosen.append({"name": name, "source": source, "cfg": sweep_cfg,
+                       "gif": wants_gif, "gif_settings": gif_settings})
+
+    if not chosen:
+        raise SweepSetError(
+            f"{set_name}: nothing to run - every sweep is disabled or filtered "
+            "out. A selector such as --only applies to every set being run; "
+            "use --sets or --config to narrow which sets those are."
+        )
+
+    # `--plots a,b` is a whitelist: it forces plots off everywhere else.
+    if opts.plots is not None:
+        for item in chosen:
+            keep = any(matches(s, item["name"]) for s in opts.plots)
+            config["sweeps"].setdefault(item["name"], {})
+            config["sweeps"][item["name"]]["plots"] = "all" if keep else "none"
+
+    outputs.mkdir(parents=True, exist_ok=True)
+    report.mkdir(parents=True, exist_ok=True)
+
+    # ---- the resolved configuration -----------------------------------
+    # run.yaml after the command-line overrides: what susreport reads, and the
+    # record of what ran. `ran` is narrowed to the sweeps that actually solved
+    # when the report is built.
+    resolved_config = {
+        key: config[key] for key in
+        ("name", "reporter", "side", "decimals", "report", "solver", "gif")
+        if key in config
+    }
+    resolved_config.update({
+        "sweeps": {i["name"]: i["cfg"] for i in chosen},
+        "ran": [i["name"] for i in chosen],
+        "geometry": str(geometry),
+        "source_config": str(config_path),
+    })
+    resolved_path = report / "_resolved_run.json"
+    resolved_path.write_text(json.dumps(resolved_config, indent=2, default=str))
+
+    # Validate the half of the configuration susreport owns, before spending
+    # any CPU. This is also what makes --dry-run a complete config check.
+    if not opts.solve_only:
+        common, _reporter = load_reporter(str(config["reporter"]))
+        try:
+            common.load_config(None, resolved_path)
+        except SystemExit as error:
+            raise SweepSetError(str(error.code)) from None
+
+    # ---- generate the sweep files ------------------------------------
+    resolved_dir = outputs / RESOLVED_DIRNAME
+    if not opts.report_only:
+        drives = geometry_drives(geometry)
+        if drives["unhandled"]:
+            print(f"   note ({set_name}): this geometry exposes drive coordinate(s) "
+                  "run.yaml has no key for: " + ", ".join(drives["unhandled"])
+                  + ". A sweep that must drive one needs `file:` (SWEEPS.md).")
+        # Validate every sweep before generating any, so the first complaint
+        # names the sweep rather than arriving with half the set written.
+        for item in chosen:
+            if item["source"] is None:
+                validate_sweep(item["name"], item["cfg"], drives)
+
+    plans: list[SweepPlan] = []
+    for item in chosen:
+        name = item["name"]
+        resolved = None
+        if not opts.report_only:
+            if item["source"] is None:
+                resolved = generate_sweep_file(name, item["cfg"], drives, resolved_dir)
+            else:
+                resolved = copy_sweep_file(name, item["source"], resolved_dir)
+        steps = int((yaml.safe_load(resolved.read_text()) or {}).get("steps", 0)) \
+            if resolved else 0
+        settings = item["gif_settings"]
+        fmt = _animation_format(settings, name)
+        plan = SweepPlan(
+            name=name,
+            resolved=resolved,
+            csv=outputs / f"{name}.csv",
+            frames=outputs / FRAMES_DIRNAME / f"{name}.npz",
+            steps=steps,
+            animate=bool(item["gif"]),
+            animation=outputs / f"{name}.{fmt}",
+            fps=int(settings["fps"]),
+            dpi=int(settings["dpi"]),
+        )
+        if not opts.report_only and not opts.dry_run:
+            # Stale results of a sweep about to be re-solved must not survive.
+            stale = [plan.csv, plan.frames,
+                     *(outputs / f"{name}.{ext}" for ext in ANIMATION_FORMATS)]
+            for path in stale:
+                path.unlink(missing_ok=True)
+        plans.append(plan)
+
+    return SetPlan(
+        name=set_name,
+        config_path=config_path,
+        geometry=geometry,
+        model=geometry.parent,
+        outputs=outputs,
+        report=report,
+        reporter=str(config["reporter"]),
+        resolved_config=resolved_path,
+        sweeps=plans,
+        report_wanted=not opts.solve_only,
+    )
+
+
+# ==========================================================================
+# Reporting (runs in a pool worker; see tasks.py)
+# ==========================================================================
+STATUS_COLUMNS = ("sweep", "status", "steps", "where", "reason")
+
+
+def describe_failure(result: dict) -> str:
+    """Where a sweep stopped, in words: 'step 41/65 (travel_left -55, rack 22.1)'."""
+    if result.get("fail_step") is None:
+        return ""
+    pose = ", ".join(f"{k} {v:g}" for k, v in (result.get("at") or {}).items())
+    text = f"step {result['fail_step']}/{result.get('n_steps', '?')}"
+    if pose:
+        text += f" ({pose})"
+    good = result.get("last_good")
+    if good:
+        text += "; last solved: " + ", ".join(f"{k} {v:g}" for k, v in good.items())
+    return text
+
+
+def status_rows(results: list[dict]) -> list[dict]:
+    """One row per sweep for solve_status.csv and the report's status table."""
+    rows = []
+    for r in results:
+        steps = r.get("steps_ok")
+        rows.append({
+            "sweep": r.get("sweep", ""),
+            "status": r.get("status", ""),
+            "steps": f"{steps}/{r.get('n_steps')}" if steps is not None else "",
+            "where": describe_failure(r),
+            "reason": r.get("message", "") if r.get("status") != "ok" else "",
+        })
+    return rows
+
+
+def status_markdown(results: list[dict]) -> list[str]:
+    """The "Solve status" section placed at the top of report.md."""
+    lines = ["## Solve status\n",
+             "| sweep | status | steps | where it stopped | reason |",
+             "| --- | --- | --- | --- | --- |"]
+    for row in status_rows(results):
+        reason = str(row["reason"]).replace("|", "/")
+        lines.append(f"| `{row['sweep']}` | {row['status']} | {row['steps']} | "
+                     f"{row['where'] or '-'} | {reason or '-'} |")
+    lines.append("")
+    return lines
+
+
+def write_status_csv(path: Path, results: list[dict]) -> None:
+    """report/<set>/solve_status.csv."""
+    import csv
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=STATUS_COLUMNS)
+        writer.writeheader()
+        writer.writerows(status_rows(results))
+
+
+def build_report(payload: dict) -> dict:
+    """Build one set's report from the sweeps that solved. Called by tasks.py.
+
+    payload: resolved_config, outputs, report, reporter, results (the solve
+    results for this set, in plan order).
+    """
+    results = payload["results"]
+    report = Path(payload["report"])
+    write_status_csv(report / "solve_status.csv", results)
+
+    solved = [r["sweep"] for r in results if r.get("status") in ("ok", "warn")]
+    if not solved:
+        return {"status": "skipped", "message": "no sweep solved, so no report"}
+
+    resolved_path = Path(payload["resolved_config"])
+    resolved = json.loads(resolved_path.read_text())
+    resolved["ran"] = solved
+    resolved_path.write_text(json.dumps(resolved, indent=2, default=str))
+
+    common, reporter = load_reporter(payload["reporter"])
+    config = common.load_config(None, resolved_path)
+    report_md = common.run_report(Path(payload["outputs"]), report, config, reporter)
+
+    # The status table goes at the top, under the title: the first thing a
+    # reader needs is which sweeps are missing from everything below.
+    lines = Path(report_md).read_text(encoding="utf-8").split("\n")
+    insert_at = 1
+    while insert_at < len(lines) and lines[insert_at].strip() == "":
+        insert_at += 1
+    lines[insert_at:insert_at] = status_markdown(results)
+    Path(report_md).write_text("\n".join(lines), encoding="utf-8")
+
+    failed = len(results) - len(solved)
+    return {
+        "status": "ok",
+        "output": str(report_md),
+        "message": f"{failed} sweep(s) missing (not solved)" if failed else "",
+    }
 
 
 def truthy(value, default: bool) -> bool:
@@ -593,301 +900,3 @@ def master_override(value) -> bool | None:
     return None
 
 
-# ==========================================================================
-# The one entry point
-# ==========================================================================
-def run_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> None:
-    """Solve one sweep set and build its report.
-
-    Raises SweepSetError with a reader-ready message on any failure.
-    """
-    opts = opts or SweepOptions()
-    config_path = Path(config_path)
-    config = load_run_config(config_path)
-
-    # ---- CLI over run.yaml -------------------------------------------
-    if opts.geometry:
-        config["geometry"] = str(opts.geometry)
-    if opts.side:
-        config["side"] = opts.side
-    if opts.jobs is not None:
-        config["jobs"] = opts.jobs
-    if opts.no_joints:
-        config["report"]["joints"] = False
-    if opts.no_plots:
-        config["report"]["plots"] = False
-    if opts.no_gifs:
-        config["report"]["gifs"] = False
-    if opts.on_bad_solve:
-        config.setdefault("solver", {})["on_bad_solve"] = opts.on_bad_solve
-
-    # Paths in run.yaml are relative to run.yaml itself, so a sweep set can be
-    # moved or copied without rewriting them.
-    config_dir = config_path.resolve().parent
-    geometry = Path(config["geometry"])
-    if not geometry.is_absolute():
-        geometry = (config_dir / geometry).resolve()
-
-    if not geometry.is_file():
-        raise SweepSetError(f"geometry not found: {geometry}")
-
-    # Results live beside the geometry, in a folder named after the sweep set.
-    # That is what lets one sweep set run against several cars.
-    set_name = str(config["name"])
-    outputs = geometry.parent / SWEEP_OUTPUTS_DIRNAME / set_name
-    report = geometry.parent / REPORT_DIRNAME / set_name
-    outputs.mkdir(parents=True, exist_ok=True)
-    report.mkdir(parents=True, exist_ok=True)
-
-    only = opts.only
-    skip = opts.skip or []
-    plot_only = opts.plots
-    gif_only = opts.gifs
-    gifs_master = master_override(config["report"]["gifs"])
-
-    # ---- decide what runs --------------------------------------------
-    # `sweeps:` is the whole set. Nothing is discovered on disk any more, so a
-    # sweep cannot silently join the run - and, with it, silently raise a
-    # bearing requirement.
-    configured = config["sweeps"] or {}
-    if not isinstance(configured, dict) or not configured:
-        raise SweepSetError(
-            f"{config_path}: `sweeps:` is empty. A sweep set is its sweeps; "
-            "see RUNNING.md for the keys each one takes."
-        )
-
-    plan: list[dict] = []
-    for name, sweep_cfg in configured.items():
-        name = str(name)
-        if not isinstance(sweep_cfg, dict):
-            raise SweepSetError(
-                f"{config_path}: sweep '{name}' must be a mapping of settings, "
-                f"got {sweep_cfg!r}"
-            )
-        if "run" not in sweep_cfg:
-            raise SweepSetError(
-                f"{config_path}: sweep '{name}' has no `run:` setting. "
-                "There are no built-in defaults."
-            )
-
-        enabled = truthy(sweep_cfg["run"], True)
-        if only is not None:
-            enabled = any(matches(s, name) for s in only)
-        if any(matches(s, name) for s in skip):
-            enabled = False
-        if not enabled:
-            continue
-
-        # A sweep is generated from its drive keys unless it names a file.
-        source = sweep_cfg.get("file")
-        if source is not None:
-            source = Path(source)
-            if not source.is_absolute():
-                source = (config_dir / source).resolve()
-            clashing = [g for g in RANGE_GROUPS if sweep_cfg.get(g) is not None]
-            if clashing:
-                raise SweepSetError(
-                    f"sweep '{name}' names a `file:` and also sets "
-                    f"{', '.join(clashing)}. A `file:` sweep is used verbatim - "
-                    "put its ranges in that file, or drop the `file:` key and "
-                    "let the sweep be generated."
-                )
-
-        # `gif` is optional per sweep: absent means no animation, which is
-        # the only setting whose absence is unambiguous.
-        wants_gif = truthy(sweep_cfg.get("gif"), False)
-        if isinstance(sweep_cfg.get("gif"), dict):
-            wants_gif = truthy(sweep_cfg["gif"].get("enabled"), True)
-        if gifs_master is not None:
-            wants_gif = gifs_master
-        if gif_only is not None:
-            wants_gif = any(matches(s, name) for s in gif_only)
-
-        # The top-level `gif:` block, with a per-sweep `gif:` mapping over it.
-        gif_settings = dict(config["gif"])
-        if isinstance(sweep_cfg.get("gif"), dict):
-            gif_settings.update(
-                {k: v for k, v in sweep_cfg["gif"].items() if k != "enabled"})
-
-        plan.append({
-            "name": name,
-            "source": source,
-            "cfg": sweep_cfg,
-            "gif": wants_gif,
-            "gif_settings": gif_settings,
-        })
-
-    if not plan:
-        raise SweepSetError(
-            f"{set_name}: nothing to run - every sweep is disabled or filtered "
-            "out. A selector such as --only applies to every set being run; "
-            "use --sets or --config to narrow which sets those are."
-        )
-
-    # `--plots a,b` is a whitelist: it forces plots off everywhere else.
-    if plot_only is not None:
-        for item in plan:
-            keep = any(matches(s, item["name"]) for s in plot_only)
-            config.setdefault("sweeps", {}).setdefault(item["name"], {})
-            config["sweeps"][item["name"]]["plots"] = "all" if keep else "none"
-
-    jobs = resolve_jobs(config["jobs"])
-
-    print(f"sweep set: {set_name}  ({config['reporter']})")
-    print(f"geometry : {geometry}")
-    from_file = sum(1 for i in plan if i["source"] is not None)
-    origin = "generated" if not from_file else f"generated, {from_file} from file"
-    print(f"sweeps   : {origin} ({len(plan)} of {len(configured)} enabled)")
-    print(f"outputs  : {outputs}")
-    print(f"report   : {report}")
-    print(f"jobs     : {jobs}\n")
-
-    # ---- the resolved configuration -----------------------------------
-    # run.yaml after the command-line overrides: what susreport reads, and the
-    # record of what actually ran. Written before solving so a --dry-run can
-    # validate the report-side settings too, and so a crashed solve still
-    # leaves the configuration that produced it.
-    resolved_config = {
-        key: config[key] for key in
-        ("name", "reporter", "side", "decimals", "report", "solver", "gif")
-        if key in config
-    }
-    resolved_config.update({
-        "sweeps": {i["name"]: i["cfg"] for i in plan},
-        "ran": [i["name"] for i in plan],
-        "geometry": str(geometry),
-        "source_config": str(config_path),
-    })
-    resolved_path = report / "_resolved_run.json"
-    resolved_path.write_text(json.dumps(resolved_config, indent=2, default=str))
-
-    # Validate the half of the configuration susreport owns, before spending
-    # any CPU. This is also what makes --dry-run a complete config check.
-    common = reporter = None
-    report_config = None
-    if not opts.solve_only:
-        common, reporter = load_reporter(str(config["reporter"]))
-        report_config = common.load_config(None, resolved_path)
-
-    # ---- solve --------------------------------------------------------
-    if not opts.report_only:
-        resolved_dir = outputs / RESOLVED_DIRNAME
-
-        # Validate every sweep before generating any, so the first complaint
-        # names the sweep rather than arriving with half the set already
-        # written. Only enabled sweeps are checked: a parked `run: false` entry
-        # need not be complete.
-        drives = geometry_drives(geometry)
-        if drives["unhandled"]:
-            print("   note: this geometry exposes drive coordinate(s) run.yaml "
-                  "has no key for:")
-            for label in drives["unhandled"]:
-                print(f"           {label}")
-            print("         a sweep that must drive one needs `file:`. "
-                  "See SWEEPS.md.")
-        for item in plan:
-            if item["source"] is None:
-                validate_sweep(item["name"], item["cfg"], drives)
-
-        queue = []
-        for item in plan:
-            if item["source"] is None:
-                sweep_file = generate_sweep_file(
-                    item["name"], item["cfg"], drives, resolved_dir)
-            else:
-                sweep_file = copy_sweep_file(
-                    item["name"], item["source"], resolved_dir)
-            item["resolved"] = sweep_file
-            queue.append({
-                "name": item["name"],
-                "cmd": [*KINEMATICS, "sweep",
-                        "--geometry", str(geometry),
-                        "--sweep", str(sweep_file),
-                        "--out", str(outputs / f"{item['name']}.csv")],
-            })
-
-        if opts.dry_run:
-            print(f"-> would solve {len(queue)} sweep(s) on {jobs} worker(s)")
-            for job in queue:
-                print("   $", " ".join(job["cmd"]))
-            for item in plan:
-                if item["gif"]:
-                    print(f"   gif: {item['name']}")
-            print(f"\n   generated sweep files in {resolved_dir}")
-            print(f"   resolved configuration  {resolved_path}")
-            if reporter is not None:
-                print(f"   configuration validated "
-                      f"(runner and {config['reporter']})")
-            print("   (dry run: nothing solved, no report written)")
-            return
-
-        print(f"-> solving {len(queue)} sweep(s) on {jobs} worker(s)")
-        failures = []
-        with ThreadPoolExecutor(max_workers=jobs) as pool:
-            for name, code, output in pool.map(solve_one, queue):
-                status = "ok" if code == 0 else "FAILED"
-                print(f"   {name:26s} {status}")
-                if code != 0:
-                    failures.append((name, output))
-        if failures:
-            # Every sweep loads the same geometry, so a geometry or
-            # configuration fault fails all of them with one message. Say that
-            # once rather than making the reader diff N identical tracebacks.
-            reasons = {_failure_reason(output) for _name, output in failures}
-            if len(reasons) == 1 and len(failures) > 1:
-                reason = reasons.pop()
-                print(f"\n--- all {len(failures)} sweeps failed identically ---",
-                      file=sys.stderr)
-                print(f"{reason}\n", file=sys.stderr)
-                print("Every sweep loads the same geometry, so this is almost "
-                      "certainly the geometry file or run.yaml, not the "
-                      "sweeps.", file=sys.stderr)
-                print(f"\nFull output from {failures[0][0]}:\n{failures[0][1]}",
-                      file=sys.stderr)
-            else:
-                for name, output in failures:
-                    print(f"\n--- {name} ---\n{output}", file=sys.stderr)
-                    print(f"  reason: {_failure_reason(output)}", file=sys.stderr)
-            raise SweepSetError(
-                f"{set_name}: {len(failures)} sweep(s) failed to solve"
-            )
-
-        # ---- animations ---------------------------------------------
-        # One animation at a time, each rendering its frames on
-        # `gif_workers` processes (0 = every logical CPU). Parallel within an
-        # animation rather than across them: it uses every core even when
-        # only one sweep has a gif, and memory stays at one animation's
-        # frames. See kinematics/cli/visualization/animation.py.
-        gif_items = [i for i in plan if i["gif"]]
-        gif_workers = opts.gif_workers if opts.gif_workers is not None else 0
-        for item in gif_items:
-            settings = item["gif_settings"]
-            print(f"\n-> animation ({item['name']})")
-            cmd = [*KINEMATICS, "sweep",
-                   "--geometry", str(geometry),
-                   "--sweep", str(item["resolved"]),
-                   "--out", str(outputs / f"{item['name']}.csv"),
-                   "--animation-out", str(outputs / f"{item['name']}.gif"),
-                   "--fps", str(int(settings["fps"])),
-                   "--dpi", str(int(settings["dpi"])),
-                   "--animation-workers", str(int(gif_workers))]
-            run(cmd)
-
-    if opts.solve_only:
-        print("\ndone (solve only).")
-        return
-
-    # ---- report -------------------------------------------------------
-    # Only report on the sweeps that actually ran this time. Stale CSVs from a
-    # disabled sweep stay on disk but must not silently reappear in the report
-    # or, worse, in the bearing table.
-    stale = [p for p in sorted(outputs.glob("*.csv"))
-             if p.stem not in {i["name"] for i in plan}]
-    if stale:
-        print("\n   note: ignoring CSVs from sweeps that are not enabled: "
-              + ", ".join(p.stem for p in stale))
-
-    print("\n-> report")
-    common.run_report(outputs, report, report_config, reporter)
-
-    print(f"\ndone. report at {report}")

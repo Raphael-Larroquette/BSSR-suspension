@@ -1,4 +1,4 @@
-"""Model-folder layout, batch runs, Pareto export, and GIF frame rendering."""
+"""Model-folder layout, the batch scheduler, Pareto export, and animations."""
 
 from __future__ import annotations
 
@@ -37,7 +37,8 @@ def _working_force_configs() -> list[Path]:
 
 
 @pytest.mark.parametrize(
-    "config", _working_force_configs(), ids=lambda p: p.parent.name)
+    "config", _working_force_configs(), ids=lambda p: p.parent.name
+)
 def test_every_working_force_config_solves(config: Path) -> None:
     """Validate and solve, asserting nothing about values the team tunes."""
     pytest.importorskip("yaml")
@@ -64,18 +65,12 @@ def test_sweep_sets_default_to_a_model_that_exists() -> None:
         assert run_all.default_geometry(config).is_file(), config
 
 
-def test_batch_strips_only_its_own_flags() -> None:
+def test_removed_flags_name_their_replacement(monkeypatch, capsys) -> None:
     run_all = _load(WORKING / "run_all.py")
-    argv = ["--batch", "opt_x", "--sets", "front", "--parallel=3",
-            "--gif-workers", "4", "--only", "01,02", "--no-forces"]
-    assert run_all.forwarded_args(argv) == [
-        "--sets", "front", "--only", "01,02", "--no-forces"]
-
-
-def test_batch_never_starts_more_models_than_it_has() -> None:
-    run_all = _load(WORKING / "run_all.py")
-    parallel, workers = run_all.batch_sizes(2, 16, None)
-    assert parallel == 2 and workers >= 1
+    monkeypatch.setattr(sys, "argv", ["run_all.py", "--parallel", "4"])
+    with pytest.raises(SystemExit):
+        run_all.main()
+    assert "--workers" in capsys.readouterr().err
 
 
 def test_batch_discovers_models_in_natural_order(tmp_path: Path) -> None:
@@ -96,8 +91,12 @@ def test_export_patches_hardpoints_and_keeps_comments() -> None:
         "    upper_wishbone_outboard: {x: 4, y: 5, z: 6}\n"
     )
     points = export.hardpoints_from_row(
-        {"lower_wishbone_outboard.y": "20.12345", "strut_bottom.u_frac": "0.5",
-         "fvsa_length": "1000", "template_car": "aurora"}
+        {
+            "lower_wishbone_outboard.y": "20.12345",
+            "strut_bottom.u_frac": "0.5",
+            "fvsa_length": "1000",
+            "template_car": "aurora",
+        }
     )
     patched, count = export.patch_geometry(text, points, "run pareto1")
     assert count == 1
@@ -107,8 +106,12 @@ def test_export_patches_hardpoints_and_keeps_comments() -> None:
 
 
 def test_generated_results_are_git_ignored() -> None:
-    if subprocess.run(["git", "-C", str(REPO_ROOT), "rev-parse"],
-                      capture_output=True).returncode != 0:
+    if (
+        subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse"], capture_output=True
+        ).returncode
+        != 0
+    ):
         pytest.skip("not a git checkout")
     cases = {
         "Working/models/aurora/sweep_outputs/front/02_roll.gif": True,
@@ -121,36 +124,167 @@ def test_generated_results_are_git_ignored() -> None:
     }
     for path, ignored in cases.items():
         result = subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "check-ignore", "-q", "--no-index", path])
+            ["git", "-C", str(REPO_ROOT), "check-ignore", "-q", "--no-index", path]
+        )
         assert (result.returncode == 0) is ignored, path
 
 
-def test_parallel_gif_frames_match_serial(
-    double_wishbone_geometry_file: Path, test_data_dir: Path
+# --------------------------------------------------------------------------
+# The scheduler: pool sizing, retries, recovery
+# --------------------------------------------------------------------------
+def _scheduler() -> Any:
+    if str(WORKING / "sweep_sets") not in sys.path:
+        sys.path.insert(0, str(WORKING / "sweep_sets"))
+    import scheduler
+
+    return scheduler
+
+
+def test_pool_size_is_the_tightest_of_cores_memory_tasks_and_cap() -> None:
+    scheduler = _scheduler()
+    machine = scheduler.Machine(
+        physical_cores=64,
+        logical_cores=128,
+        usable_cores=64,
+        ram_mb=128 * 1024,
+        available_mb=40 * 1024,
+        memory_kind="commit",
+    )
+    # 40 GB available, 12.8 GB reserve -> 27.2 GB / 1 GB per worker = 27.
+    assert scheduler.plan_workers(500, 1024, machine) == (27, "memory")
+    assert scheduler.plan_workers(5, 1024, machine) == (5, "tasks")
+    assert scheduler.plan_workers(500, 1024, machine, cap=8) == (8, "--workers")
+    roomy = scheduler.Machine(64, 128, 64, 128 * 1024, 120 * 1024, "commit")
+    workers, reason = scheduler.plan_workers(500, 512, roomy)
+    assert reason in ("cores", "Windows pool limit") and workers <= 64
+
+
+@pytest.mark.parametrize("mode", ["resource", "die"])
+def test_memory_failures_and_dead_workers_are_retried(
+    mode: str, tmp_path: Path
+) -> None:
+    scheduler = _scheduler()
+    from tests import _pool_tasks
+
+    tasks = [
+        scheduler.Task(
+            key=str(i), payload={"marker": str(tmp_path / str(i)), "mode": mode}
+        )
+        for i in range(3)
+    ]
+    results, report = scheduler.run_phase(
+        "test", tasks, _pool_tasks.flaky, worker_mb=1, cap=2, log=lambda _m: None
+    )
+    assert [r["status"] for r in results] == ["ok"] * 3
+    assert report.retries >= 3
+    if mode == "die":
+        assert report.rebuilds >= 1
+
+
+def test_a_task_that_keeps_running_out_of_memory_is_reported(tmp_path: Path) -> None:
+    scheduler = _scheduler()
+    from tests import _pool_tasks
+
+    tasks = [scheduler.Task(key="x", payload={"identity": {"sweep": "s"}})]
+    results, _ = scheduler.run_phase(
+        "test",
+        tasks,
+        _pool_tasks.always_out_of_memory,
+        worker_mb=1,
+        cap=1,
+        log=lambda _m: None,
+    )
+    assert results[0]["status"] == "resource"
+    assert results[0]["attempts"] == scheduler.MAX_RETRIES + 1
+    assert results[0]["sweep"] == "s"
+
+
+# --------------------------------------------------------------------------
+# Tasks: what a failed sweep reports
+# --------------------------------------------------------------------------
+def test_a_lockout_is_reported_with_the_step_and_pose(tmp_path: Path) -> None:
+    pytest.importorskip("yaml")
+    _scheduler()
+    import tasks
+
+    sweep = tmp_path / "lock.yaml"
+    sweep.write_text(
+        "version: 1\nsteps: 6\ntargets:\n"
+        "- {type: point, point: wheel_center, side: left, direction: {axis: z},"
+        " mode: relative, start: 0, stop: 0}\n"
+        "- {type: point, point: wheel_center, side: right, direction: {axis: z},"
+        " mode: relative, start: 0, stop: 0}\n"
+        "- {type: actuator_position, actuator: rack, direction: {axis: y},"
+        " mode: relative, start: 0, stop: 400}\n"
+    )
+    result = tasks.execute(
+        {
+            "kind": "solve",
+            "identity": {"sweep": "lock"},
+            "geometry": str(WORKING / "models" / "aurora" / "front.yaml"),
+            "sweep": str(sweep),
+            "csv": str(tmp_path / "lock.csv"),
+            "frames": "",
+            "log": str(tmp_path / "lock.log"),
+        }
+    )
+    assert result["status"] == "lockout", result
+    assert result["n_steps"] == 6
+    assert 1 < result["fail_step"] <= 6
+    assert result["at"]["rack"] > result["last_good"]["rack"]
+    assert not (tmp_path / "lock.csv").exists()
+
+
+def test_resource_errors_are_told_apart_from_design_failures() -> None:
+    _scheduler()
+    import tasks
+
+    paging = ImportError(
+        "DLL load failed while importing _flapack: The paging "
+        "file is too small for this operation to complete."
+    )
+    assert tasks.is_resource_error(paging)
+    assert tasks.is_resource_error(MemoryError())
+    assert not tasks.is_resource_error(
+        RuntimeError("Solver failed to converge for targets: [...]")
+    )
+
+
+# --------------------------------------------------------------------------
+# Animations
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("suffix", [".gif", ".mp4"])
+def test_animation_streams_to_ffmpeg(
+    suffix: str,
+    double_wishbone_geometry_file: Path,
+    test_data_dir: Path,
+    tmp_path: Path,
 ) -> None:
     pytest.importorskip("matplotlib")
-    from PIL import ImageChops
-
     from kinematics.cli.io.loaders import load_geometry
     from kinematics.cli.io.sweep_loader import load_sweep
-    from kinematics.cli.visualization.animation import render_gif_frames
     from kinematics.cli.visualization.main import build_render_model
+    from kinematics.cli.visualization.render2d import (
+        ffmpeg_executable,
+        write_animation,
+    )
     from kinematics.core.sweep import solve_evaluated_sweep
 
+    try:
+        ffmpeg_executable()
+    except RuntimeError:
+        pytest.skip("no ffmpeg")
     suspension = load_geometry(double_wishbone_geometry_file)
     sweep = load_sweep(test_data_dir / "sweep.yaml", suspension)
-    states = solve_evaluated_sweep(suspension, sweep).states[:3]
+    states = solve_evaluated_sweep(suspension, sweep).states[:4]
     model = build_render_model(suspension)
-    positions = [model.positions(state) for state in states]
-    initial = model.positions(suspension.initial_state())
-
-    def render(workers: int) -> list:
-        return render_gif_frames(
-            positions, initial, model.visualizer, dpi=20, workers=workers)
-
-    serial, parallel = render(1), render(2)
-    assert len(serial) == len(parallel) == 3
-    for a, b in zip(serial, parallel):
-        assert a.mode == "P"
-        difference = ImageChops.difference(a.convert("RGB"), b.convert("RGB"))
-        assert difference.getbbox() is None
+    out = write_animation(
+        [model.positions(s) for s in states],
+        model.positions(suspension.initial_state()),
+        model.visualizer,
+        tmp_path / f"anim{suffix}",
+        fps=10,
+        dpi=30,
+    )
+    assert out.is_file() and out.stat().st_size > 1000
+    assert not list(tmp_path.glob("*.partial*"))
