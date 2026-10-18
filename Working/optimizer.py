@@ -31,8 +31,8 @@ CASTER_DEG = 7.0              # deg
 MIN_ARM_SEPARATION = 200.0    # mm, minimum vertical gap UCA above LCA (inboard and outboard)
 
 # Search size.
-POPULATION_SIZE = 1980   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
-GENERATIONS = 200
+POPULATION_SIZE = 1320   # max workers is 60 on python in windows. so you need at least a pop of 165 the number of objectives
+GENERATIONS = 400
 
 # Worker processes. None = one per logical CPU (128 on the 64-core machine).
 # Windows caps one process pool at 60 workers, so they are split into as few
