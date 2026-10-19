@@ -54,7 +54,7 @@ sweeps:
   02_damper_stroke:
     run: true
     report: true
-    plots: [motion_ratio]
+    plots: [motion_ratio, install_ratio]
     gif: false
     steps: 41
     damper: [-30, 30]

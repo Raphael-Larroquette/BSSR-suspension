@@ -134,11 +134,11 @@ sweeps:
     rack: [20, 20]
 
   # Driven by damper length instead of wheel travel. Read the usable wheel travel
-  # off this, then set the `travel` ranges above to match. Honest motion ratio.
+  # off this, then set the `travel` ranges above to match. Honest motion/install ratio.
   08_damper_stroke:
     run: true
-    report: [damper_length, wheel_travel_lr, motion_ratio]
-    plots: [motion_ratio]
+    report: [damper_length, wheel_travel_lr, motion_ratio, install_ratio]
+    plots: [motion_ratio, install_ratio]
     gif: false
     steps: 65
     damper:

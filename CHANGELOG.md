@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Motion ratio redefined.** `motion_ratio` is now MR = wheel travel / damper
+  travel; what was previously called motion ratio (damper / wheel) is now
+  `install_ratio` (IR). Both are instantaneous (local derivative at each
+  frame), MR = 1/IR. `motion_ratio_sq` is replaced by `install_ratio_sq`
+  (wheel rate = spring rate × IR²). The optimizer constraint is renamed
+  `motion_ratio` -> `install_ratio` with unchanged bounds (0.6-1.01), so
+  optimizer behaviour is identical; `opt/reduce.py` accepts either metric.
+  Pareto CSVs from earlier runs have a `motion_ratio` column that is really IR.
 - Everything about a model now lives in its folder under `Working/models/<car>/`:
   `front.yaml`, `rear.yaml`, and the force solve's `forces.yaml` (moved from
   `Working/forces/<car>/`). The load cases are shared by every model in

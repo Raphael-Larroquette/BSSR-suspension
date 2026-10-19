@@ -185,7 +185,7 @@ def min_damper_length(analysis, sweep_name=""):
     Shortest damper length (mm) over the sweep, both sides.
 
     Taken over every frame, not just the last one, so it still holds if the
-    motion ratio changes sign somewhere in travel. If an end frame failed to
+    installation ratio changes sign somewhere in travel. If an end frame failed to
     solve and was dropped, the length is extrapolated linearly from the two
     nearest solved frames out to the travel SWEEP_LIMITS asked for, so a
     candidate cannot pass just because its full-bump frame did not solve.
@@ -369,13 +369,17 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
                 traceback.print_exc()
                 outcomes[const_name] = 0.0
 
-        elif metric == "motion_ratio":
-            # Damper/wheel at design height, defined exactly as the report
-            # defines it: MR = -d(damper length)/d(wheel centre z).
+        elif metric in ("install_ratio", "motion_ratio"):
+            # Instantaneous, at design height, defined exactly as the report
+            # defines them:
+            #   IR = damper/wheel = -d(damper length)/d(wheel centre z)
+            #   MR = wheel/damper = 1 / IR
             setup = analysis.references["setup"].corner_metrics
-            outcomes[const_name] = -float(
-                setup["left"]["deriv_damper_length_wrt_hub_z"]
-            )
+            ir = -float(setup["left"]["deriv_damper_length_wrt_hub_z"])
+            if metric == "install_ratio":
+                outcomes[const_name] = ir
+            else:
+                outcomes[const_name] = 1.0 / ir if abs(ir) > 1e-9 else math.inf
 
         elif metric == "toe_range":
             # Toe max - min over the sweep, deg, worse side: the same number

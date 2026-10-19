@@ -694,23 +694,32 @@ def _add_corner_derived(sw: Sweep, sides: tuple[str, ...]) -> None:
                     f"hypot(offset, trail) (max err {err:.3g} mm)."
                 )
 
-        # --- Motion ratio ---------------------------------------------
-        # MR = -d(damper length)/d(wheel centre z). Prefer the analytic
+        # --- Installation ratio and motion ratio (instantaneous) -------
+        # IR = damper travel / wheel travel = -d(damper length)/d(wheel centre z)
+        # MR = wheel travel / damper travel = 1 / IR
+        # Both are local derivatives at each frame, not end-to-end averages.
+        # Positive when bump compresses the damper. Prefer the analytic
         # derivative; fall back to a numerical gradient.
         an = f"deriv_damper_length_wrt_hub_z{side}"
+        ir = f"install_ratio{side}"
         if an in d.columns and not d[an].isna().all():
-            d[f"motion_ratio{side}"] = -d[an]
-            sw.units[f"motion_ratio{side}"] = "mm/mm"
+            d[ir] = -d[an]
         elif dmp in d.columns and f"wheel_travel{side}" in d.columns:
             z = d[f"wheel_travel{side}"].to_numpy(float)
             if np.ptp(z) > 1e-6:
-                d[f"motion_ratio{side}"] = -np.gradient(
-                    d[dmp].to_numpy(float), z)
-                sw.units[f"motion_ratio{side}"] = "mm/mm"
-        if f"motion_ratio{side}" in d.columns:
-            # Spring/damper force and rate scale with MR^2 at the wheel.
-            d[f"motion_ratio_sq{side}"] = d[f"motion_ratio{side}"] ** 2
-            sw.units[f"motion_ratio_sq{side}"] = "-"
+                d[ir] = -np.gradient(d[dmp].to_numpy(float), z)
+        if ir in d.columns:
+            sw.units[ir] = "mm/mm"
+            irv = d[ir].to_numpy(float)
+            # A damper that momentarily stops moving has IR = 0 and MR = inf;
+            # report NaN there rather than a meaningless huge number.
+            with np.errstate(divide="ignore", invalid="ignore"):
+                d[f"motion_ratio{side}"] = np.where(
+                    np.abs(irv) > 1e-9, 1.0 / irv, np.nan)
+            sw.units[f"motion_ratio{side}"] = "mm/mm"
+            # Wheel rate = spring rate x IR^2 = spring rate / MR^2.
+            d[f"install_ratio_sq{side}"] = irv ** 2
+            sw.units[f"install_ratio_sq{side}"] = "-"
 
 
 def _geometry_path(sw: Sweep) -> Path | None:

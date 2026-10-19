@@ -51,8 +51,12 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
     # --- travel and springing -------------------------------------------
     single("wheel_travel", "Wheel travel", "wheel_travel{side}"),
     single("damper_length", "Damper length", "damper_length{side}"),
-    single("motion_ratio", "Motion ratio (damper/wheel)", "motion_ratio{side}"),
-    single("motion_ratio_sq", "Motion ratio squared", "motion_ratio_sq{side}"),
+    single("motion_ratio", "Motion ratio, instantaneous (wheel/damper)",
+           "motion_ratio{side}"),
+    single("install_ratio", "Installation ratio, instantaneous (damper/wheel)",
+           "install_ratio{side}"),
+    single("install_ratio_sq", "Installation ratio squared (wheel rate = k IR^2)",
+           "install_ratio_sq{side}"),
 
     # --- side view: the reason this model is interesting -----------------
     single("svic_x", "SVIC longitudinal (x)", "svic_x{side}"),
@@ -81,13 +85,13 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
 PRESETS: dict[str, list[str]] = {
     # Wheel travel commanded, damper read. The design reference for the arm.
     "heave": [
-        "wheel_travel", "damper_length", "motion_ratio",
+        "wheel_travel", "damper_length", "motion_ratio", "install_ratio",
         "recession_rate",
         "svic_x", "svic_z", "svsa", "svsa_angle", "anti_squat", "anti_lift",
     ],
     # Damper length commanded, wheel read. Where the usable travel comes from.
     "damper_stroke": [
-        "damper_length", "wheel_travel", "motion_ratio",
+        "damper_length", "wheel_travel", "motion_ratio", "install_ratio",
     ],
     "static": ["wheel_travel", "damper_length", "svsa_angle"],
 }
@@ -173,7 +177,7 @@ def _add_corner_extras(sw: Sweep) -> None:
     """Finite-difference the wrt_hub_z gradients a damper-driven sweep lacks."""
     # Roll-centre migration, Ackermann and the axle steering ratio are all
     # two-wheel constructions and have no corner equivalent, so nothing is
-    # derived for them here. Motion ratio is handled by the shared corner
+    # derived for them here. Motion/installation ratio is handled by the shared corner
     # derivation. What is left is wheel-centre recession, which the solver
     # exports analytically only when the sweep is driven by the wheel.
     d = sw.data

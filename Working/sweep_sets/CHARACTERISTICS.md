@@ -55,13 +55,15 @@ the table when you want to know *where* to move a hardpoint.
 | Channel | Characteristic | Unit | Best source | Notes |
 | --- | --- | --- | --- | --- |
 | `damper_length` | damper length | mm | 01, 08 | |
-| `motion_ratio` | motion ratio (damper/wheel) | mm/mm | **08** | Analytic, from the Jacobian |
-| `motion_ratio_sq` | motion ratio squared | – | 08 | Wheel rate = spring rate × MR². Parser-derived |
-| `damper_rate` | damper rate vs wheel | mm/mm | 01 | Raw signed derivative; MR is its negation |
+| `motion_ratio` | motion ratio, MR = wheel/damper | mm/mm | **08** | Instantaneous: MR = 1/IR. NaN where IR = 0 |
+| `install_ratio` | installation ratio, IR = damper/wheel | mm/mm | **08** | Instantaneous, analytic from the Jacobian: IR = −d(damper)/d(wheel z) |
+| `install_ratio_sq` | installation ratio squared | – | 08 | Wheel rate = spring rate × IR² = spring rate / MR². Parser-derived |
+| `damper_rate` | damper rate vs wheel | mm/mm | 01 | Raw signed derivative; IR is its negation |
 | `wheel_travel` | wheel travel for a given damper stroke | mm | **08** | The reason sweep 08 exists |
 
-**Read motion ratio from 08, not 01.** Both report it, but 08 is driven by damper length
-and reads the wheel, so MR is measured in the coordinate the hardware constrains.
+**Read motion/installation ratio from 08, not 01.** Both report them, but 08 is driven by
+damper length and reads the wheel, so they are measured in the coordinate the hardware
+constrains. Both are instantaneous (local slope at each frame), not end-to-end averages.
 
 **Sweep 08 sets the travel limits everywhere else.** Read usable wheel travel off it, then
 write it into the `travel:` ranges in `run.yaml`. On Aurora, ±30 mm of damper gives

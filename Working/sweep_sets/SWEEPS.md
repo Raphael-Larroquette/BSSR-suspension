@@ -110,7 +110,7 @@ No `direction` — a length is scalar. This commands the damper and reads the wh
 is how you find travel limits set by real damper hardware.
 
 **The catch:** the analytic `deriv_*_wrt_hub_z` columns exist only when a `hub_z` target
-is present. Drive by damper length and 22 columns go all-NaN — no analytic motion ratio,
+is present. Drive by damper length and 22 columns go all-NaN — no analytic motion/install ratio,
 camber gain or bump-steer rate. Use `element_length` to find the limits, then run a normal
 heave sweep between them for the gradients.
 
@@ -257,14 +257,14 @@ All of these are defined in each set's `run.yaml`, not in files.
 
 | # | Sweep | Drives | Answers | Default |
 | --- | --- | --- | --- | --- |
-| 01 | `01_bump_parallel` | both wheels together | camber curve, bump steer, motion ratio, RC height vs ride | on |
+| 01 | `01_bump_parallel` | both wheels together | camber curve, bump steer, motion/install ratio, RC height vs ride | on |
 | 02 | `02_roll` | equal and opposite | camber recovery, RC migration (height and lateral), roll steer, track change | on |
 | 03 | `03_single_wheel_bump` | left only | nothing 01 does not already give | **off** |
 | 04 | `04_steer_design` | rack lock to lock at design height | Ackermann, steering ratio, camber/caster/KPI vs steer, scrub and trail vs steer | on |
 | 05 | `05_steer_bump` | the same, in bump | how much steering geometry changes when loaded | on |
 | 06 | `06_steer_droop` | the same, in droop | the other end of that comparison | on |
 | 07 | `07_bump_at_steer` | bump with the rack held off centre | the shape of the bump-steer curve while steered | **off** |
-| 08 | `08_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion ratio | on |
+| 08 | `08_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion/install ratio | on |
 | 09 | `09_steer_in_roll` | rack lock to lock at a held roll attitude | mid-corner steering geometry; the only place Ackermann-in-roll is defined | on |
 | 10 | `10_corner_ramp` | roll and steer ramping together | one line through corner entry | on |
 
@@ -291,8 +291,8 @@ one wheel; the set is small on purpose.
 
 | # | Sweep | Drives | Answers |
 | --- | --- | --- | --- |
-| 01 | `01_bump` | wheel centre | camber/toe curves, motion ratio, recession, the side-view family |
-| 02 | `02_damper_stroke` | damper length | usable wheel travel; the honest motion ratio |
+| 01 | `01_bump` | wheel centre | camber/toe curves, motion/install ratio, recession, the side-view family |
+| 02 | `02_damper_stroke` | damper length | usable wheel travel; the honest motion/install ratio |
 
 The side-view family is why the rear gets its own reporter: a trailing arm's side-view
 instant centre **is its pivot axis**, so SVIC, SVSA, SVSA angle and anti-squat are all

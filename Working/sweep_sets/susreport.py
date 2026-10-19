@@ -64,8 +64,12 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
     single("half_track", "Half track", "half_track{side}"),
     single("wheel_travel", "Wheel travel", "wheel_travel{side}"),
     single("damper_length", "Damper length", "damper_length{side}"),
-    single("motion_ratio", "Motion ratio (damper/wheel)", "motion_ratio{side}"),
-    single("motion_ratio_sq", "Motion ratio squared", "motion_ratio_sq{side}"),
+    single("motion_ratio", "Motion ratio, instantaneous (wheel/damper)",
+           "motion_ratio{side}"),
+    single("install_ratio", "Installation ratio, instantaneous (damper/wheel)",
+           "install_ratio{side}"),
+    single("install_ratio_sq", "Installation ratio squared (wheel rate = k IR^2)",
+           "install_ratio_sq{side}"),
     single("fvic_y", "FVIC lateral (y)", "fvic_y{side}"),
     single("fvic_z", "FVIC height (z)", "fvic_z{side}"),
     single("fvsa", "FVSA length", "fvsa_length{side}"),
@@ -109,6 +113,8 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
     pair("wheel_travel_lr", "Wheel travel (left/right)", "wheel_travel{side}"),
     pair("damper_length_lr", "Damper length (left/right)", "damper_length{side}"),
     pair("motion_ratio_lr", "Motion ratio (left/right)", "motion_ratio{side}"),
+    pair("install_ratio_lr", "Installation ratio (left/right)",
+          "install_ratio{side}"),
     pair("camber_recovery_lr", "Camber recovery (left/right)",
           "camber_recovery{side}"),
 
@@ -141,18 +147,21 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
 PRESETS: dict[str, list[str]] = {
     "heave": [
         "camber", "caster", "toe", "scrub_signed", "trail", "half_track",
-        "wheel_travel", "damper_length", "motion_ratio", "rc_height",
+        "wheel_travel", "damper_length", "motion_ratio", "install_ratio",
+        "rc_height",
         "fvic_y", "fvic_z", "fvsa", "track_change", "steering_ratio",
         "camber_gain",
     ],
     "roll": [
         "camber_lr", "caster_lr", "toe_lr", "scrub_signed", "half_track",
-        "track_change", "motion_ratio", "camber_recovery", "rc_height",
+        "track_change", "motion_ratio", "install_ratio", "camber_recovery",
+        "rc_height",
         "rc_lateral_roll", "body_roll", "steering_ratio",
     ],
     "single_wheel": [
         "camber", "caster", "toe", "scrub_signed", "half_track",
-        "wheel_travel", "damper_length", "motion_ratio", "rc_height",
+        "wheel_travel", "damper_length", "motion_ratio", "install_ratio",
+        "rc_height",
     ],
     "steer": [
         "camber", "caster", "toe", "scrub_signed", "trail", "half_track",
@@ -161,7 +170,8 @@ PRESETS: dict[str, list[str]] = {
     ],
     "heave_at_steer": [
         "camber", "caster", "toe", "scrub_signed", "trail", "half_track",
-        "wheel_travel", "damper_length", "motion_ratio", "rc_height",
+        "wheel_travel", "damper_length", "motion_ratio", "install_ratio",
+        "rc_height",
         "track_change", "ackermann", "steering_ratio", "camber_gain",
     ],
     # 09: a steer sweep held at a roll attitude. Same channels as a steer
@@ -178,11 +188,12 @@ PRESETS: dict[str, list[str]] = {
     # along the path, not with respect to roll. Take those from 02.
     "roll_ramp_at_steer": [
         "camber_lr", "caster_lr", "toe_lr", "scrub_signed", "half_track",
-        "track_change", "motion_ratio", "rc_height", "rc_lateral",
+        "track_change", "motion_ratio", "install_ratio", "rc_height",
+        "rc_lateral",
         "body_roll", "rack", "ackermann", "steering_ratio",
     ],
     "damper_stroke": [
-        "damper_length", "wheel_travel_lr", "motion_ratio",
+        "damper_length", "wheel_travel_lr", "motion_ratio", "install_ratio",
     ],
     "static": ["camber", "caster", "toe", "half_track"],
 }

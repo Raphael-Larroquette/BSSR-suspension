@@ -51,14 +51,14 @@ uv run python Working/run_all.py --sets front --geometry Working/models/gen14/fr
 
 | # | File | Drives | Answers | Default |
 | --- | --- | --- | --- | --- |
-| 01 | `01_bump_parallel` | both wheels together | camber curve, bump steer, motion ratio, RC height vs ride | on |
+| 01 | `01_bump_parallel` | both wheels together | camber curve, bump steer, motion/install ratio, RC height vs ride | on |
 | 02 | `02_roll` | equal and opposite | camber recovery, RC migration (height AND lateral), roll steer, track change | on |
 | 03 | `03_single_wheel_bump` | left only | nothing 01 does not already give — see below | **off** |
 | 04 | `04_steer_design` | rack lock to lock at design height | Ackermann, steering ratio, camber/caster/KPI vs steer, scrub and trail vs steer | on |
 | 05 | `05_steer_bump` | same, in bump | diff against 04: how much steering geometry changes when loaded | on |
 | 06 | `06_steer_droop` | same, in droop | the other end of that comparison | on |
 | 07 | `07_bump_at_steer` | bump with the rack held off centre | the shape of the bump-steer curve while steered | **off** |
-| 08 | `08_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion ratio | on |
+| 08 | `08_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion/install ratio | on |
 | 09 | `09_steer_in_roll` | rack lock to lock at a held roll attitude | mid-corner steering geometry; the only place Ackermann-in-roll is defined | on |
 | 10 | `10_corner_ramp` | roll and steer ramping together | one line through corner entry | on |
 
@@ -90,8 +90,8 @@ purpose rather than mirroring the front.
 
 | # | File | Drives | Answers |
 | --- | --- | --- | --- |
-| 01 | `01_bump` | wheel centre | camber and toe curves, motion ratio, recession, and the side-view family the front cannot produce |
-| 02 | `02_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion ratio |
+| 01 | `01_bump` | wheel centre | camber and toe curves, motion/install ratio, recession, and the side-view family the front cannot produce |
+| 02 | `02_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion/install ratio |
 
 The side-view point is the reason the rear gets its own reporter: a trailing
 arm's side-view instant centre **is its pivot axis**, so SVIC, SVSA, SVSA angle

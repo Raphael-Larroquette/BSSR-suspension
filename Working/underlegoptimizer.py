@@ -141,9 +141,9 @@ KNOWN_DESIGN = {
     "upper_wishbone_inboard_rear.x": -111.03,
     # Absolute spring mounts; converted to strut_bottom u/v/height and
     # strut_top y/z by resolve_spring_seed(). Chosen inside the current ranges
-    # (u_frac 0.153) so the seed passes every constraint: motion ratio 0.635,
+    # (u_frac 0.153) so the seed passes every constraint: install ratio 0.635 (MR 1.57),
     # 252 mm at full bump, joint_force 4200 N. The old mounts (10.43, 365.75,
-    # 341.13) / (10.43, 443.12, 166.76) gave MR 0.80 but sit at u_frac 0.033.
+    # 341.13) / (10.43, 443.12, 166.76) gave IR 0.80 (MR 1.25) but sit at u_frac 0.033.
     "strut_top": (19.45, 330.367, 454.21),
     "strut_bottom": (3.155, 370.985, 186.049),
 }
@@ -304,8 +304,10 @@ CONSTRAINTS = {
     "fvsa_sign": ("01_bump_parallel", "fvsa_length", (1000.0, None)),
     # Sweep-wide version (inboard at every frame), not yet chosen:
     # "fvsa_inboard": ("01_bump_parallel", "min_camber_gain", (0.0, None)),
-    # Damper travel / wheel travel, at design height.
-    "motion_ratio": ("01_bump_parallel", "motion_ratio", (0.6, 1.01)),
+    # Installation ratio = damper travel / wheel travel, instantaneous at design
+    # height (IR 0.6-1.01 is MR = wheel/damper 0.99-1.67). Constrained on IR, not
+    # MR, so a damper that stops moving (IR -> 0) fails cleanly instead of MR -> inf.
+    "install_ratio": ("01_bump_parallel", "install_ratio", (0.6, 1.01)),
     # Shortest damper length anywhere in the bump sweep. See MIN_SHOCK_LENGTH.
     "shock_length": ("01_bump_parallel", "min_damper_length", (MIN_SHOCK_LENGTH, None)),
 }
