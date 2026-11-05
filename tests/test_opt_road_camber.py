@@ -99,6 +99,35 @@ def test_held_roll_integrates_over_rack() -> None:
     assert R.road_camber_score(analysis, 4.0) == pytest.approx(expected, rel=1e-4)
 
 
+def test_inner_positive_costs_more_than_negative() -> None:
+    pos = _ramp(inner_cam=lambda u: 1.0)
+    neg = _ramp(inner_cam=lambda u: -1.0)
+    assert R.road_camber_score(pos, 4.0, inner_positive_weight=3.0) == \
+        pytest.approx(math.sqrt(3.0 / 5.0))
+    assert R.road_camber_score(neg, 4.0, inner_positive_weight=3.0) == \
+        pytest.approx(math.sqrt(1.0 / 5.0))
+
+
+def test_asymmetry_is_inner_only_and_about_target() -> None:
+    outer_pos = _ramp(outer_cam=lambda u: 1.0)
+    assert R.road_camber_score(outer_pos, 4.0, inner_positive_weight=3.0) == \
+        pytest.approx(R.road_camber_score(outer_pos, 4.0))
+    # -0.5 is above a -1 target: penalised 3x, even though it is negative.
+    inner = _ramp(outer_cam=lambda u: -1.0, inner_cam=lambda u: -0.5)
+    assert R.road_camber_score(inner, 4.0, target=-1.0,
+                               inner_positive_weight=3.0) == \
+        pytest.approx(math.sqrt(3.0 * 0.25 / 5.0))
+
+
+def test_sign_change_integrates_exactly() -> None:
+    # g(u) = 2u - 1 (crossing at u = 0.5): mean of g^2 is 1/3 per half, so the
+    # weighted mean square is 3 * 1/6 + 1/6 = 2/3. n = 400 puts the crossing
+    # between frames, so it is only right if the crossing is inserted.
+    analysis = _ramp(n=400, inner_cam=lambda u: 2.0 * u - 1.0)
+    assert R.road_camber_score(analysis, 4.0, inner_positive_weight=3.0) == \
+        pytest.approx(math.sqrt((2.0 / 3.0) / 5.0), rel=1e-4)
+
+
 # --- SWEEP_LIMITS ------------------------------------------------------------
 
 def test_limits_form_detection() -> None:

@@ -61,8 +61,13 @@ CAMBER_BUMP_WEIGHTING = 2.0   # camber_gain
 # ROAD_CAMBER_TARGET is the road camber the objective pulls both wheels to, deg,
 # signed like camber (negative = top in). 0 = upright on the road. Some tyres
 # grip best slightly negative on the loaded wheel; change it once you know.
+# ROAD_CAMBER_INNER_POSITIVE_WEIGHTING multiplies the inner wheel's squared
+# error where it is ABOVE the target (more positive), so a positive miss costs
+# that many times a negative one: the inner wheel should sit slightly negative
+# in a turn. 1 = symmetric.
 ROAD_CAMBER_BUMP_WEIGHTING = 4.0
 ROAD_CAMBER_TARGET = 0.0
+ROAD_CAMBER_INNER_POSITIVE_WEIGHTING = 3.0
 
 # Shortest the shock may ever be, eye to eye, in mm. Checked twice with this
 # one number: before solving (design length, free - a shock already too short
@@ -337,7 +342,8 @@ OBJECTIVES = {
     "ackermann_error": ("04_steer_design", "ackermann_error", "minimize"),
     # Weighted RMS road camber over the corner ramp, deg: per wheel the mean of
     # (road_camber - ROAD_CAMBER_TARGET)^2 over its travel, outer wheel x
-    # ROAD_CAMBER_BUMP_WEIGHTING, inner x1, divided by the total weight, then
+    # ROAD_CAMBER_BUMP_WEIGHTING, inner x1 (x ROAD_CAMBER_INNER_POSITIVE_
+    # WEIGHTING where it is above the target), divided by the total weight, then
     # square-rooted. Road camber = ISO 8855 inclination signed like camber, so
     # steer camber (caster/KPI) and roll both count, as the tyre sees them.
     # Pulls against camber_gain: holding road camber in roll needs MORE camber
@@ -438,4 +444,4 @@ def resolve_spring_seed(fixed):
 
 
 if __name__ == "__main__":
-    run_optimization(__file__)
+    run_optimization(__file__)

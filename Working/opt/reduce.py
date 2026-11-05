@@ -336,7 +336,33 @@ def _corner_sides(frames):
     return outer, inner
 
 
-def road_camber_score(analysis, bump_weight, target=0.0, sweep_name=""):
+def _weighted_mean_square(x, err, positive_weight=1.0):
+    """(1/span) * integral of w(err) * err^2 dx, w = positive_weight where err > 0.
+
+    The weight steps where err changes sign, so the crossings (err linear
+    between frames) are inserted as samples first: no trapezoid straddles the
+    step, and the score does not depend on where the frames happen to fall.
+    err = 0 at a crossing, so its weight there is irrelevant.
+    """
+    order = np.argsort(x)
+    x, err = x[order], err[order]
+    span = x[-1] - x[0]
+    if positive_weight != 1.0:
+        flip = np.nonzero(err[:-1] * err[1:] < 0.0)[0]
+        if flip.size:
+            x_cross = x[flip] - err[flip] * (x[flip + 1] - x[flip]) / (
+                err[flip + 1] - err[flip])
+            x = np.insert(x, flip + 1, x_cross)
+            err = np.insert(err, flip + 1, 0.0)
+    w = np.where(err > 0.0, positive_weight, 1.0)
+    sq = w * err ** 2
+    if span <= 0:
+        return float(sq.mean())
+    return float(np.trapezoid(sq, x)) / span
+
+
+def road_camber_score(analysis, bump_weight, target=0.0, sweep_name="",
+                      inner_positive_weight=1.0):
     """
     Weighted RMS road camber over a cornering sweep, deg (minimise).
 
@@ -344,6 +370,13 @@ def road_camber_score(analysis, bump_weight, target=0.0, sweep_name=""):
     sweep:
 
         ms = (1 / span) * integral of (road_camber(x) - target)^2 dx
+
+    On the INNER wheel, the part of the curve above the target (more positive
+    camber, top out) is multiplied by ``inner_positive_weight``, so the
+    optimiser prefers to miss on the negative side: the goal on that wheel is
+    small negative camber, and a positive miss costs more than a negative one
+    of the same size. 1 = symmetric (the old score). The minimum is still at the
+    target; this changes which way a candidate that cannot reach it is pushed.
 
     where x is that wheel's own vertical travel - or the rack, in a sweep that
     holds the wheels still (09). Squared so a positive and a negative region
@@ -363,19 +396,15 @@ def road_camber_score(analysis, bump_weight, target=0.0, sweep_name=""):
     frames = usable_frames(analysis, sweep_name)
     outer, inner = _corner_sides(frames)
 
-    def mean_square(side):
+    def mean_square(side, positive_weight=1.0):
         x = np.array([f.corner_metrics[side]["wheel_travel"] for f in frames])
         if np.ptp(x) < 1e-6:
             x = np.array([f.metrics["rack_displacement"] for f in frames])
         y = np.array([f.corner_metrics[side]["road_camber"] for f in frames])
-        order = np.argsort(x)
-        x, err = x[order], (y[order] - target) ** 2
-        span = x[-1] - x[0]
-        if span <= 0:
-            return float(err.mean())
-        return float(np.trapezoid(err, x)) / span
+        return _weighted_mean_square(x, y - target, positive_weight)
 
-    weighted = bump_weight * mean_square(outer) + mean_square(inner)
+    weighted = (bump_weight * mean_square(outer)
+                + mean_square(inner, inner_positive_weight))
     return math.sqrt(weighted / (bump_weight + 1.0))
 
 
@@ -431,6 +460,8 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
                 getattr(settings, "ROAD_CAMBER_BUMP_WEIGHTING", 4.0),
                 getattr(settings, "ROAD_CAMBER_TARGET", 0.0),
                 sweep_name,
+                # 1 (symmetric) for a script that predates it.
+                getattr(settings, "ROAD_CAMBER_INNER_POSITIVE_WEIGHTING", 1.0),
             )
         elif metric == "camber_gain":
             # Its own bump weight, so camber and scrub can be tuned apart.

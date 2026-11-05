@@ -17,6 +17,11 @@ All notable changes to this project will be documented in this file.
 - Optimizer: `road_camber` objective (`opt/reduce.py: road_camber_score`) and
   per-drive `SWEEP_LIMITS` (`travel` / `damper` / `rack`), see
   `Working/nonunderleg4.py`.
+- Optimizer: `ROAD_CAMBER_INNER_POSITIVE_WEIGHTING` — the inner wheel's squared
+  road-camber error is multiplied by it where the wheel is above
+  `ROAD_CAMBER_TARGET`, so positive inner camber in a turn costs more than
+  negative. Set to 3 in `nonunderleg4.py`; defaults to 1 (symmetric) for scripts
+  that do not set it.
 
 ### Changed
 
