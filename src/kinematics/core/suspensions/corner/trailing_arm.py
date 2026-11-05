@@ -116,6 +116,7 @@ CENTERED_SUPPRESSED: frozenset[str] = frozenset(
         # Wheel-axis angles whose sign convention mirrors about a vehicle side.
         # A transverse pivot holds all three at their design values anyway.
         "camber",
+        "road_camber",
         "toe_angle",
         "steer_angle",
         # Lateral position and the front-view swing arm, both measured from the

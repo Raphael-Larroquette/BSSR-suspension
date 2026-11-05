@@ -180,6 +180,23 @@ def joint_force_score(solved):
     return weights["mean"] * forces.mean() + weights["max"] * forces.max()
 
 
+def _travel_ends(limits):
+    """Wheel-travel extremes a SWEEP_LIMITS entry asks for, in either form.
+
+    ``{"start", "stop"}`` gives them directly. The per-drive form gives them
+    under ``travel`` as ``(a, b)`` or ``{side: (a, b)}``; the extremes over every
+    side are what an extrapolation has to reach.
+    """
+    if "start" in limits or "stop" in limits:
+        return [limits[k] for k in ("start", "stop") if k in limits]
+    travel = limits.get("travel")
+    if travel is None:
+        return []
+    spans = travel.values() if isinstance(travel, dict) else [travel]
+    values = [float(v) for span in spans for v in span]
+    return [min(values), max(values)] if values else []
+
+
 def min_damper_length(analysis, sweep_name=""):
     """
     Shortest damper length (mm) over the sweep, both sides.
@@ -193,8 +210,7 @@ def min_damper_length(analysis, sweep_name=""):
     settings = current_settings()
     frames = usable_frames(analysis, sweep_name)
     worst = math.inf
-    limits = getattr(settings, "SWEEP_LIMITS", {}).get(sweep_name, {})
-    ends = [limits[k] for k in ("start", "stop") if k in limits]
+    ends = _travel_ends(getattr(settings, "SWEEP_LIMITS", {}).get(sweep_name, {}))
 
     for side in frames[0].corner_metrics:
         travel = np.array([f.corner_metrics[side]["wheel_travel"] for f in frames])
@@ -289,6 +305,80 @@ def min_camber_gain(analysis, sweep_name=""):
     return float(min(curve.min() for curve in curves.values()))
 
 
+def _corner_sides(frames):
+    """Return (outer, inner) side names for a cornering sweep.
+
+    Which wheel is outer is a property of the TURN: ISO steer is positive for a
+    left turn, whose outer wheel is the right. Read at the frame of largest
+    mean steer, so the near-centre frames of a ramp, where the sign is noise,
+    cannot flip it. Same rule as the report (susreport._add_corner_roles), so
+    the objective scores the wheel the report labels outer.
+
+    Raises:
+        ValueError: if the rack never moves (no turn), or if the outer wheel is
+            in droop at that frame - the sweep is rolled the wrong way for its
+            steer, so it is a transient, not a corner, and scoring it would
+            push the design the wrong way. This is a run.yaml mistake, not a
+            property of the candidate, so it fails every candidate the same.
+    """
+    mean = [0.5 * (f.corner_metrics["left"]["steer_angle"]
+                   + f.corner_metrics["right"]["steer_angle"]) for f in frames]
+    at = int(np.argmax(np.abs(mean)))
+    if abs(mean[at]) < 1e-6:
+        raise ValueError("road_camber needs a steered sweep: the rack never moves")
+    outer, inner = ("right", "left") if mean[at] > 0.0 else ("left", "right")
+    if frames[at].corner_metrics[outer]["wheel_travel"] < -1e-6:
+        raise ValueError(
+            f"road_camber: the sweep turns towards the {inner} but the {outer} "
+            "(outer) wheel is in droop - it is rolled the wrong way for its "
+            "steer. Flip its travel signs in run.yaml."
+        )
+    return outer, inner
+
+
+def road_camber_score(analysis, bump_weight, target=0.0, sweep_name=""):
+    """
+    Weighted RMS road camber over a cornering sweep, deg (minimise).
+
+    For each wheel, the mean square of its deviation from ``target`` over the
+    sweep:
+
+        ms = (1 / span) * integral of (road_camber(x) - target)^2 dx
+
+    where x is that wheel's own vertical travel - or the rack, in a sweep that
+    holds the wheels still (09). Squared so a positive and a negative region
+    cannot cancel; normalised by the span so the score does not change scale
+    when the sweep's endpoints or step count change. In 10_corner_ramp travel
+    and rack ramp together linearly, so the two abscissae give the same number.
+
+    The wheels are then combined with the outer (loaded, in-bump) wheel
+    weighted ``bump_weight`` and the inner wheel 1, and divided by the total
+    weight, so the result is still a mean square; its square root is returned
+    to read in degrees. The root is monotonic, so the Pareto front is the
+    same either way.
+
+    road_camber is ISO 8855 inclination signed like camber - see
+    kinematics.core.metrics.steering_geometry.calculate_road_camber.
+    """
+    frames = usable_frames(analysis, sweep_name)
+    outer, inner = _corner_sides(frames)
+
+    def mean_square(side):
+        x = np.array([f.corner_metrics[side]["wheel_travel"] for f in frames])
+        if np.ptp(x) < 1e-6:
+            x = np.array([f.metrics["rack_displacement"] for f in frames])
+        y = np.array([f.corner_metrics[side]["road_camber"] for f in frames])
+        order = np.argsort(x)
+        x, err = x[order], (y[order] - target) ** 2
+        span = x[-1] - x[0]
+        if span <= 0:
+            return float(err.mean())
+        return float(np.trapezoid(err, x)) / span
+
+    weighted = bump_weight * mean_square(outer) + mean_square(inner)
+    return math.sqrt(weighted / (bump_weight + 1.0))
+
+
 def travel_integral(
     analysis, key: str, bump_weight: float = 1.5, sweep_name=""
 ) -> float:
@@ -333,6 +423,14 @@ def reduce_outcomes(analyses, objectives_cfg, constraints_cfg, bump_weight):
         elif metric == "bump_scrub":
             outcomes[obj_name] = travel_integral(
                 analysis, "half_track", bump_weight, sweep_name
+            )
+        elif metric == "road_camber":
+            settings = current_settings()
+            outcomes[obj_name] = road_camber_score(
+                analysis,
+                getattr(settings, "ROAD_CAMBER_BUMP_WEIGHTING", 4.0),
+                getattr(settings, "ROAD_CAMBER_TARGET", 0.0),
+                sweep_name,
             )
         elif metric == "camber_gain":
             # Its own bump weight, so camber and scrub can be tuned apart.

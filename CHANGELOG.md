@@ -4,7 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`road_camber` corner metric** (deg). Camber relative to the axle-local road
+  plane rather than the chassis: the magnitude of ISO 8855 §7.1.16 inclination
+  angle, `-asin(a_outboard · n_road)`, which is measured about the tyre X axis and
+  so is unaffected by steer. **Deviates from ISO in sign**: mirrored like camber
+  (negative = top inboard, both sides), so `road_camber = -side_sign ×
+  inclination`. Equal to `camber` on a level road with the wheel straight ahead.
+  Suppressed on centreline trailing arms, like `camber`. Exported in every CSV,
+  so the e2e reference files must be regenerated (`just regen-refs`).
+- Optimizer: `road_camber` objective (`opt/reduce.py: road_camber_score`) and
+  per-drive `SWEEP_LIMITS` (`travel` / `damper` / `rack`), see
+  `Working/nonunderleg4.py`.
+
 ### Changed
+
+- Reporter: `camber_road` / `camber_road_lr` (parser-derived `camber - roll`,
+  which used the wheel-centre roll and folded steer camber in) are replaced by
+  `road_camber` / `road_camber_lr`, read straight from the solver, plus
+  `road_camber_oi` (outer / inner wheel) for the cornering sweeps.
+- Front sweeps `09_steer_in_roll` and `10_corner_ramp` corrected: they rolled the
+  car the wrong way for the steer (rack +y is a right turn, so the LEFT wheel is
+  outer and goes into bump). 09 now covers only the physical half of the rack.
+  Reports and CSVs of 09/10 from before this change are invalid.
+- `opt/solve.py`: the single `{start, stop}` form of `SWEEP_LIMITS` now refuses a
+  sweep that moves more than one drive, instead of applying the same numbers to
+  wheel travel and rack.
 
 - **Motion ratio redefined.** `motion_ratio` is now MR = wheel travel / damper
   travel; what was previously called motion ratio (damper / wheel) is now

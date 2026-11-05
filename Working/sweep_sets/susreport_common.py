@@ -129,7 +129,7 @@ class Channel:
 
     key: str
     label: str
-    kind: str            # "single" | "pair" | "axle"
+    kind: str            # "single" | "pair" | "roles" | "axle"
     column: str          # template; "{side}" is substituted for sided channels
     note: str = ""
     # Report only the design-condition value, leaving min/max/range blank. For
@@ -149,6 +149,14 @@ class Channel:
                 (self.column.format(side="_left"), "left", C_L),
                 (self.column.format(side="_right"), "right", C_R),
             ]
+        if self.kind == "roles":
+            # Outer and inner wheel of a corner. Which physical side each is
+            # depends on the turn direction, so the reporter derives these
+            # columns per sweep and says which side is outer in its notes.
+            return [
+                (self.column.format(role="outer"), "outer", C_L),
+                (self.column.format(role="inner"), "inner", C_R),
+            ]
         if self.kind == "single":
             return [(self.column.format(side=side), self.label, C_L)]
         return [(self.column, self.label, C_N)]
@@ -162,6 +170,14 @@ def single(key, label, column, note="", design_only=False):
 def pair(key, label, column, note=""):
     """A left-and-right channel. Axle models only."""
     return Channel(key, label, "pair", column, note)
+
+
+def roles(key, label, column, note=""):
+    """An outer-and-inner-wheel channel for cornering sweeps. Axle models only.
+
+    `column` holds "{role}", substituted with "outer" and "inner".
+    """
+    return Channel(key, label, "roles", column, note)
 
 
 def axle(key, label, column, note=""):
@@ -338,6 +354,13 @@ def _compact_rows(rows: list[int]) -> str:
 # ==========================================================================
 # 6. Characteristic extraction
 # ==========================================================================
+def _base_label(label: str) -> str:
+    """Drop the "(left/right)" or "(outer/inner)" suffix from a channel label."""
+    for suffix in (" (left/right)", " (outer/inner)"):
+        label = label.replace(suffix, "")
+    return label
+
+
 def summarise(sw: Sweep, side: str, keys: list[str],
               channels: dict[str, Channel]) -> pd.DataFrame:
     """Build a tidy summary table for one sweep, in the configured order.
@@ -361,8 +384,8 @@ def summarise(sw: Sweep, side: str, keys: list[str],
             clean = clean.replace([np.inf, -np.inf], np.nan).dropna()
             if clean.empty:
                 continue
-            name = (f"{channel.label.split(' (left/right)')[0]} ({label})"
-                    if channel.kind == "pair" else channel.label)
+            name = (f"{_base_label(channel.label)} ({label})"
+                    if channel.kind in ("pair", "roles") else channel.label)
             at_design = full.iloc[i0] if i0 in full.index else np.nan
             blank = channel.design_only
             rows.append({
@@ -405,7 +428,7 @@ def plot_sweep(sw: Sweep, side: str, keys: list[str],
                   if s[0] in d.columns and not d[s[0]].isna().all()]
         if not series:
             continue
-        title = channel.label.replace(" (left/right)", "")
+        title = _base_label(channel.label)
         panels.append((title, series, sw.unit(series[0][0])))
 
     if not panels:
@@ -659,18 +682,15 @@ def add_corner_derived(sw: Sweep, sides: tuple[str, ...]) -> None:
 def _add_corner_derived(sw: Sweep, sides: tuple[str, ...]) -> None:
     d = sw.data
     for side in sides:
-        cam = f"camber{side}"
         sao = f"steering_axis_offset_ground{side}"
         trail = f"mechanical_trail{side}"
         dmp = f"damper_length{side}"
 
-        # --- Road-relative camber -------------------------------------
-        # The solver exports camber relative to the CHASSIS. What the tyre
-        # actually sees is folded with body roll. Only an axle model has a
-        # roll column, so this is silently absent on a corner.
-        if cam in d.columns and "roll" in d.columns:
-            d[f"camber_road{side}"] = d[cam] - d["roll"]
-            sw.units[f"camber_road{side}"] = "deg"
+        # Road-relative camber is no longer derived here. It was `camber -
+        # roll`, which used the wheel-centre line rather than the road plane
+        # and, being measured about chassis X, folded steer camber in. The
+        # solver now exports `road_camber` directly (ISO 8855 inclination,
+        # signed like camber); see CHARACTERISTICS.md.
 
         # --- Signed scrub radius --------------------------------------
         # `scrub_radius` in the CSV is the ISO 8855 unsigned road-plane

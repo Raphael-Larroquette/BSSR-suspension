@@ -18,7 +18,8 @@ right side by side — what you want in a roll or steer sweep.
 | Channel | Characteristic | Unit | Best source | Notes |
 | --- | --- | --- | --- | --- |
 | `camber` | camber | deg | 01, 02 | **Chassis-relative** |
-| `camber_road` | camber, road-relative | deg | 02 | Parser-derived: `camber − roll`. This is what the tyre sees |
+| `road_camber` | camber, road-relative | deg | 02, 09, 10 | **What the tyre sees.** Solver column: ISO 8855 §7.1.16 inclination, measured about the tyre X axis (so steer does not leak in), but **signed like camber** (negative = top inboard, both sides): `road_camber = −side_sign × inclination`. Equals `camber` on a level road with the wheel straight. Replaces the old parser-derived `camber_road` (`camber − roll`) |
+| `road_camber_oi` | road camber, outer / inner wheel | deg | 09, 10 | The same column relabelled by the turn: ISO steer > 0 is a left turn, so the right wheel is outer. The report notes which side is outer, and flags a sweep rolled the wrong way for its steer (outer wheel in droop). Axle models only |
 | `caster` | caster | deg | 01, 04 | |
 | `kpi` | kingpin inclination | deg | 01, 04 | |
 | `toe` | toe (positive = toe-in) | deg | 01, 02 | Project convention, **not** ISO |

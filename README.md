@@ -28,7 +28,7 @@ This is a fork of [suspension-explorer-core](https://github.com/suspension-explo
 | Trailing arm, centreline wheel | single corner, transverse pivot | **Exercised** (Aurora rear) |
 | Steering | translating rack, or fixed toe link (`type: none`) | **Exercised** |
 | Kinematic sweeps | bump, roll, steer, held-attitude, ramp, damper-driven | **Exercised** |
-| Characteristics | camber, toe, caster, KPI, scrub, trail, track, ICs/swing arms, roll centre, motion ratio, anti-geometry, analytic gradients | **Exercised** |
+| Characteristics | camber, road camber, toe, caster, KPI, scrub, trail, track, ICs/swing arms, roll centre, motion ratio, anti-geometry, analytic gradients | **Exercised** |
 | Bearing misalignment | per declared joint, incl. install offset and locked/free band | **Exercised** |
 | Static joint forces | every joint, per load case, grouped by part | **Exercised** (3 contact patches only) |
 | Output | CSV, Parquet, XLSX; plots and GIF/MP4 animations | **Exercised** (CSV, PNG, GIF) |
@@ -52,7 +52,12 @@ This is a fork of [suspension-explorer-core](https://github.com/suspension-explo
 - One axle at a time. A single axle cannot determine whole-vehicle pitch, yaw or
   longitudinal position, so those are set to zero rather than inferred.
 - A straight, level road. No grade, bank or non-planar surface.
-- Camber is chassis-relative. Road-relative wheel inclination is **not** exported.
+- `camber` is chassis-relative (ISO 8855 §7.1.17, about the vehicle X axis). `road_camber`
+  is road-relative: ISO §7.1.16 inclination angle, measured about the tyre X axis so steer
+  does not leak into it, but **signed like camber** (negative = top inboard on both sides)
+  rather than ISO's unmirrored right-hand sign: `road_camber = -side_sign × inclination`.
+  The road is the plane tangent to both wheels, so in roll it tilts against the fixed
+  chassis; that tilt is a kinematic quantity, not body roll.
 - Sweeps are 1-D paths, not grids. Targets pair by index; there is no Cartesian product
   anywhere. A 2-D surface needs one run per attitude, stitched afterwards.
 - A sweep drives exactly one target per degree of freedom at every step — every corner

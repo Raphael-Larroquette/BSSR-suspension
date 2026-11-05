@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 
 import susreport_common as C
-from susreport_common import Channel, Sweep, axle, pair, single
+from susreport_common import Channel, Sweep, axle, pair, roles, single
 
 TITLE = "Front axle characteristic report"
 
@@ -52,7 +52,7 @@ ACKERMANN_MIN_IDEAL_DELTA_DEG = 0.25
 CHANNELS: dict[str, Channel] = {c.key: c for c in [
     # --- corner, single side -------------------------------------------
     single("camber", "Camber", "camber{side}"),
-    single("camber_road", "Camber, road-relative", "camber_road{side}"),
+    single("road_camber", "Road camber", "road_camber{side}"),
     single("caster", "Caster", "caster{side}"),
     single("kpi", "Kingpin inclination", "kpi{side}"),
     single("toe", "Toe (positive = toe-in)", "toe_angle{side}"),
@@ -100,8 +100,10 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
 
     # --- left/right pairs (roll and steer sweeps) ----------------------
     pair("camber_lr", "Camber (left/right)", "camber{side}"),
-    pair("camber_road_lr", "Camber, road-relative (left/right)",
-          "camber_road{side}"),
+    pair("road_camber_lr", "Road camber (left/right)", "road_camber{side}"),
+    # Outer/inner wheel of a corner, derived per sweep from the turn direction.
+    # Only defined where the rack moves and the wheels sit off design height.
+    roles("road_camber_oi", "Road camber (outer/inner)", "road_camber_{role}"),
     pair("caster_lr", "Caster (left/right)", "caster{side}"),
     pair("kpi_lr", "Kingpin inclination (left/right)", "kpi{side}"),
     pair("toe_lr", "Toe (left/right)", "toe_angle{side}"),
@@ -177,8 +179,8 @@ PRESETS: dict[str, list[str]] = {
     # 09: a steer sweep held at a roll attitude. Same channels as a steer
     # sweep plus the roll-specific ones, since the axle is rolled throughout.
     "steer_in_roll": [
-        "camber_lr", "caster_lr", "toe_lr", "scrub_signed", "trail",
-        "half_track", "track_change", "damper_length", "rc_height",
+        "road_camber_oi", "camber_lr", "caster_lr", "toe_lr", "scrub_signed",
+        "trail", "half_track", "track_change", "damper_length", "rc_height",
         "rc_lateral", "body_roll", "rack", "ackermann", "steering_ratio",
     ],
     # 10: roll and steer ramp together, so both families are meaningful and
@@ -187,9 +189,9 @@ PRESETS: dict[str, list[str]] = {
     # absent: with roll and rack ramping together they would be derivatives
     # along the path, not with respect to roll. Take those from 02.
     "roll_ramp_at_steer": [
-        "camber_lr", "caster_lr", "toe_lr", "scrub_signed", "half_track",
-        "track_change", "motion_ratio", "install_ratio", "rc_height",
-        "rc_lateral",
+        "road_camber_oi", "camber_lr", "caster_lr", "toe_lr", "scrub_signed",
+        "half_track", "track_change", "motion_ratio", "install_ratio",
+        "rc_height", "rc_lateral",
         "body_roll", "rack", "ackermann", "steering_ratio",
     ],
     "damper_stroke": [
@@ -282,17 +284,18 @@ def classify(sw: Sweep) -> None:
                     roll = (float(d["roll"].iloc[0]) if "roll" in d.columns
                             else float("nan"))
                     sw.kind = "steer_in_roll"
-                    sw.notes.append(
-                        f"Held at {tv_l:+.1f}/{tv_r:+.1f} mm wheel travel "
-                        f"({roll:+.2f} deg roll) - this is a ROLLED sweep. "
-                        "Roll is held in ONE direction while the rack sweeps "
-                        "both, so only the half that steers into the roll is a "
-                        "real cornering state; the other half is the car "
-                        "rolled one way and steered the other, which happens "
-                        "only in a transient. Expect the two halves to "
-                        "disagree - that asymmetry is the point of the sweep, "
-                        "not an error."
-                    )
+                    note = (f"Held at {tv_l:+.1f}/{tv_r:+.1f} mm wheel travel "
+                            f"({roll:+.2f} deg roll) - this is a ROLLED sweep.")
+                    r = d[rack].to_numpy(float) if rack in d.columns else None
+                    if r is not None and r.min() < -1e-2 and r.max() > 1e-2:
+                        note += (
+                            " Roll is held in ONE direction while the rack "
+                            "sweeps both, so only the half that steers into "
+                            "the roll is a real cornering state; the other "
+                            "half is the car rolled one way and steered the "
+                            "other, which happens only in a transient."
+                        )
+                    sw.notes.append(note)
                 else:
                     sw.notes.append(
                         f"Held at {tv_l:+.1f} mm wheel travel, not design height."
@@ -328,6 +331,7 @@ def add_derived(sw: Sweep, geometry: dict | None = None) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", pd.errors.PerformanceWarning)
         _add_axle_derived(sw, geometry)
+        _add_corner_roles(sw)
     sw.data = sw.data.copy()
 
 
@@ -435,6 +439,55 @@ def _add_axle_derived(sw: Sweep, geometry: dict | None) -> None:
                 d["steering_ratio_unitless"] = 360.0 / (
                     mm_per_turn * d["steer_per_rack_abs"].to_numpy(float))
             sw.units["steering_ratio_unitless"] = "-"
+
+
+def _add_corner_roles(sw: Sweep) -> None:
+    """Outer/inner wheel columns for a cornering sweep (09, 10).
+
+    Which wheel is outer is a property of the TURN, not of the frame: ISO steer
+    is positive for a left turn, whose outer wheel is the right. The direction
+    is read once, at the frame of largest steer, so the near-centre frames of a
+    ramp (where the sign is noise) are labelled consistently with the rest.
+
+    Also checks that the roll agrees with the steer: the outer wheel of a real
+    corner is in bump. A sweep rolled the wrong way for its steer is flagged in
+    the notes rather than refused - it still solves, it just is not a corner.
+    """
+    d = sw.data
+    needed = {"steer_angle_left", "steer_angle_right",
+              "wheel_travel_left", "wheel_travel_right"}
+    if not _steers(sw) or not needed <= set(d.columns):
+        return
+    travel_l = d["wheel_travel_left"].to_numpy(float)
+    travel_r = d["wheel_travel_right"].to_numpy(float)
+    if max(np.abs(travel_l).max(), np.abs(travel_r).max()) < 1e-3:
+        return  # straight-and-level steer: no roll, outer/inner says nothing
+
+    mean_steer = 0.5 * (d["steer_angle_left"].to_numpy(float)
+                        + d["steer_angle_right"].to_numpy(float))
+    at = int(np.nanargmax(np.abs(mean_steer)))
+    left_turn = mean_steer[at] > 0.0
+    outer, inner = ("right", "left") if left_turn else ("left", "right")
+    turn = "left" if left_turn else "right"
+
+    outer_travel = (travel_r if left_turn else travel_l)[at]
+    if outer_travel < 0.0:
+        sw.notes.append(
+            f"**Rolled the wrong way for its steer.** This is a {turn} turn, so "
+            f"the {outer.upper()} wheel is outer and should be in bump, but it "
+            f"is at {outer_travel:+.1f} mm. The frames are a transient, not a "
+            "corner; flip the travel signs in run.yaml."
+        )
+
+    sw.notes.append(
+        f"Outer/inner road camber: {turn} turn, so OUTER = {outer.upper()} "
+        f"wheel and INNER = {inner.upper()} wheel throughout."
+    )
+    for role, side in (("outer", outer), ("inner", inner)):
+        col = f"road_camber_{side}"
+        if col in d.columns:
+            d[f"road_camber_{role}"] = d[col]
+            sw.units[f"road_camber_{role}"] = "deg"
 
 
 def _steers(sw: Sweep) -> bool:

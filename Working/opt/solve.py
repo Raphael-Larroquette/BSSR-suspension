@@ -128,6 +128,95 @@ def load_runner():
     return _RUNNER
 
 
+def _limits_form(name, limits, range_groups):
+    """
+    Say which of the two SWEEP_LIMITS forms an entry uses, rejecting a mix.
+
+    * ``{"start": a, "stop": b}`` - one span, applied to every moving target
+      after generation (``_apply_limits``). Only for a sweep that moves ONE kind
+      of drive (01, 02, 04); see ``_check_single_drive``.
+    * ``{"travel": ..., "damper": ..., "rack": ...}`` - per drive, in exactly the
+      run.yaml vocabulary, merged into the run.yaml entry BEFORE generation
+      (``_override_drives``). Any subset of the keys; the rest keep run.yaml's
+      values. Required for a sweep that moves more than one drive (09, 10).
+    """
+    keys = set(limits)
+    span_keys = {"start", "stop"}
+    if keys and keys <= span_keys:
+        if keys != span_keys:
+            raise ValueError(
+                f"SWEEP_LIMITS['{name}'] needs both 'start' and 'stop', got "
+                f"{sorted(keys)}"
+            )
+        return "span"
+    unknown = keys - set(range_groups)
+    if keys & span_keys or unknown:
+        raise ValueError(
+            f"SWEEP_LIMITS['{name}'] mixes or misnames keys: {sorted(keys)}. "
+            f"Use either 'start'/'stop' or the run.yaml drive keys "
+            f"{list(range_groups)}, not both."
+        )
+    return "drives"
+
+
+def _override_drives(name, entry, limits):
+    """
+    Return a copy of a run.yaml sweep entry with SWEEP_LIMITS' drives merged in.
+
+    Values are written as run.yaml would write them: ``rack: (a, b)``, and
+    ``travel`` / ``damper`` as ``{left: (a, b), right: (a, b)}`` on an axle. A
+    side mapping is merged side by side, so ``{"travel": {"left": (0, 30)}}``
+    changes the left wheel and keeps run.yaml's right. The merged entry then
+    goes through the runner's own validation, so an override is checked exactly
+    as strictly as run.yaml itself.
+    """
+    if entry.get("file") is not None:
+        raise ValueError(
+            f"SWEEP_LIMITS['{name}'] overrides drives, but '{name}' is a "
+            "`file:` sweep, which is used verbatim. Edit that file instead."
+        )
+    merged = copy.deepcopy(entry)
+    for key, value in limits.items():
+        if key not in merged:
+            raise ValueError(
+                f"SWEEP_LIMITS['{name}'] sets '{key}', but run.yaml's '{name}' "
+                f"does not drive '{key}' (it drives "
+                f"{sorted(k for k in ('travel', 'damper', 'rack') if k in merged)})."
+            )
+        if isinstance(value, dict) and isinstance(merged[key], dict):
+            merged[key] = {**merged[key], **{s: list(v) for s, v in value.items()}}
+        elif isinstance(value, dict):
+            merged[key] = {s: list(v) for s, v in value.items()}
+        else:
+            merged[key] = list(value)
+    return merged
+
+
+def _check_single_drive(name, spec):
+    """
+    Refuse the single-span form on a sweep that moves more than one drive.
+
+    That form writes the same two numbers into every moving target, so on
+    10_corner_ramp it would drive the wheels to the rack's millimetres. Moving
+    targets of one type are fine (both wheels in 01 and 02).
+    """
+    moving = {
+        target.get("type")
+        for target in spec.get("targets", [])
+        if target.get("start") is not None
+        and target.get("stop") is not None
+        and target["start"] != target["stop"]
+    }
+    if len(moving) > 1:
+        raise ValueError(
+            f"SWEEP_LIMITS['{name}'] uses the single start/stop form, but "
+            f"'{name}' moves {len(moving)} kinds of drive ({sorted(moving)}). "
+            "Give each drive its own range instead, in run.yaml's vocabulary, "
+            "e.g. {'travel': {'left': (0, 25), 'right': (0, -25)}, "
+            "'rack': (0, 35)}."
+        )
+
+
 def _apply_limits(spec, limits):
     """
     Narrow a generated sweep to the optimisation range, in place.
@@ -199,6 +288,13 @@ def build_sweep_spec(name, car=None, axle=None):
             stacklevel=2,
         )
 
+    limits = (getattr(settings, "SWEEP_LIMITS", {}) or {}).get(name)
+    form = None
+    if limits is not None:
+        form = _limits_form(name, limits, runner.RANGE_GROUPS)
+        if form == "drives":
+            entry = _override_drives(name, entry, limits)
+
     with tempfile.TemporaryDirectory() as scratch:
         outdir = Path(scratch)
         source = entry.get("file")
@@ -211,9 +307,9 @@ def build_sweep_spec(name, car=None, axle=None):
             written = runner.generate_sweep_file(name, entry, drives, outdir)
         spec = yaml.safe_load(Path(written).read_text(encoding="utf-8"))
 
-    limits = getattr(settings, "SWEEP_LIMITS", {})
-    if name in limits:
-        _apply_limits(spec, limits[name])
+    if form == "span":
+        _check_single_drive(name, spec)
+        _apply_limits(spec, limits)
 
     # Optimiser-only step count. run.yaml's own count is what the reports
     # solve at; the search reads far fewer frames than it solves, so paying for
