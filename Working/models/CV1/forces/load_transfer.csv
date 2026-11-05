@@ -3,10 +3,10 @@
 # units: N, N-mm | sign: force acting ON the named part AT that joint
 # mass: 291.6 kg | g: 9.80665 | wheelbase: 2240.0 mm
 # worst condition number: 8.073e+02
-# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV1\forces.yaml sha256=abafc686ec6883b71f8bfa9b2ce88f48a0bb21e0a0f3601ea15616cc25f58f66
-# front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV1\front.yaml sha256=d0141143db174f871ffb42312edcd6f662a0c88921656a10d71978a03ca8fae1
-# rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV1\rear.yaml sha256=b4c6641a8a39f2ab4b07c58b474024ec4a4bb297487df4cb88c1e1fca6fcf3f4
-# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=6bd32b6ff20a9a67abc5168c60ceb98a75969bd8d6750a8dd80ab2e36a075018
+# config: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV1\forces.yaml sha256=abafc686ec6883b71f8bfa9b2ce88f48a0bb21e0a0f3601ea15616cc25f58f66
+# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV1\front.yaml sha256=d0141143db174f871ffb42312edcd6f662a0c88921656a10d71978a03ca8fae1
+# rear: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV1\rear.yaml sha256=b4c6641a8a39f2ab4b07c58b474024ec4a4bb297487df4cb88c1e1fca6fcf3f4
+# cases: C:\Users\General\Desktop\BSSR-suspension\Working\cases.csv sha256=6bd32b6ff20a9a67abc5168c60ceb98a75969bd8d6750a8dd80ab2e36a075018
 # normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g
 # transfer_from_baseline_N is measured against the same case with brake and corner set to zero, so a pure bump case reads zero
 #

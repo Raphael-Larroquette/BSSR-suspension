@@ -3,10 +3,10 @@
 # units: N, N-mm | sign: force acting ON the named part AT that joint
 # mass: 294.5 kg | g: 9.80665 | wheelbase: 2240.0 mm
 # worst condition number: 7.982e+02
-# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\forces.yaml sha256=e2e77fd8e72df4814f74751a6375d2f671934b6972d8ce5c387d6d8a9d364d2b
-# front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\front.yaml sha256=cb337c0f10b46555e7a36eb355299bd76baae328d2deb19d10fe4d2943dee045
-# rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\rear.yaml sha256=b9bec0def418f070f87c122e84305e3dd1a89d1091caa7b602b40f24402bbef5
-# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=6bd32b6ff20a9a67abc5168c60ceb98a75969bd8d6750a8dd80ab2e36a075018
+# config: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\forces.yaml sha256=e2e77fd8e72df4814f74751a6375d2f671934b6972d8ce5c387d6d8a9d364d2b
+# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\front.yaml sha256=cb337c0f10b46555e7a36eb355299bd76baae328d2deb19d10fe4d2943dee045
+# rear: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\rear.yaml sha256=b9bec0def418f070f87c122e84305e3dd1a89d1091caa7b602b40f24402bbef5
+# cases: C:\Users\General\Desktop\BSSR-suspension\Working\cases.csv sha256=6bd32b6ff20a9a67abc5168c60ceb98a75969bd8d6750a8dd80ab2e36a075018
 #
 PART:,Lower Wishbone
 Case,,,,lower_wishbone_inboard_front,,,,lower_wishbone_inboard_rear,,,,lower_wishbone_outboard,,,,strut_bottom,,,,flags
@@ -105,7 +105,7 @@ bump,brake,corner,side,x,y,z,mag,x,y,z,mag,x,y,z,mag,x,y,z,mag,
 2,1,-1,centre,-2185.386,0.0,-2185.386,3090.602,-188.374,-324.036,292.695,475.557,3021.832,-324.036,596.545,3097.15,-648.073,648.073,1296.145,1587.447,
 2,0,1,centre,-2206.499,0.0,-2206.499,3120.46,4285.699,448.655,3619.62,5627.624,-2079.201,448.655,-3207.74,3848.891,-0.0,-897.309,1794.619,2006.445,
 2,0,-1,centre,-2206.499,0.0,-2206.499,3120.46,-891.086,-448.655,-225.006,1022.718,3097.585,-448.655,636.886,3194.048,-0.0,897.309,1794.619,2006.445,
-2,1,0,centre,-2185.386,0.0,-2185.386,3090.602,1681.066,-0.0,1681.066,2377.386,1152.392,0.0,-791.825,1398.212,-648.073,-0.0,1296.145,1449.134,
+2,1,0,centre,-2185.386,0.0,-2185.386,3090.602,1681.066,0.0,1681.066,2377.386,1152.392,0.0,-791.825,1398.212,-648.073,-0.0,1296.145,1449.134,
 6,0,0,centre,-6619.496,0.0,-6619.496,9361.381,5091.92,-0.0,5091.92,7201.062,1527.576,0.0,-3856.281,4147.817,-0.0,-0.0,5383.857,5383.857,
 4,1,0,centre,-4505.675,0.0,-4505.675,6371.987,3465.904,-0.0,3465.904,4901.529,1812.462,0.0,-2050.993,2737.077,-772.691,-0.0,3090.764,3185.887,
 
