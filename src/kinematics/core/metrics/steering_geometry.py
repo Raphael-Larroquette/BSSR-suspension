@@ -8,6 +8,7 @@ local road datum directly and do not require the inferred vehicle pose.
 
 from __future__ import annotations
 
+from math import asin, degrees
 from typing import TYPE_CHECKING
 
 from kinematics.core.primitives.constants import EPS_GEOMETRIC
@@ -111,3 +112,40 @@ def calculate_mechanical_trail(ctx: MetricContext) -> float | None:
         return None
     longitudinal, _ = axes
     return float(displacement.dot(longitudinal))
+
+
+def calculate_road_camber(ctx: MetricContext) -> float:
+    """Return road-relative camber in degrees.
+
+    This is the magnitude of ISO 8855:2011 inclination angle (§7.1.16): the
+    angle between the road normal ``Z_T`` and the wheel plane, measured about
+    the tyre axis ``X_T`` (the line where the wheel plane meets the road
+    plane). Because ``X_T`` turns with the wheel, steer does not leak into it,
+    which is how it differs from :func:`calculate_camber` (ISO §7.1.17, measured
+    about the vehicle ``X_V`` axis against chassis +Z).
+
+    **Deliberate deviation from ISO: the sign is mirrored like camber.** ISO
+    signs inclination as a right-hand rotation about ``X_T`` for every wheel,
+    so the same outward lean reads negative on the left and positive on the
+    right. Here, as for camber, negative means the top of the wheel leans in
+    towards the vehicle centreline and positive means it leans out, on both
+    sides. The two are related by ``road_camber = -side_sign * inclination``
+    (side_sign +1 left, -1 right).
+
+    The wheel plane is normal to the spin axis, so the wheel is upright on the
+    road exactly when the outboard spin axis ``a`` is perpendicular to the road
+    normal ``n``. Any lean shows up as a component of ``a`` along ``n``: the
+    outboard end of the axle drops when the top of the wheel leans out, so
+
+        road_camber = -asin(a . n)
+
+    with ``a`` from inboard to outboard and ``n`` the upward normal of the
+    axle-local road plane, both in chassis coordinates. No side sign is needed.
+
+    On a level road with the wheel straight ahead this equals ``camber``. The
+    road plane is the one tangent to both wheel discs, so it tilts against the
+    chassis in an asymmetric (roll) state; that tilt is not body roll, because
+    the chassis is ground and no spring stiffness is modelled.
+    """
+    component = float(ctx.wheel_axis.dot(ctx.road.normal))
+    return degrees(-asin(max(-1.0, min(1.0, component))))

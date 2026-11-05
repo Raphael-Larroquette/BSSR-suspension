@@ -59,8 +59,8 @@ uv run python Working/run_all.py --sets front --geometry Working/models/gen14/fr
 | 06 | `06_steer_droop` | same, in droop | the other end of that comparison | on |
 | 07 | `07_bump_at_steer` | bump with the rack held off centre | the shape of the bump-steer curve while steered | **off** |
 | 08 | `08_damper_stroke` | damper length | usable wheel travel for a given damper stroke; the honest motion/install ratio | on |
-| 09 | `09_steer_in_roll` | rack lock to lock at a held roll attitude | mid-corner steering geometry; the only place Ackermann-in-roll is defined | on |
-| 10 | `10_corner_ramp` | roll and steer ramping together | one line through corner entry | on |
+| 09 | `09_steer_in_roll` | rack centre to full lock at a held roll attitude (right turn, left wheel outer) | mid-corner steering geometry; the only place Ackermann-in-roll is defined | on |
+| 10 | `10_corner_ramp` | roll and steer ramping together (right turn, left wheel outer) | one line through corner entry: a constant-speed corner; outer/inner road camber; read by the `road_camber` objective | on |
 
 **Why 03 is off.** Its left corner is numerically identical to 01 and its right
 corner is held, so it never sets a bearing requirement and produces no

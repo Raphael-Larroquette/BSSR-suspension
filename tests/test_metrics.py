@@ -803,6 +803,7 @@ def test_default_corner_metric_catalog_matches_trusted_set() -> None:
 
     expected = [
         "camber",
+        "road_camber",
         "caster",
         "kpi",
         "steering_axis_offset_ground",

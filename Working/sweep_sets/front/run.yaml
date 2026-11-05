@@ -146,10 +146,12 @@ sweeps:
       right: [-30, 30]
     rack: [0, 0]
 
-  # Lock to lock at a held roll attitude: mid-corner steering geometry, and the only
-  # place Ackermann-in-roll is defined.
-  # NOTE: roll is held one way while the rack sweeps both, so only half of this is a
-  # real cornering state. For the physical half only, set rack: [0, 35].
+  # Centre to full lock at a held roll attitude: mid-corner steering geometry, and
+  # the only place Ackermann-in-roll is defined.
+  # DIRECTION: rack +y steers the wheels RIGHT, so in this right turn the LEFT wheel
+  # is outer and is held in bump. Roll and steer must agree - the old lock-to-lock
+  # version also covered the car rolled one way and steered the other, which only
+  # happens in a transient, and was rolled the wrong way for its positive half.
   09_steer_in_roll:
     run: true
     report: true
@@ -157,12 +159,19 @@ sweeps:
     gif: true
     steps: 65
     travel:
-      left: [-25, -25]
-      right: [25, 25]
-    rack: [-35, 35]
+      left: [25, 25]
+      right: [-25, -25]
+    rack: [0, 35]
 
   # Roll and steer build together from straight-and-level to full roll at full lock:
   # one line through corner entry rather than a held attitude.
+  # DIRECTION: right turn (rack +y), so the LEFT wheel is outer and goes into bump.
+  # SHAPE: at constant speed a_y = v^2/R ~ v^2*delta/L, and roll is proportional to
+  # a_y, so roll grows linearly with steer - a linear ramp IS a constant-speed corner
+  # of tightening radius. The endpoint ratio picks the speed. Placeholder +/-25 mm
+  # at full lock until set from the roll gradient: phi = RG*v^2*delta_max/(g*L),
+  # travel = (track/2)*tan(phi), capped at the tyres' lateral grip.
+  # The optimiser's `road_camber` objective reads this sweep (nonunderleg4.py).
   10_corner_ramp:
     run: true
     report: true
@@ -170,6 +179,6 @@ sweeps:
     gif: true
     steps: 65
     travel:
-      left: [0, -25]
-      right: [0, 25]
+      left: [0, 25]
+      right: [0, -25]
     rack: [0, 35]
