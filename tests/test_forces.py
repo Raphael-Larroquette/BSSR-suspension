@@ -572,8 +572,28 @@ def _tyre_load(run, row):
     )
 
 
-def test_chassis_reactions_close_each_corner_against_its_tyre_load(suspensions):
-    """What the chassis feels and what the road applies balance, per corner."""
+def _rack_loads(run, row):
+    """Force the grounded rack applies to the suspension, at trackrod_inboard."""
+    return [
+        load
+        for block in run.solution.blocks
+        if block.part == "Track Rod"
+        for part_row in block.rows
+        if part_row.case == row.case and part_row.side == row.side
+        for load in part_row.loads
+        if load.name == "trackrod_inboard"
+    ]
+
+
+def test_chassis_and_rack_reactions_close_each_corner_against_its_tyre_load(
+    suspensions,
+):
+    """Road load + chassis reactions + rack reaction balance, per corner.
+
+    The rack is not in the chassis block, so a corner only closes with the
+    Track Rod's inboard load added back: front corners have exactly one, the
+    unsteered rear none.
+    """
     cases = [LoadCase(2, 1, 1), LoadCase(1, 0, -1), LoadCase(1, -1, 0)]
     run = solve_forces(suspensions, cases, MASS, GRAVITY)
     assert [block.part for block in run.solution.chassis] == [
@@ -583,15 +603,20 @@ def test_chassis_reactions_close_each_corner_against_its_tyre_load(suspensions):
     for block in run.solution.chassis:
         for row in block.rows:
             tyre = _tyre_load(run, row)
-            force = tyre.force - sum(load.force for load in row.loads)
-            moment = np.cross(tyre.position, tyre.force) - sum(
-                np.cross(load.position, load.force) for load in row.loads
+            rack = _rack_loads(run, row)
+            assert len(rack) == (1 if block.part == "Front Chassis" else 0)
+            on_suspension = [
+                (load.position, -load.force) for load in row.loads
+            ] + [(load.position, load.force) for load in rack]
+            force = tyre.force + sum(f for _, f in on_suspension)
+            moment = np.cross(tyre.position, tyre.force) + sum(
+                np.cross(r, f) for r, f in on_suspension
             )
             assert np.abs(force).max() < 1e-6
             assert np.abs(moment).max() < 1e-3
 
 
-def test_chassis_hardpoints_are_every_joint_onto_the_ground(suspensions):
+def test_chassis_hardpoints_are_the_chassis_points_only(suspensions):
     run = solve_forces(suspensions, [LoadCase(1, 0, 0)], MASS, GRAVITY)
     front, rear = run.solution.chassis
     assert set(front.columns) == {
@@ -600,8 +625,7 @@ def test_chassis_hardpoints_are_every_joint_onto_the_ground(suspensions):
         "upper_wishbone_inboard_front",
         "upper_wishbone_inboard_rear",
         "strut_top",
-        "trackrod_inboard",  # the grounded rack is part of the chassis
-    }
+    }  # no trackrod_inboard: the grounded rack is not the chassis
     assert set(rear.columns) == {
         "trailing_arm_pivot_a",
         "trailing_arm_pivot_b",

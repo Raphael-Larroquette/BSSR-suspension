@@ -155,6 +155,10 @@ class ForceGraph:
     joints: tuple[ForceJoint, ...]
     subsystems: tuple[Subsystem, ...]
     positions: Mapping[PointKey, object] = field(repr=False)
+    #: Points of the kinematic chassis itself, before ``structure.ground``
+    #: merged anything into it. A joint at one of these is a chassis
+    #: hardpoint; a joint on a grounded body (the steering rack) is not.
+    chassis_points: frozenset[PointKey] = frozenset()
 
     @property
     def ground(self) -> ForceBody:
@@ -204,11 +208,15 @@ def build_force_graph(
     bodies = _apply_policy(kinematic, policy, positions)
     joints = _find_joints(bodies, positions)
     _check_load_paths(bodies, joints)
+    chassis = next(
+        (body for body in kinematic if body.mode is RotationMode.GROUND), None
+    )
     return ForceGraph(
         bodies=bodies,
         joints=joints,
         subsystems=_partition(bodies, joints),
         positions=positions,
+        chassis_points=frozenset(chassis.points) if chassis else frozenset(),
     )
 
 

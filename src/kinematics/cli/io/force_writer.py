@@ -176,8 +176,8 @@ def _header_lines(
         lines.append(
             "Chassis blocks: force ON the chassis at each chassis hardpoint (the "
             "negative of the part-side load). They do not sum to zero. The "
-            "steering rack is grounded, so trackrod_inboard is the tie-rod load "
-            "into the rack, not the rack mount loads."
+            "steering rack is excluded: its load (Track Rod, trackrod_inboard) "
+            "reaches the chassis through rack mounts not modelled here."
         )
     for key, value in (options.metadata or {}).items():
         lines.append(f"{key}: {value}")

@@ -78,8 +78,9 @@ bump,brake,corner,side,x,y,z,mag,...
   `wheel_contact_centre (applied)` group; every part block sums to zero.
 - `Front Chassis` / `Rear Chassis`: force **on the chassis** at every chassis hardpoint
   (negative of the part-side load). Do not sum to zero. Never mirrored by `frame: part`.
-  The grounded rack counts as chassis: `trackrod_inboard` is the tie-rod load into the
-  rack, not the rack mount loads.
+  Only points of the chassis itself: bodies merged in by `structure.ground` (the rack)
+  are excluded. The tie-rod load into the rack is the Track Rod block's
+  `trackrod_inboard`; chassis + rack + tyre close each corner.
 - No moment columns today: every joint is force-only.
 
 `load_transfer.csv`: per wheel per case: `normal_load_N`, `effective_mass_kg`,

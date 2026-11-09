@@ -11,8 +11,9 @@ All notable changes to this project will be documented in this file.
   hardpoint (the negative of the part-side load), per case and side. Kept out of
   `ForceSolution.blocks` (as `ForceSolution.chassis`), so `--check` and the optimizer's
   `joint_force` objective are unchanged. Never mirrored by `output.frame: part`.
-  `output.chassis` (default `true`) switches them off. Gap: the grounded rack makes
-  `trackrod_inboard` the tie-rod load into the rack, not the rack mount loads.
+  `output.chassis` (default `true`) switches them off. Only points of the chassis
+  itself are reported: the grounded steering rack (`trackrod_inboard`) is excluded,
+  since its load reaches the chassis through rack mounts that are not modelled yet.
 - `Working/check.py [MODEL ...]`: a model folder must hold `front.yaml`, `rear.yaml` and
   `forces.yaml`, each geometry must build and the forces must solve. Replaces the
   per-model `check.py` copies. `run_all.py --dry-run` runs it on every planned model and

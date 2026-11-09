@@ -326,10 +326,12 @@ def _chassis_row_for_corner(
     Return the force one corner applies to the chassis, per chassis hardpoint.
 
     This is Newton's third law on the joints the corner shares with the
-    grounded body, so it is the negative of the part-side load at each of
-    them. Anything ``structure.ground`` merged into the chassis (the steering
-    rack, by default) is part of it here too: the rack's joints are reported,
-    not the rack-to-chassis mounts behind them.
+    chassis, so it is the negative of the part-side load at each of them.
+    Only points of the chassis itself count. A body ``structure.ground``
+    merged in (the steering rack, by default) is held fixed for the solve,
+    but its load reaches the chassis through mounts this model does not have,
+    so its joints (``trackrod_inboard``) are left out rather than reported as
+    if they were chassis hardpoints.
     """
     ground = corner.graph.ground.name
     loads = tuple(
@@ -339,7 +341,7 @@ def _chassis_row_for_corner(
             force=joint.sign_for(ground) * solution.forces[joint.name],
         )
         for joint in sorted(corner.subsystem.joints, key=lambda item: item.name)
-        if ground in joint.bodies
+        if ground in joint.bodies and joint.point in corner.graph.chassis_points
     )
     return PartCaseLoads(
         part=f"{corner.axle.value.title()} Chassis",
