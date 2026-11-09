@@ -49,7 +49,16 @@ class ForceWriteOptions:
 
     frame: OutputFrame = OutputFrame.VEHICLE
     moments: MomentReporting = MomentReporting.AUTO
+    chassis: bool = True
     metadata: dict[str, str] | None = None
+
+
+def _output_blocks(
+    solution: ForceSolution,
+    options: ForceWriteOptions,
+) -> tuple[PartBlock, ...]:
+    """Return every block to write: the parts, then the chassis if asked."""
+    return solution.blocks + (solution.chassis if options.chassis else ())
 
 
 def write_forces(
@@ -82,7 +91,7 @@ def write_per_part_files(
     """Write one flat CSV per part, for direct import into an FEA run."""
     directory.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    for block in solution.blocks:
+    for block in _output_blocks(solution, options):
         path = directory / f"{_slug(block.part)}.csv"
         components = _components_for(block, options)
         header = [
@@ -115,7 +124,7 @@ def _write_csv(
             handle.write(f"# {line}\n")
         handle.write("#\n")
         writer = csv.writer(handle, lineterminator="\n")
-        for block in solution.blocks:
+        for block in _output_blocks(solution, options):
             for row in _block_rows(block, options):
                 writer.writerow(row)
             writer.writerow([])
@@ -142,7 +151,7 @@ def _write_xlsx(
     for line in _header_lines(solution, options):
         sheet.append([f"# {line}"])
     sheet.append([])
-    for block in solution.blocks:
+    for block in _output_blocks(solution, options):
         for row in _block_rows(block, options):
             sheet.append(row)
         sheet.append([])
@@ -163,6 +172,13 @@ def _header_lines(
         f"wheelbase: {vehicle.wheelbase} mm",
         f"worst condition number: {solution.max_condition:.3e}",
     ]
+    if options.chassis and solution.chassis:
+        lines.append(
+            "Chassis blocks: force ON the chassis at each chassis hardpoint (the "
+            "negative of the part-side load). They do not sum to zero. The "
+            "steering rack is grounded, so trackrod_inboard is the tie-rod load "
+            "into the rack, not the rack mount loads."
+        )
     for key, value in (options.metadata or {}).items():
         lines.append(f"{key}: {value}")
     lines.extend(f"WARNING: {issue}" for issue in solution.diagnostics)
@@ -230,7 +246,11 @@ def _data_rows(
     rows: list[list[object]] = []
     for row in block.rows:
         by_name = {load.column_name: load for load in row.loads}
-        mirror = options.frame is OutputFrame.PART and row.side is Side.RIGHT
+        mirror = (
+            block.mirrorable
+            and options.frame is OutputFrame.PART
+            and row.side is Side.RIGHT
+        )
         cells: list[object] = [
             format_g(row.case.bump),
             format_g(row.case.brake),
@@ -263,7 +283,8 @@ def _vector_cells(vector: np.ndarray) -> list[float]:
     recalculation.
     """
     return [
-        *(round(float(value), 3) for value in vector),
+        # + 0.0 turns a negated zero into a plain one: "-0.0" reads as a sign.
+        *(round(float(value), 3) + 0.0 for value in vector),
         round(float(np.linalg.norm(vector)), 3),
     ]
 

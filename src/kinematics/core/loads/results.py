@@ -68,6 +68,9 @@ class PartBlock:
     part: str
     columns: tuple[str, ...]
     rows: tuple[PartCaseLoads, ...]
+    #: False for a chassis block: the chassis is one part, so its right-side
+    #: rows are never Y-mirrored by ``output.frame: part``.
+    mirrorable: bool = True
 
     @property
     def has_moments(self) -> bool:
@@ -134,11 +137,20 @@ class ForceSolution:
     cases: tuple[LoadCase, ...]
     blocks: tuple[PartBlock, ...]
     load_transfer: LoadTransfer
+    #: One block per axle: the force each corner applies TO the chassis at
+    #: every chassis hardpoint. Kept out of ``blocks`` because a chassis block
+    #: does not close (the chassis is not in equilibrium on its own) and
+    #: because ``blocks`` feeds the optimizer's joint_force objective.
+    chassis: tuple[PartBlock, ...] = ()
     diagnostics: tuple[str, ...] = ()
     max_condition: float = 0.0
 
 
-def build_blocks(rows: list[PartCaseLoads]) -> tuple[PartBlock, ...]:
+def build_blocks(
+    rows: list[PartCaseLoads],
+    *,
+    mirrorable: bool = True,
+) -> tuple[PartBlock, ...]:
     """
     Group solved rows into per-part blocks with a stable column set.
 
@@ -157,7 +169,12 @@ def build_blocks(rows: list[PartCaseLoads]) -> tuple[PartBlock, ...]:
                 if load.column_name not in columns:
                     columns.append(load.column_name)
         blocks.append(
-            PartBlock(part=part, columns=tuple(columns), rows=tuple(part_rows))
+            PartBlock(
+                part=part,
+                columns=tuple(columns),
+                rows=tuple(part_rows),
+                mirrorable=mirrorable,
+            )
         )
     return tuple(blocks)
 

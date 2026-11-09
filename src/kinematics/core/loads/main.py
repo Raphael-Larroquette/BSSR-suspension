@@ -170,6 +170,7 @@ def solve_forces(
     )
 
     rows: list[PartCaseLoads] = []
+    chassis_rows: list[PartCaseLoads] = []
     diagnostics: list[str] = []
     solved_patches: list[tuple[LoadCase, dict[str, PatchLoad]]] = []
     worst_condition = 0.0
@@ -205,18 +206,19 @@ def solve_forces(
             )
             worst_condition = max(worst_condition, solution.condition)
             rows.extend(_rows_for_corner(corner, case, solution, load, part_names))
+            chassis_rows.append(_chassis_row_for_corner(corner, case, solution, load))
 
-    rows.sort(
-        key=lambda row: (
-            cases.index(row.case),
-            _SIDE_ORDER[row.side],
-        )
-    )
+    def order(row: PartCaseLoads) -> tuple[int, int]:
+        return cases.index(row.case), _SIDE_ORDER[row.side]
+
+    rows.sort(key=order)
+    chassis_rows.sort(key=order)
     return ForceRun(
         solution=ForceSolution(
             vehicle=vehicle,
             cases=tuple(cases),
             blocks=build_blocks(rows),
+            chassis=build_blocks(chassis_rows, mirrorable=False),
             load_transfer=build_load_transfer(vehicle, solved_patches),
             diagnostics=tuple(diagnostics),
             max_condition=worst_condition,
@@ -312,6 +314,40 @@ def _rows_for_corner(
             )
         )
     return rows
+
+
+def _chassis_row_for_corner(
+    corner: CornerModel,
+    case: LoadCase,
+    solution: SubsystemSolution,
+    patch_load: PatchLoad,
+) -> PartCaseLoads:
+    """
+    Return the force one corner applies to the chassis, per chassis hardpoint.
+
+    This is Newton's third law on the joints the corner shares with the
+    grounded body, so it is the negative of the part-side load at each of
+    them. Anything ``structure.ground`` merged into the chassis (the steering
+    rack, by default) is part of it here too: the rack's joints are reported,
+    not the rack-to-chassis mounts behind them.
+    """
+    ground = corner.graph.ground.name
+    loads = tuple(
+        JointLoad(
+            name=base_joint_name(joint.name),
+            position=joint.position,
+            force=joint.sign_for(ground) * solution.forces[joint.name],
+        )
+        for joint in sorted(corner.subsystem.joints, key=lambda item: item.name)
+        if ground in joint.bodies
+    )
+    return PartCaseLoads(
+        part=f"{corner.axle.value.title()} Chassis",
+        side=corner.loaded_body.side,
+        case=case,
+        loads=loads,
+        flags=(WHEEL_LIFT,) if patch_load.lifted else (),
+    )
 
 
 def base_joint_name(name: str) -> str:

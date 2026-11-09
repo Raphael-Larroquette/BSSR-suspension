@@ -196,6 +196,7 @@ def run_force_files(
     options = ForceWriteOptions(
         frame=loaded.config.output.frame,
         moments=loaded.config.output.moments,
+        chassis=loaded.config.output.chassis,
         metadata=_provenance(loaded.paths),
     )
 
