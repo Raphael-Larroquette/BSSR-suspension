@@ -29,6 +29,7 @@ from kinematics.core.primitives.point_ref import (
     Side,
     point_key_name,
 )
+from kinematics.core.state import SuspensionState
 from kinematics.core.suspensions.base import Suspension
 
 # An axle qualifies both corners' body names with the side they belong to.
@@ -183,6 +184,7 @@ def point_side(key: PointKey) -> Side:
 def build_force_graph(
     suspension: Suspension,
     policy: StructurePolicy = DEFAULT_STRUCTURE,
+    state: SuspensionState | None = None,
 ) -> ForceGraph:
     """
     Build the structural graph for one loaded suspension.
@@ -190,6 +192,8 @@ def build_force_graph(
     Args:
         suspension: A loaded axle or corner model.
         policy: How to turn its kinematic bodies into structural parts.
+        state: The pose to build at; ``None`` is the design condition. Body
+            membership is topological, so only the joint positions move.
 
     Returns:
         The parts, their joints, and the independent subsystems they form.
@@ -198,7 +202,7 @@ def build_force_graph(
         ValueError: If a point is shared by more than two parts, or a part
             cannot transmit load because it has fewer than two joints.
     """
-    positions = suspension.initial_state().positions
+    positions = (state or suspension.initial_state()).positions
     assembly = suspension.assembly()
     kinematic = build_bodies(
         assembly.elements,

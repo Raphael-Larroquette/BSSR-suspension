@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from kinematics.core.enums import AxlePosition
 from kinematics.core.loads.cases import LoadCase
 from kinematics.core.loads.vehicle import VehicleModel
 from kinematics.core.primitives.point_ref import Side
@@ -54,6 +55,8 @@ class PartCaseLoads:
     case: LoadCase
     loads: tuple[JointLoad, ...]
     flags: tuple[str, ...] = ()
+    #: The axle this corner belongs to; lets a caller keep one axle's rows.
+    axle: AxlePosition | None = None
 
     @property
     def side_label(self) -> str:

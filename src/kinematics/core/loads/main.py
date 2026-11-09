@@ -44,7 +44,9 @@ from kinematics.core.loads.system import (
 )
 from kinematics.core.loads.unknowns import EVEN, UnknownCatalog, build_unknowns
 from kinematics.core.loads.vehicle import ContactPatch, VehicleModel, build_vehicle
+from kinematics.core.primitives.geometry import extract_array
 from kinematics.core.primitives.point_ref import Side
+from kinematics.core.state import SuspensionState
 from kinematics.core.suspensions.base import Suspension
 
 _SIDE_ORDER = {Side.LEFT: 0, Side.RIGHT: 1, Side.CENTER: 2}
@@ -63,7 +65,12 @@ class ForceModelOptions:
 
 @dataclass(frozen=True)
 class CornerModel:
-    """One subsystem, its unknowns, and the contact patch that loads it."""
+    """One subsystem, its unknowns, and the contact patch that loads it.
+
+    ``load_position`` is where the tyre load is applied: the contact patch at
+    the pose the graph was built at. At the design condition it is
+    ``patch.position``.
+    """
 
     axle: AxlePosition
     graph: ForceGraph
@@ -71,6 +78,7 @@ class CornerModel:
     catalog: UnknownCatalog
     patch: ContactPatch
     loaded_body: ForceBody
+    load_position: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -86,17 +94,27 @@ def build_corner_models(
     suspensions: Sequence[Suspension],
     vehicle: VehicleModel,
     options: ForceModelOptions = ForceModelOptions(),
+    poses: Sequence[SuspensionState | None] | None = None,
 ) -> tuple[CornerModel, ...]:
     """
     Build one solvable corner model per contact patch.
+
+    ``poses`` (aligned with ``suspensions``, ``None`` entries at design) moves
+    a model's joints and its contact patch to a solved sweep step. The vehicle,
+    and so each wheel's load, stays at the design condition.
 
     Raises:
         ValueError: If a contact patch is not carried by any structural part,
             or if a subsystem carries no wheel and therefore no load.
     """
+    if poses is not None and len(poses) != len(suspensions):
+        raise ValueError(
+            f"Got {len(poses)} pose(s) for {len(suspensions)} suspension(s)."
+        )
     corners: list[CornerModel] = []
-    for suspension in suspensions:
-        graph = build_force_graph(suspension, options.structure)
+    for index, suspension in enumerate(suspensions):
+        pose = poses[index] if poses is not None else None
+        graph = build_force_graph(suspension, options.structure, state=pose)
         patches = [
             patch
             for patch in vehicle.patches
@@ -130,6 +148,7 @@ def build_corner_models(
                     ),
                     patch=patch,
                     loaded_body=loaded,
+                    load_position=extract_array(graph.positions[patch.point]),
                 )
             )
     return tuple(corners)
@@ -141,6 +160,7 @@ def solve_forces(
     mass: float,
     gravity: float,
     options: ForceModelOptions = ForceModelOptions(),
+    poses: Sequence[SuspensionState | None] | None = None,
 ) -> ForceRun:
     """
     Solve every load case over every corner of the composed vehicle.
@@ -151,6 +171,9 @@ def solve_forces(
         mass: Total as-raced vehicle mass in kilograms.
         gravity: Gravitational acceleration in metres per second squared.
         options: Structure, axial-split, and numerical policy.
+        poses: Optional solved state per suspension (``None`` = design). Each
+            wheel's load is still found at the design condition (a constant
+            case load) and applied at the posed contact patch.
 
     Returns:
         The solved run, with the corner models retained for reporting.
@@ -159,7 +182,7 @@ def solve_forces(
         raise ValueError("A force solve needs at least one load case")
 
     vehicle = build_vehicle(suspensions, mass, gravity)
-    corners = build_corner_models(suspensions, vehicle, options)
+    corners = build_corner_models(suspensions, vehicle, options, poses)
     part_names = disambiguate_part_names(
         {
             (corner.axle.value, body.base_name): ""
@@ -198,7 +221,7 @@ def solve_forces(
                     ExternalLoad(
                         body=corner.loaded_body.name,
                         name=corner.patch.point_name,
-                        position=corner.patch.position,
+                        position=corner.load_position,
                         force=load.force,
                     ),
                 ),
@@ -299,7 +322,7 @@ def _rows_for_corner(
             loads.append(
                 JointLoad(
                     name=corner.patch.point_name,
-                    position=corner.patch.position,
+                    position=corner.load_position,
                     force=patch_load.force,
                     applied=True,
                 )
@@ -311,6 +334,7 @@ def _rows_for_corner(
                 case=case,
                 loads=tuple(loads),
                 flags=flags,
+                axle=corner.axle,
             )
         )
     return rows
@@ -349,6 +373,7 @@ def _chassis_row_for_corner(
         case=case,
         loads=loads,
         flags=(WHEEL_LIFT,) if patch_load.lifted else (),
+        axle=corner.axle,
     )
 
 

@@ -17,6 +17,7 @@ import numpy as np
 from kinematics.core.enums import MomentReporting, OutputFrame
 from kinematics.core.loads.cases import format_g
 from kinematics.core.loads.results import WHEEL_LIFT, ForceSolution, PartBlock
+from kinematics.core.loads.travel import ForceTravel
 from kinematics.core.primitives.point_ref import Side
 
 CASE_COLUMNS = ("bump", "brake", "corner", "side")
@@ -334,6 +335,61 @@ def write_load_transfer(
                     WHEEL_LIFT if share.lifted else "",
                 ]
             )
+
+
+FORCE_TRAVEL_COLUMNS = (
+    "step",
+    "wheel_travel",
+    "bump",
+    "brake",
+    "corner",
+    "side",
+    "part",
+    "joint",
+    "x",
+    "y",
+    "z",
+    "fx",
+    "fy",
+    "fz",
+    "f",
+    "flags",
+)
+
+
+def write_force_travel(travel: ForceTravel, path: Path) -> None:
+    """
+    Write forces along a sweep as one long table, one row per joint load.
+
+    Same conventions as ``forces.csv``: vehicle frame (ISO 8855), N and mm,
+    force acting ON the named part (``* Chassis``: on the chassis). Joint
+    positions are the posed ones. The applied tyre load is left out: it is the
+    same constant case load at every step.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(FORCE_TRAVEL_COLUMNS)
+        for row in travel.rows:
+            loads = row.loads
+            for load in loads.loads:
+                if load.applied:
+                    continue
+                writer.writerow(
+                    [
+                        row.step,
+                        round(row.wheel_travel, 3) + 0.0,
+                        format_g(loads.case.bump),
+                        format_g(loads.case.brake),
+                        format_g(loads.case.corner),
+                        loads.side_label,
+                        loads.part,
+                        load.name,
+                        *(round(float(v), 3) + 0.0 for v in load.position),
+                        *_vector_cells(load.force),
+                        ";".join(loads.flags),
+                    ]
+                )
 
 
 def _mirrored(force: np.ndarray, mirror: bool) -> np.ndarray:

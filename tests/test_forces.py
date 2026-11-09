@@ -605,9 +605,9 @@ def test_chassis_and_rack_reactions_close_each_corner_against_its_tyre_load(
             tyre = _tyre_load(run, row)
             rack = _rack_loads(run, row)
             assert len(rack) == (1 if block.part == "Front Chassis" else 0)
-            on_suspension = [
-                (load.position, -load.force) for load in row.loads
-            ] + [(load.position, load.force) for load in rack]
+            on_suspension = [(load.position, -load.force) for load in row.loads] + [
+                (load.position, load.force) for load in rack
+            ]
             force = tyre.force + sum(f for _, f in on_suspension)
             moment = np.cross(tyre.position, tyre.force) + sum(
                 np.cross(r, f) for r, f in on_suspension
@@ -644,9 +644,7 @@ def test_chassis_load_is_the_negative_of_the_part_side_load(suspensions):
         np.testing.assert_allclose(on_chassis[name], -on_part[name])
 
 
-def test_chassis_blocks_are_written_last_and_can_be_switched_off(
-    suspensions, tmp_path
-):
+def test_chassis_blocks_are_written_last_and_can_be_switched_off(suspensions, tmp_path):
     run = solve_forces(suspensions, [LoadCase(2, 1, 1)], MASS, GRAVITY)
     on = tmp_path / "on.csv"
     off = tmp_path / "off.csv"
@@ -663,9 +661,7 @@ def test_part_frame_never_mirrors_the_chassis(suspensions, tmp_path):
     vehicle_path = tmp_path / "vehicle.csv"
     part_path = tmp_path / "part.csv"
     write_forces(run.solution, vehicle_path)
-    write_forces(
-        run.solution, part_path, ForceWriteOptions(frame=OutputFrame.PART)
-    )
+    write_forces(run.solution, part_path, ForceWriteOptions(frame=OutputFrame.PART))
 
     def chassis_lines(path):
         lines = path.read_text().splitlines()

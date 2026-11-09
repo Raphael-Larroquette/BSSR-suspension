@@ -2,8 +2,8 @@
 Static suspension force solve.
 
 Takes a vehicle built from geometry files and a set of load cases, and returns
-the force at every suspension joint. See ``docs/reference/forces.md`` for the conventions,
-the method, and the assumptions the result rests on.
+the force at every suspension joint. See ``docs/reference/forces.md`` for the
+conventions, the method, and the assumptions the result rests on.
 """
 
 from kinematics.core.loads.cases import LoadCase

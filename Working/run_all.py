@@ -254,6 +254,7 @@ def plan_models(args, models: list[Path | None], sweep_sets: list[Path],
             solve_only=args.solve_only,
             dry_run=args.dry_run,
             on_bad_solve=args.on_bad_solve,
+            no_forces=args.no_forces,
         )
 
     for model in models:
@@ -319,6 +320,9 @@ def solve_tasks(runs: list[ModelRun], report_only: bool) -> list:
                             "sweep": str(sweep.resolved),
                             "csv": str(sweep.csv),
                             "frames": str(sweep.frames) if sweep.animate else "",
+                            "force_cases": [list(c) for c in sweep.force_cases],
+                            "forces_csv": str(sweep.forces_csv or ""),
+                            "forces_config": str(sweep.forces_config or ""),
                             "log": str(logs / plan.name / f"{sweep.name}.log"),
                         }))
         if run.forces is not None:
@@ -603,6 +607,11 @@ def dry_run(runs: list[ModelRun]) -> bool:
                   f"({', '.join(s.name for s in plan.sweeps)})")
             if anims:
                 print(f"      animations: {', '.join(anims)}")
+            for s in plan.sweeps:
+                if s.force_cases:
+                    cases = "; ".join(",".join(f"{v:g}" for v in c)
+                                      for c in s.force_cases)
+                    print(f"      forces along travel: {s.name} ({cases})")
     print("\n(dry run: nothing solved, nothing written)")
     return good
 

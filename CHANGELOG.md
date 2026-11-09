@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Forces along travel.** A sweep's optional `forces:` key in `run.yaml` (a list of
+  `[bump, brake, corner]` cases) solves those cases at every step and writes
+  `<sweep>_forces.csv`: one row per step, case, part and joint of the moving axle,
+  including its chassis block. Constant case load: each wheel's force is found at design
+  and applied at the posed contact patch. Core: `solve_forces(..., poses=)`,
+  `build_force_graph(..., state=)` and `kinematics.core.loads.travel`. The rear set
+  solves `[[6, 0, 0]]` on `01_bump`. A failure is reported on the sweep as `warn`, not
+  a failed sweep. `--no-forces` skips it.
+
 - **Chassis reactions in `forces.csv`.** After the part blocks, one `Front Chassis` and
   one `Rear Chassis` block give the force acting ON the chassis at every chassis
   hardpoint (the negative of the part-side load), per case and side. Kept out of

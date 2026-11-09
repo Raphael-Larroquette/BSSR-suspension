@@ -22,6 +22,7 @@ PUBLIC_CORE_MODULES = {
     "kinematics.core.loads.results",
     "kinematics.core.loads.structure",
     "kinematics.core.loads.system",
+    "kinematics.core.loads.travel",
     "kinematics.core.metrics.main",
     "kinematics.core.metrics.registry",
     "kinematics.core.enums",

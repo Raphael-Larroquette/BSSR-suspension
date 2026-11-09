@@ -38,6 +38,7 @@ sweeps:
     gif: true
     steps: 41
     travel: [-50.8, 50.8]
+    forces: [[6, 0, 0]]   # [bump, brake, corner] g, solved at every step
 
   # Usable wheel travel for this damper stroke.
   02_damper_stroke:

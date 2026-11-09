@@ -60,6 +60,8 @@ REQUIRED_CONFIG = {
 
 # Keys every enabled sweep must carry. A sweep with `run: false` needs only
 # `run`, so that switching one off stays a one-line edit.
+# runner.FORCES_SUFFIX: the stem ending of a sweep's forces-over-travel table.
+FORCES_TABLE_SUFFIX = "_forces"
 REQUIRED_SWEEP_KEYS = ("run", "report", "plots")
 
 
@@ -858,7 +860,9 @@ def run_report(indir: Path, out: Path, config: dict, reporter: Reporter,
     suffix = side_suffix(configured_side) if reporter.scope == "axle" else ""
     out.mkdir(parents=True, exist_ok=True)
 
-    files = sorted(indir.glob("*.csv"))
+    # <sweep>_forces.csv is the forces-along-travel table, not a sweep.
+    files = sorted(f for f in indir.glob("*.csv")
+                   if not f.stem.endswith(FORCES_TABLE_SUFFIX))
     # A sweep switched off in run.yaml leaves its old CSV on disk. Reporting it
     # would quietly resurrect stale numbers and, worse, let a disabled sweep
     # keep setting bearing requirements - so honour the list of sweeps that

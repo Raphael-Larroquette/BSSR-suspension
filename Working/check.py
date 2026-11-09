@@ -31,6 +31,7 @@ def check_model(folder: Path) -> list[str]:
     problems = [f"missing {name}" for name in missing]
 
     import yaml
+
     from kinematics.core.input import build_suspension
 
     for name in GEOMETRY_FILES:
@@ -70,6 +71,7 @@ def is_model(folder: Path) -> bool:
 
 
 def main() -> None:
+    """Check the named models, or every model; exit 1 if any fails."""
     folders = (
         [resolve(v) for v in sys.argv[1:]]
         if len(sys.argv) > 1

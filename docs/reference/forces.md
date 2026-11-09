@@ -83,6 +83,21 @@ bump,brake,corner,side,x,y,z,mag,...
   `trackrod_inboard`; chassis + rack + tyre close each corner.
 - No moment columns today: every joint is force-only.
 
+## Along a sweep (`<sweep>_forces.csv`)
+
+A sweep with `forces:` in `run.yaml` solves those cases at every step. **Constant case
+load**: each wheel's contact-patch force is found once at design and applied at the posed
+contact patch; the moving axle's joints are at that step's pose, the other axle at design.
+Only the moving axle's parts and chassis block are written. One row per step × case ×
+part × joint:
+
+`step, wheel_travel, bump, brake, corner, side, part, joint, x, y, z, fx, fy, fz, f, flags`
+
+`wheel_travel`: that side's wheel-centre z from design (mm). `x, y, z`: posed joint
+position. Same sign and frame as `forces.csv`; the applied tyre load is omitted.
+
+## Load transfer
+
 `load_transfer.csv`: per wheel per case: `normal_load_N`, `effective_mass_kg`,
 `percent_of_case` (sums to 100), `percent_of_static_weight` (sums to 100 × bump),
 `transfer_from_baseline_N` (vs the same case with brake and corner zeroed).

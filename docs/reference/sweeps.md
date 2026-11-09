@@ -37,6 +37,7 @@ Name = CSV stem, report heading, what `--only` / `--skip` match. Runs in file or
 | `damper` | same forms | damper length, mm from design; not with `travel` on the same corner |
 | `rack` | `[a, b]` | rack y, mm from centre; required whenever the geometry has a rack |
 | `file` | path | hand-written sweep, used verbatim; excludes `steps` and the drive keys |
+| `forces` | list of `[bump, brake, corner]` (g) | optional: solve these cases at every step → `<sweep>_forces.csv` ([`forces.md`](forces.md)). Needs the model's `forces.yaml`; `--no-forces` skips it |
 
 Every corner must be driven exactly once and every actuator given a range; violations are
 named before solving. Generated targets are `mode: relative`. Channel names:
@@ -120,5 +121,5 @@ Rack +y steers **right**, so in 09/10 the **left** wheel is outer and in bump.
 
 | rear | drives | answers |
 | --- | --- | --- |
-| 01 `bump` | wheel centre | MR/IR, recession, side-view IC/SVSA, anti-squat |
+| 01 `bump` | wheel centre | MR/IR, recession, side-view IC/SVSA, anti-squat; joint forces over travel (6 g) |
 | 02 `damper_stroke` | damper length | usable wheel travel |
