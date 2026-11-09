@@ -205,3 +205,6 @@ Working/models/opt_*/opt_log.csv
 
 # VS Code "Local History" extension.
 .history/
+
+# pytest-benchmark run storage
+.benchmarks/

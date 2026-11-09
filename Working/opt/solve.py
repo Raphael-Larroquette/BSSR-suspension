@@ -68,7 +68,7 @@ def run_config_path(axle=None):
     if not path.is_file():
         raise FileNotFoundError(
             f"SWEEP_SET not found: {path}. It names a sweep set's run.yaml; see "
-            "Working/sweep_sets/RUNNING.md"
+            "docs/reference/sweeps.md"
         )
     return path
 

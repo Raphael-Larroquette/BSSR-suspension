@@ -92,7 +92,7 @@ def _require(config: dict, source: str) -> None:
         raise SystemExit(
             f"{source}: missing required setting(s): {', '.join(missing)}.\n"
             "There are no built-in defaults - every setting must be present. "
-            "See RUNNING.md for the key reference."
+            "See docs/reference/sweeps.md for the key reference."
         )
 
 
@@ -672,7 +672,7 @@ def channels_for(sw: Sweep, config: dict, channels: dict[str, Channel],
 # suffixes to walk: ("_left", "_right") on an axle, ("",) on a corner.
 # ==========================================================================
 def add_corner_derived(sw: Sweep, sides: tuple[str, ...]) -> None:
-    """Append the per-corner derived columns. See CHARACTERISTICS.md."""
+    """Append the per-corner derived columns. See docs/reference/characteristics.md."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", pd.errors.PerformanceWarning)
         _add_corner_derived(sw, sides)
@@ -690,7 +690,7 @@ def _add_corner_derived(sw: Sweep, sides: tuple[str, ...]) -> None:
         # roll`, which used the wheel-centre line rather than the road plane
         # and, being measured about chassis X, folded steer camber in. The
         # solver now exports `road_camber` directly (ISO 8855 inclination,
-        # signed like camber); see CHARACTERISTICS.md.
+        # signed like camber); see docs/reference/characteristics.md.
 
         # --- Signed scrub radius --------------------------------------
         # `scrub_radius` in the CSV is the ISO 8855 unsigned road-plane

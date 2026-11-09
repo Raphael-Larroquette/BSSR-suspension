@@ -56,7 +56,7 @@ hardpoints:
 
   # No `right:` block, so the left corner is mirrored through Y = 0.
 
-# Bearing misalignment outputs only. Not read by the force solve. See MODELS.md section 5.
+# Bearing misalignment outputs only. Not read by the force solve. See docs/reference/geometry.md (joints).
 joints:
   # Inboard bushes: bore on the pivot axis, so these must read 0.00 deg.
   lower_wishbone_inboard_front:

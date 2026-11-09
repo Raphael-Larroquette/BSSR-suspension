@@ -79,7 +79,7 @@ def solve_patch_loads(
             f"patches and this vehicle has {len(patches)}. With four the split is "
             "indeterminate by one and needs a roll-stiffness distribution between "
             "the axles, which needs spring and anti-roll rates this solver does "
-            "not model. See 'Limitations' in docs/force.md."
+            "not model. See 'Not modelled' in docs/reference/forces.md."
         )
 
     longitudinal, lateral, vertical = case.accelerations

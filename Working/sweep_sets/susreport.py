@@ -17,7 +17,7 @@ incomplete one is an error naming the key. `run_all.py` imports `run_report`
 from the common module rather than launching a second Python, so a breakpoint
 here is hit by an ordinary run_all.py run.
 
-See RUNNING.md for the configuration keys and CHARACTERISTICS.md for what each
+See docs/reference/sweeps.md for the configuration keys and docs/reference/characteristics.md for what each
 channel means and which sweep is the meaningful source for it.
 """
 
@@ -204,7 +204,7 @@ PRESETS: dict[str, list[str]] = {
 # the curve is unreadable or the value is constant. FVIC/FVSA pass through a
 # singularity when the wishbones go parallel, so they swing to +/- 10^5 mm and
 # flatten every other feature; camber gain is their bounded equivalent
-# (camber_gain ~ -57.296 / FVSA) and is plotted instead. See CHARACTERISTICS.md.
+# (camber_gain ~ -57.296 / FVSA) and is plotted instead. See docs/reference/characteristics.md.
 NEVER_PLOT = {"fvic_y", "fvic_z", "fvsa", "svic_x", "svic_z", "svsa",
               "track", "rack", "wheel_travel", "wheel_travel_lr"}
 
@@ -507,7 +507,7 @@ def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
     """The conventions section of report.md, for an axle model."""
     out = [
         "Conventions, formulas and the meaningful source sweep for every "
-        "channel are documented in `CHARACTERISTICS.md`. The ones that bite "
+        "channel are documented in `docs/reference/characteristics.md`. The ones that bite "
         "most often:\n",
         "- **Scrub radius** is reported as the signed lateral offset "
         "(`steering_axis_offset_ground`), which is what SUSProg calls scrub "

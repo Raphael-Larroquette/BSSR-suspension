@@ -32,7 +32,7 @@ class TireConfig(BaseModel):
     the rigid-disc assumption the tool has always made. Stating it makes the
     model self-consistent: the contact centre then lands on ``z = 0`` exactly,
     instead of a deflection's worth below it, which is the condition
-    ``MODELS.md`` warns about when it says a contact centre off the road plane
+    ``docs/guides/new-model.md`` warns about when it says a contact centre off the road plane
     means the tyre and axle points disagree.
     """
 

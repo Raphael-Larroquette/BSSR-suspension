@@ -201,7 +201,7 @@ def _add_corner_extras(sw: Sweep) -> None:
 def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
     """The conventions section of report.md, for a single corner."""
     out = [
-        "Conventions and formulas are documented in `CHARACTERISTICS.md`. "
+        "Conventions and formulas are documented in `docs/reference/characteristics.md`. "
         "What is specific to a single-corner model:\n",
         "- **This is one corner, not an axle.** Track, body roll, roll-centre "
         "height and lateral migration, Ackermann and rack displacement are all "

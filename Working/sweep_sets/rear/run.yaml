@@ -1,18 +1,11 @@
-# Rear sweep set. Key reference: ../RUNNING.md. Channel names: ../CHARACTERISTICS.md.
-# THIS FILE IS THE WHOLE SWEEP SET. Each sweep's targets are generated from its
-# travel / damper keys and written to sweep_outputs/<name>/_resolved_sweeps/.
-# CLI flags override this file for one invocation; nothing else configures a run.
-#
-# Aurora's rear is a SINGLE CENTRELINE CORNER, so ranges take the bare [start, stop]
-# form and the reporter is susreport_rear. A centreline wheel produces no camber, toe,
-# caster, KPI, scrub, trail, half track or front-view swing arm at all — naming them
-# under `plots:` will not bring them back.
+# Rear sweep set. Keys: docs/reference/sweeps.md. Channels: docs/reference/characteristics.md.
+# Centreline corner: travel / damper take the bare [start, stop] form, no rack.
 version: 1
 
 name: rear
-geometry: ../../models/aurora/rear.yaml    # default target; --geometry overrides
-reporter: susreport_rear                   # susreport = axle, susreport_rear = corner
-side: null                                 # null for a corner: it has only one
+geometry: ../../models/aurora/rear.yaml   # default; --model / --geometry override
+reporter: susreport_rear
+side: null
 
 decimals:
   mm: 3
@@ -21,24 +14,20 @@ decimals:
   percent: 2
 
 report:
-  joints: true   # needs a `joints:` block in the geometry
+  joints: true
   notes: true
-  plots: auto    # master override: auto | true | false
-  gifs: auto     # master override: auto | true | false
+  plots: auto
+  gifs: auto
 
 solver:
-  # off = no checking | warn = flag bad steps, drop them from min/max/range | fail = exit
   on_bad_solve: warn
   residual_limit: 1.0e-5
 
 gif:
   fps: 20
-  dpi: 100       # 1600 x 1000 px; render time scales with dpi^2
-  format: gif    # gif | mp4
+  dpi: 100
+  format: gif
 
-# Per-sweep settings and the drive vocabulary: ../RUNNING.md. A centreline corner
-# has one wheel, so travel / damper take the bare [start, stop] form, and there is
-# no rack to drive.
 sweeps:
 
   # TODO: set these ranges from 02 once the real damper stroke is known.
@@ -48,9 +37,9 @@ sweeps:
     plots: all
     gif: true
     steps: 41
-    travel: [-50.8, 50.8]      # corner form: no left/right
+    travel: [-50.8, 50.8]
 
-  # Read the usable wheel travel off this, then write it into 01 above.
+  # Usable wheel travel for this damper stroke.
   02_damper_stroke:
     run: true
     report: true
