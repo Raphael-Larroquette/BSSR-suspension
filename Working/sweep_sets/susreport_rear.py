@@ -58,6 +58,17 @@ CHANNELS: dict[str, Channel] = {c.key: c for c in [
     single("install_ratio_sq", "Installation ratio squared (wheel rate = k IR^2)",
            "install_ratio_sq{side}"),
 
+    # --- shock linkage (docs/reference/geometry.md, layouts A-E) ----------
+    # 90 deg = pushing square on the lever, 0 = toggle. Direct layouts have
+    # only the shock angle; rocker layouts all three.
+    single("rod_transmission_angle", "Rod transmission angle (90 square, 0 toggle)",
+           "rod_transmission_angle{side}"),
+    single("shock_transmission_angle",
+           "Shock transmission angle (90 square, 0 toggle)",
+           "shock_transmission_angle{side}"),
+    single("rocker_angle", "Rocker angle, relative to its mount",
+           "rocker_angle{side}"),
+
     # --- side view: the reason this model is interesting -----------------
     single("svic_x", "SVIC longitudinal (x)", "svic_x{side}"),
     single("svic_z", "SVIC height (z)", "svic_z{side}"),
@@ -86,12 +97,14 @@ PRESETS: dict[str, list[str]] = {
     # Wheel travel commanded, damper read. The design reference for the arm.
     "heave": [
         "wheel_travel", "damper_length", "motion_ratio", "install_ratio",
+        "rod_transmission_angle", "shock_transmission_angle", "rocker_angle",
         "recession_rate",
         "svic_x", "svic_z", "svsa", "svsa_angle", "anti_squat", "anti_lift",
     ],
     # Damper length commanded, wheel read. Where the usable travel comes from.
     "damper_stroke": [
         "damper_length", "wheel_travel", "motion_ratio", "install_ratio",
+        "rod_transmission_angle", "shock_transmission_angle", "rocker_angle",
     ],
     "static": ["wheel_travel", "damper_length", "svsa_angle"],
 }
@@ -201,7 +214,7 @@ def _add_corner_extras(sw: Sweep) -> None:
 def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
     """The conventions section of report.md, for a single corner."""
     out = [
-        "Conventions and formulas are documented in `docs/reference/characteristics.md`. "
+        "Conventions and formulas: `docs/reference/characteristics.md`. "
         "What is specific to a single-corner model:\n",
         "- **This is one corner, not an axle.** Track, body roll, roll-centre "
         "height and lateral migration, Ackermann and rack displacement are all "
@@ -258,6 +271,13 @@ def notes(sweeps: list[Sweep], geometry: dict | None) -> list[str]:
         "differ by a tyre radius of leverage and can be hundreds of percent "
         "apart on the same geometry. The column is blank if the setting is "
         "absent, rather than guessing one.")
+    if any("rod_transmission_angle" in s.data.columns for s in sweeps):
+        out.append(
+            "- **Rocker linkage.** Transmission angles are measured in the plane "
+            "normal to the lever's pivot: 90 deg pushes square on the lever, 0 "
+            "is toggle (no leverage; joint forces grow without bound). Watch "
+            "the minimum over travel, not the design value. The rocker angle "
+            "is relative to whatever carries the rocker (chassis or arm).")
     out.append(
         "- **The SVIC and SVSA length are tabulated but not plotted.** On a "
         "trailing arm the instant centre is the fixed pivot axis, so both plot "

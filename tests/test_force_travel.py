@@ -264,3 +264,51 @@ def test_sweep_task_writes_forces_and_reports_failures(
     tasks._forces_over_travel(run, {**payload, "forces_config": str(broken)}, out)
     assert out["status"] == "warn"
     assert out["message"].startswith("forces along travel failed")
+
+
+def test_report_section_has_one_row_per_joint_and_a_plot(
+    suspensions, rear_states, aurora_dir, tmp_path
+):
+    sys.path.insert(0, str(WORKING / "sweep_sets"))
+    try:
+        import susreport_common
+    finally:
+        sys.path.remove(str(WORKING / "sweep_sets"))
+    run_force_travel(
+        aurora_dir / "forces.yaml",
+        suspensions[REAR],
+        rear_states,
+        [LoadCase(6, 0, 0)],
+        tmp_path / f"01_bump{susreport_common.FORCES_TABLE_SUFFIX}.csv",
+    )
+    lines, plots = susreport_common.forces_section(
+        tmp_path, [SimpleNamespace(name="01_bump")], tmp_path / "plots"
+    )
+    rows = [line for line in lines if line.startswith("| `")]
+    # one row per joint, not per part: the strut ends and pivots appear once
+    assert sorted(row.split("`")[1] for row in rows) == [
+        "strut_bottom",
+        "strut_top",
+        "trailing_arm_pivot_a",
+        "trailing_arm_pivot_b",
+    ]
+    assert plots == [tmp_path / "plots" / "01_bump_forces.png"]
+    assert plots[0].is_file()
+    # the damper force rises toward droop on Aurora (IR falls), so its peak
+    # is at full droop and above its design value
+    strut = next(row for row in rows if "`strut_top`" in row)
+    cells = [cell.strip() for cell in strut.split("|")]
+    assert cells[5] == f"{-TRAVEL:+.1f}"
+    assert float(cells[6]) > 1.0
+
+
+def test_no_forces_table_no_section(tmp_path):
+    sys.path.insert(0, str(WORKING / "sweep_sets"))
+    try:
+        import susreport_common
+    finally:
+        sys.path.remove(str(WORKING / "sweep_sets"))
+    lines, plots = susreport_common.forces_section(
+        tmp_path, [SimpleNamespace(name="01_bump")], tmp_path / "plots"
+    )
+    assert (lines, plots) == ([], [])

@@ -211,9 +211,7 @@ def test_transmission_angle_definition():
     axis = np.array([0.0, 1.0, 0.0])
     root = np.zeros(3)
     tip = np.array([100.0, 0.0, 0.0])
-    square = transmission_angle_deg(
-        np.array([100.0, 0.0, -50.0]), tip, root, tip, axis
-    )
+    square = transmission_angle_deg(np.array([100.0, 0.0, -50.0]), tip, root, tip, axis)
     along = transmission_angle_deg(np.array([200.0, 5.0, 0.0]), tip, root, tip, axis)
     assert square == pytest.approx(90.0)
     assert along == pytest.approx(0.0)  # toggle: the axial offset is projected out
