@@ -215,6 +215,17 @@ class MountBody(StrEnum):
     UPRIGHT = "upright"
 
 
+class LinkageMount(StrEnum):
+    """Body a trailing-arm linkage part is fixed to: the chassis or the arm.
+
+    ``actuation.rocker_mount`` places the rocker pivot, and ``spring.base`` the
+    fixed end of the shock (``strut_top``).
+    """
+
+    CHASSIS = "chassis"
+    ARM = "arm"
+
+
 class CornerSpringType(StrEnum):
     """Supported corner spring mechanisms."""
 

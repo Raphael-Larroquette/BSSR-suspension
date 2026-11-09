@@ -33,7 +33,7 @@ consequences of there being no vehicle side:
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from math import degrees
 from typing import TYPE_CHECKING, ClassVar, Sequence
@@ -89,6 +89,9 @@ from kinematics.core.primitives.vector_utils.geometric import (
 )
 from kinematics.core.state import SuspensionState
 from kinematics.core.suspensions.corner.base import CornerSuspension
+from kinematics.core.suspensions.corner.trailing_arm_linkage import (
+    TrailingArmLinkage,
+)
 
 if TYPE_CHECKING:
     from kinematics.core.metrics.main import MetricRow
@@ -208,6 +211,8 @@ class TrailingArmSuspension(CornerSuspension):
     OUTPUT_ONLY_POINTS: ClassVar[tuple[PointID, ...]] = (PointID.WHEEL_CONTACT_CENTRE,)
 
     spring_type: CornerSpringType = CornerSpringType.COILOVER
+    # The shock layout: direct (the default, layout A) or a rocker with a rod.
+    linkage: TrailingArmLinkage = field(default_factory=TrailingArmLinkage)
 
     def __post_init__(self) -> None:
         """Validate the selected spring and the semi-trailing-arm geometry."""
@@ -221,6 +226,13 @@ class TrailingArmSuspension(CornerSuspension):
         ):
             raise ValueError(
                 "Semi-trailing arm spring must be 'coilover' or 'torsion_bar'"
+            )
+        if self.spring_type is CornerSpringType.TORSION_BAR and (
+            self.linkage.has_rocker
+        ):
+            raise ValueError(
+                "A trailing-arm torsion bar sits on the arm pivot; a rocker "
+                "layout needs spring type 'coilover'."
             )
         super().__post_init__()
 
@@ -249,7 +261,7 @@ class TrailingArmSuspension(CornerSuspension):
             self.CENTERED_REQUIRED_POINTS if self.is_centered else self.REQUIRED_POINTS
         )
         if self.spring_type is CornerSpringType.COILOVER:
-            return locating | self.COILOVER_POINTS
+            return locating | self.linkage.required_points()
         return locating | self.TORSION_POINTS
 
     def suppressed_metric_keys(self) -> frozenset[str]:
@@ -331,7 +343,11 @@ class TrailingArmSuspension(CornerSuspension):
         self._validate_spring_hardpoints(pivot_a)
 
     def _validate_spring_hardpoints(self, pivot_a: Point3) -> None:
-        """Require a torsion bar to lie on a transverse axis through pivot A."""
+        """Check the rocker layout, or that a torsion bar runs through pivot A."""
+        pivot_b = self.hardpoints[PointID.TRAILING_ARM_PIVOT_B]
+        self.linkage.validate(
+            self.hardpoints, extract_array(pivot_b) - extract_array(pivot_a)
+        )
         if self.spring_type is CornerSpringType.TORSION_BAR:
             axis_a = self.hardpoints[PointID.TORSION_BAR_AXIS_A]
             axis_b = self.hardpoints[PointID.TORSION_BAR_AXIS_B]
@@ -358,8 +374,18 @@ class TrailingArmSuspension(CornerSuspension):
                 )
 
     def free_points(self) -> Sequence[PointID]:
-        """Return the moving arm point; all carrier pickups derive from it."""
-        return (self.arm_anchor,)
+        """Return the moving arm point, plus a rocker's two pickups.
+
+        Everything fixed to the arm derives from the arm point; a rocker's
+        pickups are solved, since the rocker turns on its own pivot.
+        """
+        return (self.arm_anchor, *self.linkage.free_points())
+
+    def _arm_mounted_points(self) -> tuple[PointID, ...]:
+        """Return the spring/linkage points fixed to the arm (not the axle)."""
+        if self.spring_type is CornerSpringType.TORSION_BAR:
+            return (PointID.STRUT_BOTTOM,)
+        return self.linkage.arm_points()
 
     def rigid_attachments(self) -> tuple[RigidAttachment, ...]:
         """Fold the spring pickup into the arm that carries it.
@@ -372,14 +398,15 @@ class TrailingArmSuspension(CornerSuspension):
         """
         if self.spring_type is not CornerSpringType.COILOVER:
             return ()
-        return (
+        return tuple(
             RigidAttachment(
-                point=PointID.STRUT_BOTTOM,
+                point=point,
                 anchors=(
                     PointID.TRAILING_ARM_PIVOT_A,
                     PointID.TRAILING_ARM_PIVOT_B,
                 ),
-            ),
+            )
+            for point in self.linkage.arm_points()
         )
 
     def output_points(self) -> tuple[PointKey, ...]:
@@ -390,7 +417,7 @@ class TrailingArmSuspension(CornerSuspension):
             else self.LOCATING_OUTPUT_POINTS
         )
         if self.spring_type is CornerSpringType.COILOVER:
-            spring_points = (PointID.STRUT_TOP, PointID.STRUT_BOTTOM)
+            spring_points = self.linkage.output_points()
         else:
             spring_points = (
                 PointID.TORSION_BAR_AXIS_A,
@@ -451,6 +478,7 @@ class TrailingArmSuspension(CornerSuspension):
         return [
             distance(PointID.TRAILING_ARM_PIVOT_A, anchor),
             distance(PointID.TRAILING_ARM_PIVOT_B, anchor),
+            *self.linkage.constraints(initial),
         ]
 
     def derived_spec(self) -> DerivedPointsSpec:
@@ -482,7 +510,7 @@ class TrailingArmSuspension(CornerSuspension):
             for point in (
                 PointID.AXLE_INBOARD,
                 PointID.AXLE_OUTBOARD,
-                PointID.STRUT_BOTTOM,
+                *self._arm_mounted_points(),
             )
             if point is not anchor
         ]
@@ -644,16 +672,21 @@ class TrailingArmSuspension(CornerSuspension):
         )
 
     def topology_metric_specs(self) -> tuple[MetricSpec, ...]:
-        """Expose torsion twist only when a torsion spring is selected."""
+        """Expose torsion twist, or the shock linkage's angles."""
         if self.spring_type is CornerSpringType.TORSION_BAR:
             return (TORSION_BAR_TWIST_SPEC,)
-        return ()
+        return self.linkage.metric_specs()
 
     def topology_metric_values(self, state: SuspensionState) -> MetricRow:
-        """Return the torsion bar angular deflection when installed."""
+        """Return torsion bar twist, or transmission (and rocker) angles."""
         if self.spring_type is CornerSpringType.TORSION_BAR:
             return OrderedDict([("torsion_bar_twist", self._torsion_twist(state))])
-        return OrderedDict()
+        return self.linkage.metric_values(
+            state,
+            self.initial_state(),
+            (PointID.TRAILING_ARM_PIVOT_A, PointID.TRAILING_ARM_PIVOT_B),
+            self.arm_anchor,
+        )
 
     def elements(self) -> tuple[SuspensionElement, ...]:
         """Return renderer-neutral arm, carrier, wheel, and spring hardware."""
@@ -709,15 +742,7 @@ class TrailingArmSuspension(CornerSuspension):
             ),
         )
         if self.spring_type is CornerSpringType.COILOVER:
-            return (
-                *elements,
-                VariableLengthLinkElement(
-                    label="Spring/Damper",
-                    type=ElementType.SPRING_DAMPER,
-                    point_a=PointID.STRUT_TOP,
-                    point_b=PointID.STRUT_BOTTOM,
-                ),
-            )
+            return (*elements, *self.linkage.elements())
         return (
             *elements,
             TorsionElement(

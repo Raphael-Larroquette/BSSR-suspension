@@ -31,6 +31,7 @@ from kinematics.core.schema.geometry import (
     MacPhersonGeometrySpec,
     TrailingArmAxleGeometrySpec,
     TrailingArmGeometrySpec,
+    TrailingArmSpringSpec,
 )
 from kinematics.core.suspensions.axle import AxleSuspension
 from kinematics.core.suspensions.axle.mechanisms import (
@@ -60,6 +61,9 @@ from kinematics.core.suspensions.corner.mechanisms import (
     CornerSpringCoilover,
     CornerSpringNone,
     CornerSpringTorsionBar,
+)
+from kinematics.core.suspensions.corner.trailing_arm_linkage import (
+    TrailingArmLinkage,
 )
 
 
@@ -118,6 +122,12 @@ def build_trailing_arm(spec: GeometrySpecBase) -> Suspension:
         config=typed.config,
         joints=typed.joints,
         spring_type=typed.spring.type,
+        linkage=TrailingArmLinkage(
+            rocker_mount=(
+                typed.actuation.rocker_mount if typed.actuation is not None else None
+            ),
+            base=typed.spring.base,
+        ),
     )
 
 
@@ -193,7 +203,7 @@ def build_trailing_arm_axle(spec: GeometrySpecBase) -> Suspension:
                 typed.axle_config,
                 CornerConfig(),
             ),
-            spring=typed.axle_config.spring,
+            spring=TrailingArmSpringSpec(type=typed.axle_config.spring.type),
             hardpoints=side_points[side],
             joints=typed.joints,
         )
