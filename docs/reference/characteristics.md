@@ -38,6 +38,16 @@ channels also have a `_lr` variant (left and right side by side).
 | `damper_rate` | mm/mm | 01 | raw signed derivative; IR = −this |
 | `wheel_travel` | mm | **08** | travel for a given damper stroke; set `travel:` ranges from it |
 
+## Shock linkage (trailing arm)
+
+| channel | unit | |
+| --- | --- | --- |
+| `shock_transmission_angle` | deg | shock line vs the lever it acts on (rocker, or arm for layout A), in the plane ⟂ that lever's pivot. 90 = square, 0 = toggle |
+| `rod_transmission_angle` | deg | rod vs rocker lever, same definition. Rocker layouts only |
+| `rocker_angle` | deg | rocker rotation relative to what carries it (chassis or arm), right-hand about `rocker_axis_a → b` |
+
+Read the minimum over travel. Near toggle the joint forces grow without bound.
+
 ## Axle-level (two-wheel axle only)
 
 Track, track change (+ rate), roll-centre height and lateral position, RC migration vs

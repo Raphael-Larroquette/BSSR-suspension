@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Trailing-arm shock layouts B-E.** `actuation: {type: pushrod_rocker,
+  rocker_mount: chassis | arm}` and `spring.base: chassis | arm` select a rocker on the
+  chassis or the arm, with the shock based on the chassis or the arm. No `actuation:`
+  is layout A (direct) and is unchanged: Aurora's rear solves bit-for-bit as before.
+  Every layout is 1 DOF and statically determinate (rod and shock two-force members,
+  rocker pivot a coaxial pair). Fixtures in `tests/data/trailing_arm_linkage/`, checked
+  against an independent planar four-bar and against virtual work.
+- `shock_transmission_angle` (every coilover trailing arm), `rod_transmission_angle` and
+  `rocker_angle` (rocker layouts): 90° square, 0° toggle.
+- report.md: a forces-along-travel section per sweep with `forces:` (peak, where, and
+  peak/design per joint) and a |F|-vs-travel plot per case.
+
 - **Forces along travel.** A sweep's optional `forces:` key in `run.yaml` (a list of
   `[bump, brake, corner]` cases) solves those cases at every step and writes
   `<sweep>_forces.csv`: one row per step, case, part and joint of the moving axle,

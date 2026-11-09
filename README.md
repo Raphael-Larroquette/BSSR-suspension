@@ -26,6 +26,8 @@ This is a fork of [suspension-explorer-core](https://github.com/suspension-explo
 | --- | --- | --- |
 | Double wishbone, direct-acting coilover | corner or mirrored two-corner axle | **Exercised** (Aurora front) |
 | Trailing arm, centreline wheel | single corner, transverse pivot | **Exercised** (Aurora rear) |
+| Trailing-arm shock layouts B-E | rocker on chassis or arm, shock base on chassis or arm | **Tested** vs a planar four-bar; no car yet |
+| Forces along travel | load cases at every sweep step (`forces:` in run.yaml) | **Exercised** (Aurora rear) |
 | Steering | translating rack, or fixed toe link (`type: none`) | **Exercised** |
 | Kinematic sweeps | bump, roll, steer, held-attitude, ramp, damper-driven | **Exercised** |
 | Characteristics | camber, road camber, toe, caster, KPI, scrub, trail, track, ICs/swing arms, roll centre, motion ratio, anti-geometry, analytic gradients | **Exercised** |
