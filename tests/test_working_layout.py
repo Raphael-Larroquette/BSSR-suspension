@@ -32,6 +32,33 @@ def test_each_aurora_model_is_self_contained(car: str) -> None:
     assert (WORKING / "cases.csv").is_file()
 
 
+@pytest.mark.parametrize("car", ["aurora", "aurora_evo"])
+def test_model_check_passes_a_complete_model(car: str) -> None:
+    check = _load(WORKING / "check.py")
+    assert check.check_model(WORKING / "models" / car) == []
+
+
+def test_model_check_names_every_missing_file(tmp_path: Path) -> None:
+    check = _load(WORKING / "check.py")
+    source = WORKING / "models" / "aurora"
+    (tmp_path / "front.yaml").write_text((source / "front.yaml").read_text())
+    problems = check.check_model(tmp_path)
+    assert problems == ["missing rear.yaml", "missing forces.yaml"]
+
+
+def test_dry_run_fails_on_an_incomplete_model(tmp_path: Path, monkeypatch) -> None:
+    run_all = _load(WORKING / "run_all.py")
+    source = WORKING / "models" / "aurora"
+    for name in ("front.yaml", "rear.yaml"):
+        (tmp_path / name).write_text((source / name).read_text())
+    monkeypatch.setattr(
+        sys, "argv", ["run_all.py", "--model", str(tmp_path), "--dry-run"]
+    )
+    with pytest.raises(SystemExit) as exited:
+        run_all.main()
+    assert exited.value.code == 1
+
+
 def _working_force_configs() -> list[Path]:
     return sorted((WORKING / "models").glob("*/forces.yaml"))
 

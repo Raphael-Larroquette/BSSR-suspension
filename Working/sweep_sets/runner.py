@@ -14,7 +14,7 @@ Everything that is not a hardpoint is configured in the `run.yaml` of the set
 being run: which sweeps run, WHAT EACH ONE DRIVES, which characteristics it
 reports, which get plots, which get animations, how many decimals.
 `SweepOptions` carries the command-line overrides for one invocation. See
-RUNNING.md for the full key reference and CHARACTERISTICS.md for what the
+docs/reference/sweeps.md for the full key reference and docs/reference/characteristics.md for what the
 channels mean.
 
 SWEEP FILES ARE GENERATED, not authored. A sweep's targets are built from its
@@ -148,7 +148,7 @@ REPORTERS = ("susreport", "susreport_rear")
 # Extending this table is what a new drive coordinate costs. Anything it cannot
 # express - `mode: absolute`, an explicit `values:` list, a point driven along a
 # non-principal direction - is written as an ordinary sweep YAML and named with
-# `file:` instead. See SWEEPS.md.
+# `file:` instead. See docs/reference/sweeps.md.
 # ==========================================================================
 CORNER_GROUPS = ("travel", "damper")
 ACTUATOR_GROUPS = ("rack",)
@@ -191,7 +191,7 @@ def load_run_config(path: Path) -> dict:
         raise SweepSetError(
             f"run configuration not found: {path}\n"
             "There are no built-in defaults. Point --config at a run.yaml, or "
-            "--sets at a folder under sweep_sets/; see RUNNING.md."
+            "--sets at a folder under sweep_sets/; see docs/reference/sweeps.md."
         )
     path = Path(path)
     raw = yaml.safe_load(path.read_text())
@@ -219,7 +219,7 @@ def load_run_config(path: Path) -> dict:
         raise SweepSetError(
             f"{path}: missing required setting(s): {', '.join(missing)}.\n"
             "There are no built-in defaults - every setting must be present. "
-            "See RUNNING.md for the key reference."
+            "See docs/reference/sweeps.md for the key reference."
         )
     return copy.deepcopy(raw)
 
@@ -300,7 +300,7 @@ def geometry_drives(geometry: Path) -> dict:
         raise SweepSetError(
             f"{geometry.name}: the geometry does not build, so no sweep can be "
             f"generated from it.\n  {error}\n"
-            f"Check it with: uv run python {geometry.parent}/check.py {geometry}"
+            f"Check it with: uv run python Working/check.py {geometry.parent}"
         ) from None
 
     drives["introspected"] = True
@@ -362,7 +362,7 @@ def validate_sweep(name: str, cfg: dict, drives: dict) -> None:
             f"sweep '{name}' drives nothing. Give it 'travel' or 'damper' for "
             f"each corner ({', '.join(sides)}) plus a range for every actuator, "
             "or point it at a hand-written sweep file with `file:`. See "
-            "RUNNING.md."
+            "docs/reference/sweeps.md."
         )
 
     # Side keys must name a corner this geometry has.
@@ -397,7 +397,7 @@ def validate_sweep(name: str, cfg: dict, drives: dict) -> None:
         if not driving:
             raise SweepSetError(
                 f"sweep '{name}': corner '{side}' is not driven. Add 'travel' "
-                f"or 'damper' for it. See RUNNING.md."
+                f"or 'damper' for it. See docs/reference/sweeps.md."
             )
         if "damper" in driving and drives["introspected"] \
                 and "damper" not in drives["elements"][side]:
@@ -414,7 +414,7 @@ def validate_sweep(name: str, cfg: dict, drives: dict) -> None:
                     f"sweep '{name}' does not drive '{actuator}', which this "
                     f"geometry declares. Every actuator must be controlled "
                     f"exactly once at every step - add '{actuator}: [a, b]', "
-                    "using [0, 0] to hold it. See RUNNING.md."
+                    "using [0, 0] to hold it. See docs/reference/sweeps.md."
                 )
         for group in ACTUATOR_GROUPS:
             if group in given and group not in drives["actuators"]:
@@ -487,7 +487,7 @@ def copy_sweep_file(name: str, source: Path, outdir: Path) -> Path:
         ) from None
     if not isinstance(spec, dict) or not spec.get("targets"):
         raise SweepSetError(
-            f"sweep '{name}': {source} has no `targets:`. See SWEEPS.md for the "
+            f"sweep '{name}': {source} has no `targets:`. See docs/reference/sweeps.md for the "
             "sweep-file grammar."
         )
     header = (
@@ -614,7 +614,7 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
     if not isinstance(configured, dict) or not configured:
         raise SweepSetError(
             f"{config_path}: `sweeps:` is empty. A sweep set is its sweeps; "
-            "see RUNNING.md for the keys each one takes."
+            "see docs/reference/sweeps.md for the keys each one takes."
         )
 
     chosen: list[dict] = []
@@ -722,7 +722,7 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
         if drives["unhandled"]:
             print(f"   note ({set_name}): this geometry exposes drive coordinate(s) "
                   "run.yaml has no key for: " + ", ".join(drives["unhandled"])
-                  + ". A sweep that must drive one needs `file:` (SWEEPS.md).")
+                  + ". A sweep that must drive one needs `file:` (docs/reference/sweeps.md).")
         # Validate every sweep before generating any, so the first complaint
         # names the sweep rather than arriving with half the set written.
         for item in chosen:
