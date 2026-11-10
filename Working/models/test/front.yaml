@@ -32,8 +32,8 @@ axle_config:
 hardpoints:
   left:
   # Lower wishbone.
-    lower_wishbone_inboard_front: {x: 104.876, y: 104.654, z: 136.358}
-    lower_wishbone_inboard_rear: {x: -143.639, y: 104.654, z: 136.358}
+    lower_wishbone_inboard_front: {x: 104.876, y: 295.84, z: 136.358}
+    lower_wishbone_inboard_rear: {x: -143.639, y: 295.84, z: 136.358}
     lower_wishbone_outboard: {x: 17.355, y: 476.136, z: 137.151}
 
   # Upper wishbone.
