@@ -104,7 +104,7 @@ class SolveConfig(ForcesModel):
                 "implemented. The linkage would see the longitudinal force at "
                 "wheel-centre height rather than at the ground, which changes "
                 "wishbone and upright loads substantially. Use 'unsprung', an "
-                "outboard brake. See 'Limitations' in docs/force.md."
+                "outboard brake. See 'Not modelled' in docs/reference/forces.md."
             )
         return value
 
@@ -131,6 +131,8 @@ class OutputConfig(ForcesModel):
     frame: OutputFrame
     moments: MomentReporting
     per_part_files: bool
+    # A block per axle with the force on the chassis at every hardpoint.
+    chassis: bool = True
 
 
 class ForcesConfig(ForcesModel):

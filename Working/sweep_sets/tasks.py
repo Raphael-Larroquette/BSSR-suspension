@@ -259,7 +259,38 @@ def _solve(payload: dict) -> dict:
 
     if payload.get("frames"):
         _save_frames(run, Path(payload["frames"]))
+    if payload.get("force_cases"):
+        _forces_over_travel(run, payload, out)
     return out
+
+
+def _forces_over_travel(run, payload: dict, out: dict) -> None:
+    """Solve the sweep's `forces:` cases at every step; write <sweep>_forces.csv.
+
+    A failure here is reported on the sweep (status warn) rather than failing
+    it: the kinematics solved, and the CSV and report stand on their own.
+    """
+    from kinematics.cli.commands.forces import run_force_travel
+    from kinematics.core.loads.cases import LoadCase
+
+    try:
+        travel = run_force_travel(
+            Path(payload["forces_config"]),
+            run.suspension,
+            run.evaluated.states,
+            [LoadCase(*case) for case in payload["force_cases"]],
+            Path(payload["forces_csv"]),
+        )
+    except Exception as error:  # noqa: BLE001
+        if is_resource_error(error):
+            raise
+        print(traceback.format_exc())
+        message = f"forces along travel failed: {_headline(error)}"
+        out.update(status="warn", message=(
+            f"{out['message']}; {message}" if out.get("message") else message))
+        return
+    for line in travel.diagnostics:
+        print(f"forces: {line}")
 
 
 def _save_frames(run, path: Path) -> None:

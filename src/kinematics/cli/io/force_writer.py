@@ -17,6 +17,7 @@ import numpy as np
 from kinematics.core.enums import MomentReporting, OutputFrame
 from kinematics.core.loads.cases import format_g
 from kinematics.core.loads.results import WHEEL_LIFT, ForceSolution, PartBlock
+from kinematics.core.loads.travel import ForceTravel
 from kinematics.core.primitives.point_ref import Side
 
 CASE_COLUMNS = ("bump", "brake", "corner", "side")
@@ -49,7 +50,16 @@ class ForceWriteOptions:
 
     frame: OutputFrame = OutputFrame.VEHICLE
     moments: MomentReporting = MomentReporting.AUTO
+    chassis: bool = True
     metadata: dict[str, str] | None = None
+
+
+def _output_blocks(
+    solution: ForceSolution,
+    options: ForceWriteOptions,
+) -> tuple[PartBlock, ...]:
+    """Return every block to write: the parts, then the chassis if asked."""
+    return solution.blocks + (solution.chassis if options.chassis else ())
 
 
 def write_forces(
@@ -82,7 +92,7 @@ def write_per_part_files(
     """Write one flat CSV per part, for direct import into an FEA run."""
     directory.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    for block in solution.blocks:
+    for block in _output_blocks(solution, options):
         path = directory / f"{_slug(block.part)}.csv"
         components = _components_for(block, options)
         header = [
@@ -115,7 +125,7 @@ def _write_csv(
             handle.write(f"# {line}\n")
         handle.write("#\n")
         writer = csv.writer(handle, lineterminator="\n")
-        for block in solution.blocks:
+        for block in _output_blocks(solution, options):
             for row in _block_rows(block, options):
                 writer.writerow(row)
             writer.writerow([])
@@ -142,7 +152,7 @@ def _write_xlsx(
     for line in _header_lines(solution, options):
         sheet.append([f"# {line}"])
     sheet.append([])
-    for block in solution.blocks:
+    for block in _output_blocks(solution, options):
         for row in _block_rows(block, options):
             sheet.append(row)
         sheet.append([])
@@ -163,6 +173,13 @@ def _header_lines(
         f"wheelbase: {vehicle.wheelbase} mm",
         f"worst condition number: {solution.max_condition:.3e}",
     ]
+    if options.chassis and solution.chassis:
+        lines.append(
+            "Chassis blocks: force ON the chassis at each chassis hardpoint (the "
+            "negative of the part-side load). They do not sum to zero. The "
+            "steering rack is excluded: its load (Track Rod, trackrod_inboard) "
+            "reaches the chassis through rack mounts not modelled here."
+        )
     for key, value in (options.metadata or {}).items():
         lines.append(f"{key}: {value}")
     lines.extend(f"WARNING: {issue}" for issue in solution.diagnostics)
@@ -230,7 +247,11 @@ def _data_rows(
     rows: list[list[object]] = []
     for row in block.rows:
         by_name = {load.column_name: load for load in row.loads}
-        mirror = options.frame is OutputFrame.PART and row.side is Side.RIGHT
+        mirror = (
+            block.mirrorable
+            and options.frame is OutputFrame.PART
+            and row.side is Side.RIGHT
+        )
         cells: list[object] = [
             format_g(row.case.bump),
             format_g(row.case.brake),
@@ -263,7 +284,8 @@ def _vector_cells(vector: np.ndarray) -> list[float]:
     recalculation.
     """
     return [
-        *(round(float(value), 3) for value in vector),
+        # + 0.0 turns a negated zero into a plain one: "-0.0" reads as a sign.
+        *(round(float(value), 3) + 0.0 for value in vector),
         round(float(np.linalg.norm(vector)), 3),
     ]
 
@@ -313,6 +335,61 @@ def write_load_transfer(
                     WHEEL_LIFT if share.lifted else "",
                 ]
             )
+
+
+FORCE_TRAVEL_COLUMNS = (
+    "step",
+    "wheel_travel",
+    "bump",
+    "brake",
+    "corner",
+    "side",
+    "part",
+    "joint",
+    "x",
+    "y",
+    "z",
+    "fx",
+    "fy",
+    "fz",
+    "f",
+    "flags",
+)
+
+
+def write_force_travel(travel: ForceTravel, path: Path) -> None:
+    """
+    Write forces along a sweep as one long table, one row per joint load.
+
+    Same conventions as ``forces.csv``: vehicle frame (ISO 8855), N and mm,
+    force acting ON the named part (``* Chassis``: on the chassis). Joint
+    positions are the posed ones. The applied tyre load is left out: it is the
+    same constant case load at every step.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(FORCE_TRAVEL_COLUMNS)
+        for row in travel.rows:
+            loads = row.loads
+            for load in loads.loads:
+                if load.applied:
+                    continue
+                writer.writerow(
+                    [
+                        row.step,
+                        round(row.wheel_travel, 3) + 0.0,
+                        format_g(loads.case.bump),
+                        format_g(loads.case.brake),
+                        format_g(loads.case.corner),
+                        loads.side_label,
+                        loads.part,
+                        load.name,
+                        *(round(float(v), 3) + 0.0 for v in load.position),
+                        *_vector_cells(load.force),
+                        ";".join(loads.flags),
+                    ]
+                )
 
 
 def _mirrored(force: np.ndarray, mirror: bool) -> np.ndarray:

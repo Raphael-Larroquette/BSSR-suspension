@@ -26,11 +26,13 @@ This is a fork of [suspension-explorer-core](https://github.com/suspension-explo
 | --- | --- | --- |
 | Double wishbone, direct-acting coilover | corner or mirrored two-corner axle | **Exercised** (Aurora front) |
 | Trailing arm, centreline wheel | single corner, transverse pivot | **Exercised** (Aurora rear) |
+| Trailing-arm shock layouts B-E | rocker on chassis or arm, shock base on chassis or arm | **Tested** vs a planar four-bar; no car yet |
+| Forces along travel | load cases at every sweep step (`forces:` in run.yaml) | **Exercised** (Aurora rear) |
 | Steering | translating rack, or fixed toe link (`type: none`) | **Exercised** |
 | Kinematic sweeps | bump, roll, steer, held-attitude, ramp, damper-driven | **Exercised** |
 | Characteristics | camber, road camber, toe, caster, KPI, scrub, trail, track, ICs/swing arms, roll centre, motion ratio, anti-geometry, analytic gradients | **Exercised** |
 | Bearing misalignment | per declared joint, incl. install offset and locked/free band | **Exercised** |
-| Static joint forces | every joint, per load case, grouped by part | **Exercised** (3 contact patches only) |
+| Static joint forces | every joint per load case, grouped by part, plus chassis reactions | **Exercised** (3 contact patches only) |
 | Output | CSV, Parquet, XLSX; plots and GIF/MP4 animations | **Exercised** (CSV, PNG, GIF) |
 | Pushrod-rocker actuation, torsion bar, separate linear damper | double wishbone only | Untested here |
 | U-bar / T-bar anti-roll, rocker-to-rocker heave link | requires pushrod-rocker axle | Untested here |
@@ -280,264 +282,40 @@ configuration without solving anything:
 uv run python Working/run_all.py --dry-run
 ```
 
-If both are clean, you're installed. Optionally run the test suite (`just test`).
+If both are clean (the dry run exits 0), you're installed. Optionally run the test suite (`just test`).
 
 ---
 
 ## 5. Quick start
 
-**Everything you touch to *use* the tool is in `Working/`.** The solver itself lives in
-`src/` and you should not need to open it.
+Everything you touch to *use* the tool is in `Working/`; the solver is in `src/`.
+
+```bash
+uv run python Working/run_all.py                    # Aurora: every sweep set, then forces
+uv run python Working/run_all.py --model <name>     # another model in Working/models/
+uv run python Working/run_all.py --dry-run          # validate everything, solve nothing
+uv run python Working/check.py <name>               # is this model folder complete and does it build?
+```
+
+Results land in the model folder: start at `Working/models/<model>/report/<set>/report.md`.
 
 ```
 Working/
-  run_all.py              THE command
-  optimizer.py            the hardpoint optimizer; export_pareto.py turns its result into models
-  models/
-    <car>/                a model: front.yaml, rear.yaml, forces.yaml
-    opt_<timestamp>/      one optimizer run: opt_<timestamp>.csv + its pareto1, pareto2, ...
-    MODELS.md               geometry + joints syntax reference
-    FORCES.md               the force workflow, forces.yaml and cases.csv
-  cases.csv               the load cases every model's force solve uses
-  sweep_sets/<set>/       kinematic sweeps: one run.yaml, which is the whole set
-    RUNNING.md              run.yaml keys, what each sweep drives, CLI flags
-    SWEEPS.md               sweep-file grammar (for `file:` sweeps); the sweep catalogue
-    CHARACTERISTICS.md      what every reported characteristic means
+  run_all.py            the one command
+  check.py              model-folder check (also run by --dry-run)
+  cases.csv             load cases shared by every model's force solve
+  models/<model>/       front.yaml, rear.yaml, forces.yaml (+ results, git-ignored)
+  models/opt_<stamp>/   one optimizer run: its Pareto CSV, and exported candidates
+  sweep_sets/<set>/     run.yaml: the whole sweep set
+  <optimizer>.py        optimizer scripts; opt/ is their library
 ```
 
-### 5.1 Run it
-
-One command, from the repository root:
-
-```bash
-uv run python Working/run_all.py
-```
-
-That runs Aurora (`Working/models/aurora/`): it solves every enabled sweep in every sweep
-set and the static force solve, then builds `report.md` for each set and renders the
-requested animations. `--model <name>` runs another model folder instead; `--batch
-<folder>` runs every model inside a folder (see §5.6). **There is no second entry point.**
-`sweep_sets/runner.py`, `scheduler.py` and `tasks.py` are libraries `run_all.py` uses, not
-commands.
-
-A run goes in four steps, whether it is one model or fifty:
-
-1. **plan**: every `run.yaml` is checked and its sweep files are generated;
-2. **solve**: every sweep and force solve of every model, on one pool of worker processes;
-3. **report + animate**: each set's report, then an animation for each sweep that solved;
-4. **summary**: one line per task, and a status table (see §5.3).
-
-A sweep that fails does not stop anything else. Its set's report is built from the sweeps
-that did solve, with a **Solve status** table at the top saying which one is missing, at
-which step it stopped, and the pose (wheel travel, rack) it could not reach.
-
-The pool is sized to the computer it runs on: one worker per physical core, fewer if free
-memory (on Windows, the commit limit: RAM plus page file) would not cover them, and never
-more than 61 on Windows. Workers that run out of memory are retried with fewer workers.
-`--workers N` caps it, e.g. to leave cores free for other work.
-
-### 5.2 CLI overrides
-
-Every flag below overrides `run.yaml` **for that invocation only**. `run.yaml` is the
-only other place anything is configured — sweep files are generated from it.
-
-**What runs**
-
-| Flag | Effect |
+| to | read |
 | --- | --- |
-| *(none)* | Aurora: every sweep set, then the force solve |
-| `--model NAME` | another model: a folder name under `Working/models/`, or a path |
-| `--batch FOLDER` | every model inside `FOLDER` (e.g. an optimizer run); writes `FOLDER/batch_summary.md` |
-| `--sets front,rear` | only these sweep sets, by folder name |
-| `--config PATH` | one sweep set by path to its `run.yaml`. Not with `--sets` |
-| `--no-sweeps` | skip the sweeps |
-| `--no-forces` | skip the force solve (it is on by default; skipped for a model with no `forces.yaml`) |
-
-**Inside each sweep set**
-
-| Flag | Effect |
-| --- | --- |
-| `--only A,B` / `--skip A,B` | run only / all but these sweeps |
-| `--plots A,B` / `--gifs A,B` | only these sweeps get a figure / an animation |
-| `--no-plots` / `--no-gifs` / `--no-joints` | drop all figures / animations / the bearing section |
-| `--report-only` | rebuild reports from the CSVs already on disk; solve and animate nothing |
-| `--solve-only` | solve and animate, but build no report |
-| `--on-bad-solve off\|warn\|fail` | what to do about non-converged or high-residual steps |
-| `--geometry PATH` † | run the set against one geometry file (prefer `--model`) |
-| `--side left\|right` † | which corner the per-corner rows report |
-
-† describes **one** set, so it needs `--sets` or `--config` to say which.
-
-**Other**
-
-| Flag | Effect |
-| --- | --- |
-| `--workers N` | at most `N` worker processes (default: as many as cores and memory allow) |
-| `--list` | print the sweep sets and models found, then stop |
-| `--dry-run` | validate every configuration and print what would run, writing nothing |
-
-`--parallel`, `--jobs` and `--gif-workers` were removed in October 2026: one pool now serves
-every model, sweep and animation, so `--workers` is the only knob.
-
-Sweep selectors take the numeric prefix or the full stem — `--only 01,09` and
-`--only 01_bump_parallel,09_steer_in_roll` are the same. A selector applies to **every**
-set being run, so pair it with `--sets`.
-
-**Worked examples**
-
-```bash
-# the front set only, forces still solved after it
-uv run python Working/run_all.py --sets front
-
-# fastest loop: rebuild the reports from existing CSVs, solve nothing
-uv run python Working/run_all.py --report-only --no-forces
-
-# two sweeps with animations, nothing else
-uv run python Working/run_all.py --sets front --only 09,10 --gifs 09,10 --no-forces
-
-# numbers only, no figures
-uv run python Working/run_all.py --no-plots --no-gifs
-
-# forces only, after editing forces.yaml or cases.csv
-uv run python Working/run_all.py --no-sweeps
-
-# everything, for another model
-uv run python Working/run_all.py --model aurora_evo
-```
-
-### 5.3 Where to read the results
-
-Results land **inside the model folder they were run against**, never in your current
-directory:
-
-| Path | Contents |
-| --- | --- |
-| `Working/models/<car>/report/<set>/report.md` | **start here** — which sweeps solved, then every characteristic at design / min / max / range, plus the bearing misalignment table |
-| `Working/models/<car>/report/<set>/` | the plots, `summary.csv`, `joints.csv`, `solve_status.csv` |
-| `Working/models/<car>/sweep_outputs/<set>/` | one raw CSV per sweep, and the animations (`.gif`) |
-| `Working/models/<car>/run.log` | one line per task of the last run: status, time, where a failed sweep stopped |
-| `Working/models/<car>/logs/` | one log per task; a failed task's traceback is here |
-| `Working/models/<car>/sweep_outputs/<set>/_resolved_sweeps/` | the generated sweep files, i.e. exactly what was solved — read, never edit |
-| `Working/models/<car>/forces/forces.csv` | force at every joint, grouped by part — the FEA input |
-| `Working/models/<car>/forces/load_transfer.csv` | each wheel's vertical load, per case |
-
-All of it is git-ignored and reproducible from the inputs: commit the YAMLs, never the
-results.
-
-Animations show four views (front, side, top, isometric) and play forward then back.
-`run.yaml`'s `gif:` block sets them: `fps`, `dpi` (100 gives 1600 x 1000 px; render time
-scales with its square) and `format` (`gif`, or `mp4` for a far smaller file that needs a
-video player). A 65-step sweep takes about 7 s to animate.
-
-Status words used in `run.log`, the report and the batch summary:
-
-| Status | Meaning |
-| --- | --- |
-| `ok` | solved |
-| `warn` | solved, but the solver flagged steps (see the report's solver warning) |
-| `lockout` | at some step no pose exists: the mechanism cannot reach that wheel travel and rack position. A geometry result, not a software fault |
-| `geometry` | the geometry file does not build |
-| `resource` | the computer ran out of memory, even after retrying with fewer workers |
-| `error` | anything else; the task's log in `logs/` has the traceback |
-
-To understand a number in `report.md`, go to
-[`Working/sweep_sets/CHARACTERISTICS.md`](Working/sweep_sets/CHARACTERISTICS.md) — it is
-the definition list, including the convention traps to check before you diff against
-SUSProg.
-
-### 5.4 Change something on an existing car
-
-| To change | Edit | Reference |
-| --- | --- | --- |
-| a hardpoint, the architecture, the tyre, the CG | `Working/models/<car>/front.yaml` or `rear.yaml` | [`MODELS.md`](Working/models/MODELS.md) |
-| which bearings get a misalignment number | the `joints:` block of that same file | [`MODELS.md` §5](Working/models/MODELS.md) |
-| anything about a sweep — what it drives, its ranges and step count, whether it runs, which channels it reports or plots | `Working/sweep_sets/<set>/run.yaml` | [`RUNNING.md`](Working/sweep_sets/RUNNING.md) |
-| a sweep the `travel`/`damper`/`rack` vocabulary can't express | a hand-written sweep YAML, named with `file:` | [`SWEEPS.md`](Working/sweep_sets/SWEEPS.md) |
-| load cases (shared by every model) | `Working/cases.csv` | [`FORCES.md`](Working/models/FORCES.md) |
-| mass, solver policy, structural filter | `Working/models/<car>/forces.yaml` | [`FORCES.md`](Working/models/FORCES.md) |
-
-Tuning the `joints:` block never needs a re-solve — the sweeps export the
-axis-independent relative rotation, so `--report-only --no-forces` is the loop.
-
-### 5.5 Set up a new car or a new geometry
-
-A car is a folder. Nothing is registered anywhere — `run_all.py` discovers
-`sweep_sets/*/run.yaml` on disk and reads the model folder you name.
-
-1. **Copy a model.** `cp -r Working/models/aurora Working/models/gen13` (YAMLs only;
-   results regenerate) and edit `front.yaml` / `rear.yaml`. Point names are fixed vocabulary and unknown keys are an
-   error, so a typo names itself. See [`MODELS.md`](Working/models/MODELS.md).
-
-2. **Check it before spending CPU:**
-
-   ```bash
-   uv run python Working/models/gen13/check.py Working/models/gen13/front.yaml
-   uv run kinematics visualize --geometry Working/models/gen13/front.yaml --output front.png
-   ```
-
-   The first says whether it loads and builds. The second draws the design condition and
-   reports whether every derived wheel contact centre lands on the reconstructed road
-   plane. **Fix that before reading any characteristic** — every road-plane metric is
-   built on it.
-
-3. **Run it:**
-
-   ```bash
-   uv run python Working/run_all.py --model gen13
-   ```
-
-   Results land in `Working/models/gen13/`, so there is no collision with Aurora's. To
-   make it the default, edit `geometry:` in each set's `run.yaml`.
-
-4. **New sweep set:** copy `Working/sweep_sets/front/run.yaml` to a new folder, set
-   `name:` and `geometry:`, and pick the reporter — `susreport` for a two-wheel axle,
-   `susreport_rear` for a single corner. Then write the sweeps you want under `sweeps:`;
-   each needs `steps` plus a range for every corner and every actuator. That one file is
-   the whole set. Keys: [`RUNNING.md`](Working/sweep_sets/RUNNING.md).
-
-5. **Forces:** the copied `forces.yaml` already reads the `front.yaml` / `rear.yaml`
-   beside it; set the mass. Load cases are shared, in `Working/cases.csv`. Then run:
-
-   ```bash
-   uv run kinematics forces --config Working/models/gen13/forces.yaml --cases Working/cases.csv --describe
-   ```
-
-   `--describe` prints the exact part and joint names the config refers to — run it first
-   on any new model so you never have to guess them. `--check` prints per-part
-   equilibrium residuals. Details: [`FORCES.md`](Working/models/FORCES.md).
-
-6. **Validate the lot** without solving:
-
-   ```bash
-   uv run python Working/run_all.py --dry-run
-   ```
-
-### 5.6 Optimizer runs
-
-```bash
-uv run python Working/optimizer.py                     # 1. search; settings at the top of the file
-                                                       #    (or any copy, e.g. underlegoptimizer.py)
-uv run python Working/export_pareto.py                 # 2. one model folder per Pareto point
-uv run python Working/run_all.py --batch opt_2026-10-02_1430 --sets front
-                                                       # 3. solve, report, animate every point
-```
-
-1. **An optimizer script is the whole configuration of a run.** Whichever script you
-   launch is the one used; nothing in `opt/` names a file. Its top block states every
-   reference: `TEMPLATE` (any model folder, including a pareto from an earlier run),
-   `AXLE`, `SWEEP_SET`, `CASES`, and the design rules (`TRACK_WIDTH`, `CASTER_DEG`,
-   `MIN_ARM_SEPARATION`). The tyre radius and wheel offset are read from the template.
-   Copy the script to make a variant. `check_design.py <script>` evaluates its seed.
-2. Each run creates `Working/models/opt_<timestamp>/` and writes its Pareto front there as
-   `opt_<timestamp>.csv`, with the template, axle and script on every row. **That CSV is
-   the only file in the run folder git tracks.**
-3. `export_pareto.py` fills the run folder with `pareto1/`, `pareto2/`, ... — copies of the
-   template model the CSV names, with the optimised hardpoints patched in. With no argument
-   it exports the latest run; name a run to export another. Re-exporting replaces them.
-   Because they are git-ignored, run this on whichever machine you review results on.
-4. `--batch` runs every model in the folder on one shared pool. The terminal shows one
-   line per finished task and ends with a matrix of candidates against sweeps;
-   `opt_<timestamp>/batch_summary.md` (and `.csv`) keeps that matrix, the number of
-   candidates passing each sweep, the candidates that pass everything, and one line per
-   failure with the step and pose it stopped at. Each candidate also gets its own
-   `run.log`. Ctrl+C stops the run and still writes the summary of what finished.
+| set up a new car | [`docs/guides/new-model.md`](docs/guides/new-model.md) |
+| find and read results | [`docs/guides/results.md`](docs/guides/results.md) |
+| run the optimizer | [`docs/guides/optimizer.md`](docs/guides/optimizer.md) |
+| write a geometry file | [`docs/reference/geometry.md`](docs/reference/geometry.md) |
+| configure sweeps, CLI flags | [`docs/reference/sweeps.md`](docs/reference/sweeps.md) |
+| understand a reported number | [`docs/reference/characteristics.md`](docs/reference/characteristics.md) |
+| configure or read the force solve | [`docs/reference/forces.md`](docs/reference/forces.md) |

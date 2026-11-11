@@ -12,6 +12,7 @@ from kinematics.core.enums import (
     CornerDamperType,
     CornerSpringType,
     HeaveLinkType,
+    LinkageMount,
     MountBody,
     PointID,
     Scope,
@@ -158,6 +159,35 @@ class MacPhersonGeometrySpec(CornerGeometrySpecBase):
     hardpoints: HardpointMap
 
 
+class TrailingArmSpringSpec(CornerSpringSpec):
+    """Trailing-arm spring: the shock's base end on the chassis or the arm."""
+
+    # strut_top's body. ``arm`` needs a rocker: see TrailingArmActuationSpec.
+    base: LinkageMount = LinkageMount.CHASSIS
+
+
+class TrailingArmActuationSpec(MechanismSpecBase):
+    """Trailing-arm shock actuation: direct, or a rocker with a rod.
+
+    Absent from the file means direct (layout A). ``rocker_mount`` places the
+    rocker pivot; with ``spring.base`` it selects layouts B-E.
+    """
+
+    type: ActuationType
+    rocker_mount: LinkageMount | None = None
+
+    @model_validator(mode="after")
+    def check_rocker_mount(self) -> "TrailingArmActuationSpec":
+        """Require a rocker mount for a rocker, and none without one."""
+        if self.type is ActuationType.DIRECT and self.rocker_mount is not None:
+            raise ValueError("actuation.rocker_mount needs type: pushrod_rocker")
+        if self.type is ActuationType.PUSHROD_ROCKER and self.rocker_mount is None:
+            raise ValueError(
+                "actuation.type: pushrod_rocker needs rocker_mount: chassis | arm"
+            )
+        return self
+
+
 def check_trailing_arm_spring(spring: CornerSpringSpec) -> None:
     """Require one of the semi-trailing arm's implemented spring layouts."""
     if spring.type not in (CornerSpringType.COILOVER, CornerSpringType.TORSION_BAR):
@@ -178,13 +208,26 @@ class TrailingArmGeometrySpec(CornerGeometrySpecBase):
     allows_centered: ClassVar[bool] = True
 
     type: Literal[SuspensionType.TRAILING_ARM] = SuspensionType.TRAILING_ARM
-    spring: CornerSpringSpec
+    spring: TrailingArmSpringSpec
+    # Optional: absent is direct actuation, today's layout.
+    actuation: TrailingArmActuationSpec | None = None
     hardpoints: HardpointMap
 
     @model_validator(mode="after")
     def check_mechanisms(self) -> "TrailingArmGeometrySpec":
         """Reject spring choices without a trailing-arm implementation."""
         check_trailing_arm_spring(self.spring)
+        rocker = (
+            self.actuation is not None
+            and self.actuation.type is ActuationType.PUSHROD_ROCKER
+        )
+        if self.spring.type is CornerSpringType.TORSION_BAR and rocker:
+            raise ValueError("A rocker layout needs spring.type: coilover")
+        if self.spring.base is LinkageMount.ARM and not rocker:
+            raise ValueError(
+                "spring.base: arm needs actuation.type: pushrod_rocker; with "
+                "direct actuation both shock ends would be on the arm."
+            )
         if self.config.steering.type.value != "none":
             raise ValueError(
                 "Semi-trailing arm geometry is unsteered; "

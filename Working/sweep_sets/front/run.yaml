@@ -1,55 +1,35 @@
-# Front sweep set. Key reference: ../RUNNING.md. Channel names: ../CHARACTERISTICS.md.
-# THIS FILE IS THE WHOLE SWEEP SET. Each sweep's targets are generated from its
-# travel / damper / rack keys and written to sweep_outputs/<name>/_resolved_sweeps/ —
-# read those to see what was solved, never edit them.
-# CLI flags override this file for one invocation; nothing else configures a run.
+# Front sweep set. Keys: docs/reference/sweeps.md. Channels: docs/reference/characteristics.md.
+# Sweeps are generated from this file; CLI flags override it for one run.
 version: 1
 
-name: front                                # names sweep_outputs/<name>/ and report/<name>/
-geometry: ../../models/aurora/front.yaml   # default target; --geometry overrides
-reporter: susreport                        # susreport = axle, susreport_rear = corner
-side: left                                 # which corner the per-corner rows report
+name: front
+geometry: ../../models/aurora/front.yaml   # default; --model / --geometry override
+reporter: susreport
+side: left
 
 decimals:
   mm: 3
   deg: 4
-  ratio: 4       # mm/mm, deg/deg, deg/mm and unitless
+  ratio: 4
   percent: 2
 
 report:
-  joints: true   # bearing misalignment section
-  notes: true    # conventions + degenerate-geometry notes
-  plots: auto    # master override: auto | true | false
-  gifs: auto     # master override: auto | true | false
+  joints: true
+  notes: true
+  plots: auto
+  gifs: auto
 
 solver:
-  # off = no checking | warn = flag bad steps, drop them from min/max/range | fail = exit
   on_bad_solve: warn
-  residual_limit: 1.0e-5   # vs solver_max_residual; healthy Aurora steps are 1e-6 to 5e-6
+  residual_limit: 1.0e-5
 
 gif:
-  fps: 20        # per-sweep `gif:` mappings merge over this
-  dpi: 100       # 1600 x 1000 px; render time scales with dpi^2
-  format: gif    # gif | mp4
+  fps: 20
+  dpi: 100
+  format: gif
 
-# Per-sweep settings:
-#   run     true | false           false = no CSV, and invisible to the bearing table
-#   report  true | false | [list]  true = the preset for that sweep kind
-#   plots   all | none | [list]    must be a subset of `report`
-#   gif     true | false | {...}   a mapping merges over the top-level gif block
-#   steps   int                    points in the sweep
-#
-# What it drives — every corner exactly once, plus every actuator:
-#   travel  {left: [a, b], right: [a, b]}   wheel-centre z, mm from design
-#   damper  {left: [a, b], right: [a, b]}   element length, mm from design (not with travel)
-#   rack    [a, b]                 rack y, mm from centre; [0, 0] holds it centred
-#
-#   file    path                   use a hand-written sweep YAML verbatim instead of
-#                                  generating one. Not combinable with the keys above.
 sweeps:
 
-  # Both wheels together, rack centred. The straight-line reference for camber,
-  # bump steer, motion ratio and roll-centre migration.
   01_bump_parallel:
     run: true
     report: true
@@ -61,8 +41,6 @@ sweeps:
       right: [-55, 50]
     rack: [0, 0]
 
-  # Equal and opposite: the roll attitude of a specific cornering condition,
-  # set by the range below. Not a pure-roll abstraction.
   02_roll:
     run: true
     report: true
@@ -74,8 +52,7 @@ sweeps:
       right: [25, -25]
     rack: [0, 0]
 
-  # OFF: identical to 01 on the left, held on the right. Turn on if the model ever
-  # gains a cross-axle element (an anti-roll bar) that couples the two corners.
+  # Off: adds nothing to 01 until a cross-axle element (ARB) exists.
   03_single_wheel_bump:
     run: false
     report: true
@@ -120,8 +97,7 @@ sweeps:
       right: [-55, -55]
     rack: [-35, 35]
 
-  # OFF: sets no bearing requirement. Its one unique output is the shape of the
-  # toe-vs-travel curve while steered. Turn on when chasing bump steer specifically.
+  # Off: only adds the bump-steer curve shape while steered.
   07_bump_at_steer:
     run: false
     report: true
@@ -133,8 +109,7 @@ sweeps:
       right: [-55.88, 50.063]
     rack: [20, 20]
 
-  # Driven by damper length instead of wheel travel. Read the usable wheel travel
-  # off this, then set the `travel` ranges above to match. Honest motion/install ratio.
+  # Usable wheel travel for this damper stroke; set the travel ranges from it.
   08_damper_stroke:
     run: true
     report: [damper_length, wheel_travel_lr, motion_ratio, install_ratio]
@@ -146,12 +121,7 @@ sweeps:
       right: [-30, 30]
     rack: [0, 0]
 
-  # Centre to full lock at a held roll attitude: mid-corner steering geometry, and
-  # the only place Ackermann-in-roll is defined.
-  # DIRECTION: rack +y steers the wheels RIGHT, so in this right turn the LEFT wheel
-  # is outer and is held in bump. Roll and steer must agree - the old lock-to-lock
-  # version also covered the car rolled one way and steered the other, which only
-  # happens in a transient, and was rolled the wrong way for its positive half.
+  # Right turn (rack +y): the left wheel is outer, in bump.
   09_steer_in_roll:
     run: true
     report: true
@@ -163,15 +133,9 @@ sweeps:
       right: [-25, -25]
     rack: [0, 35]
 
-  # Roll and steer build together from straight-and-level to full roll at full lock:
-  # one line through corner entry rather than a held attitude.
-  # DIRECTION: right turn (rack +y), so the LEFT wheel is outer and goes into bump.
-  # SHAPE: at constant speed a_y = v^2/R ~ v^2*delta/L, and roll is proportional to
-  # a_y, so roll grows linearly with steer - a linear ramp IS a constant-speed corner
-  # of tightening radius. The endpoint ratio picks the speed. Placeholder +/-25 mm
-  # at full lock until set from the roll gradient: phi = RG*v^2*delta_max/(g*L),
-  # travel = (track/2)*tan(phi), capped at the tyres' lateral grip.
-  # The optimiser's `road_camber` objective reads this sweep (nonunderleg4.py).
+  # Right turn, roll and steer ramp together = constant-speed corner. Read by the
+  # road_camber objective. Endpoints are placeholders until set from the roll
+  # gradient: phi = RG*v^2*delta_max/(g*L), travel = (track/2)*tan(phi).
   10_corner_ramp:
     run: true
     report: true

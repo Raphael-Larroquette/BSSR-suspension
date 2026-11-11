@@ -13,9 +13,8 @@ call `build_report` here once a set's solves are done.
 Everything that is not a hardpoint is configured in the `run.yaml` of the set
 being run: which sweeps run, WHAT EACH ONE DRIVES, which characteristics it
 reports, which get plots, which get animations, how many decimals.
-`SweepOptions` carries the command-line overrides for one invocation. See
-RUNNING.md for the full key reference and CHARACTERISTICS.md for what the
-channels mean.
+`SweepOptions` carries the command-line overrides for one invocation. Keys:
+docs/reference/sweeps.md. Channels: docs/reference/characteristics.md.
 
 SWEEP FILES ARE GENERATED, not authored. A sweep's targets are built from its
 `travel` / `damper` / `rack` keys and written to sweep_outputs/<set>/_resolved_sweeps/,
@@ -68,6 +67,8 @@ RESOLVED_DIRNAME = "_resolved_sweeps"
 
 # Positions per solved step, kept for the animation task (a few kB each).
 FRAMES_DIRNAME = "_frames"
+FORCES_CONFIG_NAME = "forces.yaml"  # the model's vehicle, for `forces:` sweeps
+FORCES_SUFFIX = "_forces"  # <sweep>_forces.csv: forces at every step
 
 # Animation formats the renderer writes (`gif: {format: ...}` in run.yaml).
 ANIMATION_FORMATS = ("gif", "mp4")
@@ -107,6 +108,7 @@ class SweepOptions:
     solve_only: bool = False
     dry_run: bool = False
     on_bad_solve: str | None = None
+    no_forces: bool = False  # also skips each sweep's `forces:` solve
 
 
 # ==========================================================================
@@ -148,7 +150,7 @@ REPORTERS = ("susreport", "susreport_rear")
 # Extending this table is what a new drive coordinate costs. Anything it cannot
 # express - `mode: absolute`, an explicit `values:` list, a point driven along a
 # non-principal direction - is written as an ordinary sweep YAML and named with
-# `file:` instead. See SWEEPS.md.
+# `file:` instead. See docs/reference/sweeps.md.
 # ==========================================================================
 CORNER_GROUPS = ("travel", "damper")
 ACTUATOR_GROUPS = ("rack",)
@@ -191,7 +193,7 @@ def load_run_config(path: Path) -> dict:
         raise SweepSetError(
             f"run configuration not found: {path}\n"
             "There are no built-in defaults. Point --config at a run.yaml, or "
-            "--sets at a folder under sweep_sets/; see RUNNING.md."
+            "--sets at a folder under sweep_sets/; see docs/reference/sweeps.md."
         )
     path = Path(path)
     raw = yaml.safe_load(path.read_text())
@@ -219,7 +221,7 @@ def load_run_config(path: Path) -> dict:
         raise SweepSetError(
             f"{path}: missing required setting(s): {', '.join(missing)}.\n"
             "There are no built-in defaults - every setting must be present. "
-            "See RUNNING.md for the key reference."
+            "See docs/reference/sweeps.md for the key reference."
         )
     return copy.deepcopy(raw)
 
@@ -300,7 +302,7 @@ def geometry_drives(geometry: Path) -> dict:
         raise SweepSetError(
             f"{geometry.name}: the geometry does not build, so no sweep can be "
             f"generated from it.\n  {error}\n"
-            f"Check it with: uv run python {geometry.parent}/check.py {geometry}"
+            f"Check it with: uv run python Working/check.py {geometry.parent}"
         ) from None
 
     drives["introspected"] = True
@@ -362,7 +364,7 @@ def validate_sweep(name: str, cfg: dict, drives: dict) -> None:
             f"sweep '{name}' drives nothing. Give it 'travel' or 'damper' for "
             f"each corner ({', '.join(sides)}) plus a range for every actuator, "
             "or point it at a hand-written sweep file with `file:`. See "
-            "RUNNING.md."
+            "docs/reference/sweeps.md."
         )
 
     # Side keys must name a corner this geometry has.
@@ -397,7 +399,7 @@ def validate_sweep(name: str, cfg: dict, drives: dict) -> None:
         if not driving:
             raise SweepSetError(
                 f"sweep '{name}': corner '{side}' is not driven. Add 'travel' "
-                f"or 'damper' for it. See RUNNING.md."
+                f"or 'damper' for it. See docs/reference/sweeps.md."
             )
         if "damper" in driving and drives["introspected"] \
                 and "damper" not in drives["elements"][side]:
@@ -414,7 +416,7 @@ def validate_sweep(name: str, cfg: dict, drives: dict) -> None:
                     f"sweep '{name}' does not drive '{actuator}', which this "
                     f"geometry declares. Every actuator must be controlled "
                     f"exactly once at every step - add '{actuator}: [a, b]', "
-                    "using [0, 0] to hold it. See RUNNING.md."
+                    "using [0, 0] to hold it. See docs/reference/sweeps.md."
                 )
         for group in ACTUATOR_GROUPS:
             if group in given and group not in drives["actuators"]:
@@ -487,8 +489,8 @@ def copy_sweep_file(name: str, source: Path, outdir: Path) -> Path:
         ) from None
     if not isinstance(spec, dict) or not spec.get("targets"):
         raise SweepSetError(
-            f"sweep '{name}': {source} has no `targets:`. See SWEEPS.md for the "
-            "sweep-file grammar."
+            f"sweep '{name}': {source} has no `targets:`. See "
+            "docs/reference/sweeps.md for the sweep-file grammar."
         )
     header = (
         f"# COPIED VERBATIM from {source} by Working/run_all.py.\n"
@@ -520,6 +522,28 @@ def _span(name: str, group: str, side, span) -> tuple[float, float]:
         ) from None
 
 
+def parse_force_cases(name: str, value) -> list[tuple[float, float, float]]:
+    """Read a sweep's `forces:` list of [bump, brake, corner] cases, in g."""
+    if value is None:
+        return []
+    shape = (f"sweep '{name}': `forces:` must be a list of [bump, brake, corner] "
+             "cases in g, e.g. [[6, 0, 0]]")
+    if not isinstance(value, list) or not value:
+        raise SweepSetError(f"{shape}; got {value!r}")
+    cases = []
+    for case in value:
+        if (not isinstance(case, list) or len(case) != 3
+                or not all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                           for v in case)):
+            raise SweepSetError(f"{shape}; {case!r} is not three numbers")
+        if not case[0] > 0:
+            raise SweepSetError(
+                f"sweep '{name}': force case {case!r} has bump {case[0]}. bump is "
+                "the total vertical factor incl. gravity, so it must be > 0.")
+        cases.append(tuple(float(v) for v in case))
+    return cases
+
+
 # ==========================================================================
 # Planning: everything up to (not including) solving
 # ==========================================================================
@@ -536,6 +560,10 @@ class SweepPlan:
     animation: Path  # where the animation goes, if `animate`
     fps: int
     dpi: int
+    # `forces:` - load cases solved at every step; empty = none.
+    force_cases: list[tuple[float, float, float]] = field(default_factory=list)
+    forces_csv: Path | None = None
+    forces_config: Path | None = None
 
 
 @dataclass
@@ -614,7 +642,7 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
     if not isinstance(configured, dict) or not configured:
         raise SweepSetError(
             f"{config_path}: `sweeps:` is empty. A sweep set is its sweeps; "
-            "see RUNNING.md for the keys each one takes."
+            "see docs/reference/sweeps.md for the keys each one takes."
         )
 
     chosen: list[dict] = []
@@ -668,8 +696,17 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
             gif_settings.update(
                 {k: v for k, v in sweep_cfg["gif"].items() if k != "enabled"})
 
+        force_cases = [] if opts.no_forces else parse_force_cases(
+            name, sweep_cfg.get("forces"))
+        if force_cases and not (geometry.parent / FORCES_CONFIG_NAME).is_file():
+            raise SweepSetError(
+                f"sweep '{name}' lists `forces:` but {geometry.parent} has no "
+                f"{FORCES_CONFIG_NAME} to take the vehicle (mass, other axle) from."
+            )
+
         chosen.append({"name": name, "source": source, "cfg": sweep_cfg,
-                       "gif": wants_gif, "gif_settings": gif_settings})
+                       "gif": wants_gif, "gif_settings": gif_settings,
+                       "force_cases": force_cases})
 
     if not chosen:
         raise SweepSetError(
@@ -722,7 +759,8 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
         if drives["unhandled"]:
             print(f"   note ({set_name}): this geometry exposes drive coordinate(s) "
                   "run.yaml has no key for: " + ", ".join(drives["unhandled"])
-                  + ". A sweep that must drive one needs `file:` (SWEEPS.md).")
+                  + ". A sweep that must drive one needs `file:` "
+                  "(docs/reference/sweeps.md).")
         # Validate every sweep before generating any, so the first complaint
         # names the sweep rather than arriving with half the set written.
         for item in chosen:
@@ -752,10 +790,14 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
             animation=outputs / f"{name}.{fmt}",
             fps=int(settings["fps"]),
             dpi=int(settings["dpi"]),
+            force_cases=item["force_cases"],
+            forces_csv=outputs / f"{name}{FORCES_SUFFIX}.csv",
+            forces_config=(geometry.parent / FORCES_CONFIG_NAME
+                           if item["force_cases"] else None),
         )
         if not opts.report_only and not opts.dry_run:
             # Stale results of a sweep about to be re-solved must not survive.
-            stale = [plan.csv, plan.frames,
+            stale = [plan.csv, plan.frames, plan.forces_csv,
                      *(outputs / f"{name}.{ext}" for ext in ANIMATION_FORMATS)]
             for path in stale:
                 path.unlink(missing_ok=True)

@@ -556,3 +556,116 @@ def test_a_run_writes_into_the_cars_forces_folder(aurora_forces_dir, tmp_path):
     assert run.output_path == tmp_path / "forces" / "forces.csv"
     assert run.load_transfer_path == tmp_path / "forces" / "load_transfer.csv"
     assert run.output_path.exists() and run.load_transfer_path.exists()
+
+
+# --------------------------------------------------------------------------
+# Chassis reactions
+# --------------------------------------------------------------------------
+def _tyre_load(run, row):
+    return next(
+        load
+        for block in run.solution.blocks
+        for part_row in block.rows
+        if part_row.case == row.case and part_row.side == row.side
+        for load in part_row.loads
+        if load.applied
+    )
+
+
+def _rack_loads(run, row):
+    """Force the grounded rack applies to the suspension, at trackrod_inboard."""
+    return [
+        load
+        for block in run.solution.blocks
+        if block.part == "Track Rod"
+        for part_row in block.rows
+        if part_row.case == row.case and part_row.side == row.side
+        for load in part_row.loads
+        if load.name == "trackrod_inboard"
+    ]
+
+
+def test_chassis_and_rack_reactions_close_each_corner_against_its_tyre_load(
+    suspensions,
+):
+    """Road load + chassis reactions + rack reaction balance, per corner.
+
+    The rack is not in the chassis block, so a corner only closes with the
+    Track Rod's inboard load added back: front corners have exactly one, the
+    unsteered rear none.
+    """
+    cases = [LoadCase(2, 1, 1), LoadCase(1, 0, -1), LoadCase(1, -1, 0)]
+    run = solve_forces(suspensions, cases, MASS, GRAVITY)
+    assert [block.part for block in run.solution.chassis] == [
+        "Front Chassis",
+        "Rear Chassis",
+    ]
+    for block in run.solution.chassis:
+        for row in block.rows:
+            tyre = _tyre_load(run, row)
+            rack = _rack_loads(run, row)
+            assert len(rack) == (1 if block.part == "Front Chassis" else 0)
+            on_suspension = [(load.position, -load.force) for load in row.loads] + [
+                (load.position, load.force) for load in rack
+            ]
+            force = tyre.force + sum(f for _, f in on_suspension)
+            moment = np.cross(tyre.position, tyre.force) + sum(
+                np.cross(r, f) for r, f in on_suspension
+            )
+            assert np.abs(force).max() < 1e-6
+            assert np.abs(moment).max() < 1e-3
+
+
+def test_chassis_hardpoints_are_the_chassis_points_only(suspensions):
+    run = solve_forces(suspensions, [LoadCase(1, 0, 0)], MASS, GRAVITY)
+    front, rear = run.solution.chassis
+    assert set(front.columns) == {
+        "lower_wishbone_inboard_front",
+        "lower_wishbone_inboard_rear",
+        "upper_wishbone_inboard_front",
+        "upper_wishbone_inboard_rear",
+        "strut_top",
+    }  # no trackrod_inboard: the grounded rack is not the chassis
+    assert set(rear.columns) == {
+        "trailing_arm_pivot_a",
+        "trailing_arm_pivot_b",
+        "strut_top",
+    }
+
+
+def test_chassis_load_is_the_negative_of_the_part_side_load(suspensions):
+    run = solve_forces(suspensions, [LoadCase(2, 1, 1)], MASS, GRAVITY)
+    chassis = run.solution.chassis[0].rows[0]
+    lower = next(b for b in run.solution.blocks if b.part == "Lower Wishbone")
+    part_row = next(r for r in lower.rows if r.side == chassis.side)
+    on_part = {load.name: load.force for load in part_row.loads}
+    on_chassis = {load.name: load.force for load in chassis.loads}
+    for name in ("lower_wishbone_inboard_front", "lower_wishbone_inboard_rear"):
+        np.testing.assert_allclose(on_chassis[name], -on_part[name])
+
+
+def test_chassis_blocks_are_written_last_and_can_be_switched_off(suspensions, tmp_path):
+    run = solve_forces(suspensions, [LoadCase(2, 1, 1)], MASS, GRAVITY)
+    on = tmp_path / "on.csv"
+    off = tmp_path / "off.csv"
+    write_forces(run.solution, on)
+    write_forces(run.solution, off, ForceWriteOptions(chassis=False))
+    text = on.read_text()
+    assert "PART:,Front Chassis" in text and "PART:,Rear Chassis" in text
+    assert text.rindex("PART:,Front Chassis") > text.rindex("PART:,Upright")
+    assert "Chassis" not in off.read_text()
+
+
+def test_part_frame_never_mirrors_the_chassis(suspensions, tmp_path):
+    run = solve_forces(suspensions, [LoadCase(2, 1, 1)], MASS, GRAVITY)
+    vehicle_path = tmp_path / "vehicle.csv"
+    part_path = tmp_path / "part.csv"
+    write_forces(run.solution, vehicle_path)
+    write_forces(run.solution, part_path, ForceWriteOptions(frame=OutputFrame.PART))
+
+    def chassis_lines(path):
+        lines = path.read_text().splitlines()
+        start = lines.index("PART:,Front Chassis")
+        return lines[start:]
+
+    assert chassis_lines(vehicle_path) == chassis_lines(part_path)

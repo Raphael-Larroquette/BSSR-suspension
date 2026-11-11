@@ -11,12 +11,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 
 from kinematics.cli.io.cases_loader import load_cases
 from kinematics.cli.io.force_writer import (
     ForceWriteOptions,
+    write_force_travel,
     write_forces,
     write_load_transfer,
     write_per_part_files,
@@ -24,6 +26,7 @@ from kinematics.cli.io.force_writer import (
 from kinematics.cli.io.forces_loader import load_forces_config
 from kinematics.cli.io.loaders import load_geometry
 from kinematics.cli.io.provenance import compute_file_hash
+from kinematics.core.enums import AxlePosition
 from kinematics.core.loads.cases import LoadCase
 from kinematics.core.loads.main import (
     ForceModelOptions,
@@ -34,8 +37,10 @@ from kinematics.core.loads.main import (
 from kinematics.core.loads.results import PartBlock, PartCaseLoads
 from kinematics.core.loads.structure import AttachRule, StructurePolicy
 from kinematics.core.loads.system import MomentReference, SolveOptions
+from kinematics.core.loads.travel import ForceTravel, solve_forces_over_travel
 from kinematics.core.primitives.geometry import extract_array
 from kinematics.core.schema.loads import ForcesConfig
+from kinematics.core.state import SuspensionState
 from kinematics.core.suspensions.base import Suspension
 
 DEFAULT_CONFIG_NAME = "forces.yaml"
@@ -196,6 +201,7 @@ def run_force_files(
     options = ForceWriteOptions(
         frame=loaded.config.output.frame,
         moments=loaded.config.output.moments,
+        chassis=loaded.config.output.chassis,
         metadata=_provenance(loaded.paths),
     )
 
@@ -338,3 +344,40 @@ def _provenance(paths: ForcePaths) -> dict[str, str]:
             ("cases", paths.cases),
         )
     }
+
+
+def run_force_travel(
+    config_path: Path,
+    swept: Suspension,
+    states: Sequence[SuspensionState],
+    cases: Sequence[LoadCase],
+    out: Path,
+) -> ForceTravel:
+    """
+    Solve ``cases`` at every state of a swept suspension and write the table.
+
+    ``config_path`` supplies the vehicle: mass, solve policy, and the other
+    axle's geometry (held at design). ``swept`` replaces the configuration's
+    model for its own axle, so the states and the suspension always match.
+    """
+    config = load_forces_config(config_path)
+    base = config_path.parent
+    suspensions = [
+        load_geometry(Path(os.path.normpath(base / Path(value))))
+        for value in (config.geometry.front, config.geometry.rear)
+    ]
+    if swept.config is None or swept.config.axle_position is None:
+        raise ValueError(f"'{swept.name}' does not declare axle_position")
+    moving = 0 if swept.config.axle_position is AxlePosition.FRONT else 1
+    suspensions[moving] = swept
+    travel = solve_forces_over_travel(
+        suspensions,
+        moving,
+        states,
+        cases,
+        mass=config.vehicle.mass,
+        gravity=config.vehicle.g,
+        options=build_options(config),
+    )
+    write_force_travel(travel, out)
+    return travel

@@ -45,8 +45,8 @@ Forces run by default, because a sweep set and the force solve read the SAME
 geometry: a hardpoint edit invalidates both. A model without a forces.yaml is
 skipped for forces, with a note.
 
-See the repository README.md for the workflow, sweep_sets/RUNNING.md for the
-run.yaml keys, and FORCES.md for the force solve.
+Docs: README.md, then docs/reference/sweeps.md (run.yaml, flags) and
+docs/reference/forces.md.
 """
 
 from __future__ import annotations
@@ -64,8 +64,9 @@ SWEEP_SETS_DIR = HERE / "sweep_sets"
 MODELS_DIR = HERE / "models"
 
 # The libraries live beside the sweep sets. Pool workers inherit this path.
-if str(SWEEP_SETS_DIR) not in sys.path:
-    sys.path.insert(0, str(SWEEP_SETS_DIR))
+for _path in (SWEEP_SETS_DIR, HERE):  # libraries: sweep_sets/*, check.py
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 import scheduler  # noqa: E402 - stdlib only; must precede anything importing numpy
 
@@ -253,6 +254,7 @@ def plan_models(args, models: list[Path | None], sweep_sets: list[Path],
             solve_only=args.solve_only,
             dry_run=args.dry_run,
             on_bad_solve=args.on_bad_solve,
+            no_forces=args.no_forces,
         )
 
     for model in models:
@@ -318,6 +320,9 @@ def solve_tasks(runs: list[ModelRun], report_only: bool) -> list:
                             "sweep": str(sweep.resolved),
                             "csv": str(sweep.csv),
                             "frames": str(sweep.frames) if sweep.animate else "",
+                            "force_cases": [list(c) for c in sweep.force_cases],
+                            "forces_csv": str(sweep.forces_csv or ""),
+                            "forces_config": str(sweep.forces_config or ""),
                             "log": str(logs / plan.name / f"{sweep.name}.log"),
                         }))
         if run.forces is not None:
@@ -577,28 +582,38 @@ def print_matrix(runs: list[ModelRun], by_model: dict) -> None:
           "- not run")
 
 
-def dry_run(runs: list[ModelRun]) -> None:
-    """Print what would run, and validate each force configuration."""
+def dry_run(runs: list[ModelRun]) -> bool:
+    """Print what would run and check every model folder. False on any problem.
+
+    The folder check is Working/check.py: every file in MODEL_FILES present,
+    each geometry builds, and forces.yaml solves.
+    """
+    from check import check_model
+
+    good = True
     for run in runs:
+        problems = check_model(run.folder)
+        good = good and not problems and not run.plan_errors
         print(f"{run.name}  ({run.folder})")
         for message in run.plan_errors:
             print(f"   PLAN FAILED  {message}")
+        for problem in problems:
+            print(f"   MODEL FAILED  {problem}")
+        if not problems:
+            print("   model: complete, builds, forces solve")
         for plan in run.sets:
             anims = [s.name for s in plan.sweeps if s.animate]
             print(f"   {plan.name}: {len(plan.sweeps)} sweep(s) "
                   f"({', '.join(s.name for s in plan.sweeps)})")
             if anims:
                 print(f"      animations: {', '.join(anims)}")
-        if run.forces is not None:
-            from kinematics.cli.commands.forces import load_inputs
-
-            try:
-                loaded = load_inputs(run.forces, cases=forces_cases(run.forces))
-                print(f"   forces: valid, {len(loaded.cases)} case(s), "
-                      f"{len(loaded.run.corners)} corner(s)")
-            except Exception as error:  # noqa: BLE001
-                print(f"   forces: INVALID - {error}")
+            for s in plan.sweeps:
+                if s.force_cases:
+                    cases = "; ".join(",".join(f"{v:g}" for v in c)
+                                      for c in s.force_cases)
+                    print(f"      forces along travel: {s.name} ({cases})")
     print("\n(dry run: nothing solved, nothing written)")
+    return good
 
 
 # ==========================================================================
@@ -615,7 +630,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="These flags override run.yaml for this invocation only; "
         "run.yaml is the only other place anything is configured. "
-        "See RUNNING.md for its key reference.",
+        "See docs/reference/sweeps.md for its key reference.",
     )
 
     which = parser.add_argument_group("which model(s)")
@@ -837,7 +852,8 @@ def main() -> None:
                  "work, or no selected model has the geometry the sets need.")
     if args.dry_run:
         print()
-        dry_run(runs)
+        if not dry_run(runs):
+            sys.exit(1)
         return
 
     show_model = len(runs) > 1

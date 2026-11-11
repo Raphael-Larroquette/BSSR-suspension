@@ -60,6 +60,8 @@ REQUIRED_CONFIG = {
 
 # Keys every enabled sweep must carry. A sweep with `run: false` needs only
 # `run`, so that switching one off stays a one-line edit.
+# runner.FORCES_SUFFIX: the stem ending of a sweep's forces-over-travel table.
+FORCES_TABLE_SUFFIX = "_forces"
 REQUIRED_SWEEP_KEYS = ("run", "report", "plots")
 
 
@@ -92,7 +94,7 @@ def _require(config: dict, source: str) -> None:
         raise SystemExit(
             f"{source}: missing required setting(s): {', '.join(missing)}.\n"
             "There are no built-in defaults - every setting must be present. "
-            "See RUNNING.md for the key reference."
+            "See docs/reference/sweeps.md for the key reference."
         )
 
 
@@ -488,8 +490,10 @@ def _degenerate_side_view(sweeps: list[Sweep]) -> bool:
 def write_report(sweeps: list[Sweep], summary: pd.DataFrame, side: str,
                  out: Path, plots: list[Path], joints: list | None,
                  config: dict, problems: dict[str, list[str]],
-                 title: str, notes: list[str]) -> Path:
-    """Assemble report.md. `notes` is the reporter's conventions section."""
+                 title: str, notes: list[str],
+                 force_lines: list[str] | None = None) -> Path:
+    """Assemble report.md. `notes` is the reporter's conventions section;
+    `force_lines` the forces-along-travel section, placed after the sweeps."""
     from bearings import report_section as bearing_section
 
     joints = joints or []
@@ -560,6 +564,8 @@ def write_report(sweeps: list[Sweep], summary: pd.DataFrame, side: str,
         figure = out / "plots" / f"{s.name}.png"
         if figure.exists():
             lines.append(f"Plots: `plots/{figure.name}`\n")
+
+    lines += force_lines or []
 
     if joints and report_cfg["joints"]:
         lines += bearing_section(joints)
@@ -672,7 +678,7 @@ def channels_for(sw: Sweep, config: dict, channels: dict[str, Channel],
 # suffixes to walk: ("_left", "_right") on an axle, ("",) on a corner.
 # ==========================================================================
 def add_corner_derived(sw: Sweep, sides: tuple[str, ...]) -> None:
-    """Append the per-corner derived columns. See CHARACTERISTICS.md."""
+    """Append the per-corner derived columns. See docs/reference/characteristics.md."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", pd.errors.PerformanceWarning)
         _add_corner_derived(sw, sides)
@@ -690,7 +696,7 @@ def _add_corner_derived(sw: Sweep, sides: tuple[str, ...]) -> None:
         # roll`, which used the wheel-centre line rather than the road plane
         # and, being measured about chassis X, folded steer camber in. The
         # solver now exports `road_camber` directly (ISO 8855 inclination,
-        # signed like camber); see CHARACTERISTICS.md.
+        # signed like camber); see docs/reference/characteristics.md.
 
         # --- Signed scrub radius --------------------------------------
         # `scrub_radius` in the CSV is the ISO 8855 unsigned road-plane
@@ -845,6 +851,82 @@ class Reporter:
     notes: Callable[[list[Sweep], dict | None], list[str]]
 
 
+def joint_forces(table: pd.DataFrame) -> pd.DataFrame:
+    """Reduce a forces-along-travel table to one |F| per joint, side, step, case.
+
+    A joint carries the same load, equal and opposite, on both bodies it
+    connects, so every part's copy (and the chassis block's) is the same
+    magnitude. One row per joint is what a plot or a sizing table wants.
+    """
+    parts = table[~table["part"].str.endswith("Chassis")]
+    keys = ["bump", "brake", "corner", "side", "joint", "step"]
+    return (parts.groupby(keys, as_index=False)
+            .agg(wheel_travel=("wheel_travel", "first"), f=("f", "max")))
+
+
+def forces_section(indir: Path, sweeps: list[Sweep], outdir: Path,
+                   ) -> tuple[list[str], list[Path]]:
+    """Report.md lines and plots for every sweep that solved forces along travel.
+
+    Per case: one plot of |F| against wheel travel, one line per joint, and a
+    table of each joint's peak and how far it rises above its design value
+    (a force raiser shows up as a large peak/design ratio).
+    """
+    lines: list[str] = []
+    plots: list[Path] = []
+    for sw in sweeps:
+        path = indir / f"{sw.name}{FORCES_TABLE_SUFFIX}.csv"
+        if not path.is_file():
+            continue
+        forces = joint_forces(pd.read_csv(path, dtype={"side": str}))
+        if forces.empty:
+            continue
+        lines.append(f"## {sw.name}: joint forces along travel\n")
+        lines.append(
+            "Constant case load, applied at the posed contact patch. |F| is the "
+            "joint load (the same on both bodies it connects). Every component, "
+            f"including the chassis hardpoints, is in `{path.name}`.\n")
+        cases = forces[["bump", "brake", "corner"]].drop_duplicates()
+        fig, axes = plt.subplots(len(cases), 1, figsize=(9, 4.2 * len(cases)),
+                                 squeeze=False)
+        for ax, (_, case) in zip(axes.flat, cases.iterrows()):
+            label = f"{case.bump:g},{case.brake:g},{case.corner:g}"
+            rows = forces[(forces.bump == case.bump) & (forces.brake == case.brake)
+                          & (forces.corner == case.corner)]
+            lines.append(f"**Case {label}** (bump, brake, corner in g)\n")
+            lines.append("| joint | side | at design [N] | peak [N] | "
+                         "peak at travel [mm] | peak / design |")
+            lines.append("| --- | --- | --- | --- | --- | --- |")
+            summary = []
+            for (joint, side), group in rows.groupby(["joint", "side"]):
+                group = group.sort_values("wheel_travel")
+                design = group.iloc[int(np.argmin(np.abs(group.wheel_travel)))]
+                peak = group.loc[group.f.idxmax()]
+                summary.append((float(peak.f), joint, side, float(design.f),
+                                float(peak.wheel_travel)))
+                tag = joint if side == "centre" else f"{joint} ({side})"
+                ax.plot(group.wheel_travel, group.f, lw=1.6, label=tag)
+            for peak_f, joint, side, design_f, at in sorted(summary, reverse=True):
+                ratio = peak_f / design_f if design_f > 0 else float("nan")
+                lines.append(f"| `{joint}` | {side} | {design_f:,.0f} | "
+                             f"{peak_f:,.0f} | {at:+.1f} | {ratio:.2f} |")
+            lines.append("")
+            ax.set_title(f"{sw.name}: joint forces, case {label}", fontsize=10,
+                         color=INK)
+            ax.set_xlabel("wheel travel [mm]", fontsize=8)
+            ax.set_ylabel("|F| [N]", fontsize=8)
+            ax.grid(True, alpha=0.25)
+            ax.legend(fontsize=7, ncol=2)
+        fig.tight_layout()
+        outdir.mkdir(parents=True, exist_ok=True)
+        figure = outdir / f"{sw.name}{FORCES_TABLE_SUFFIX}.png"
+        fig.savefig(figure, dpi=130)
+        plt.close(fig)
+        plots.append(figure)
+        lines.append(f"Plot: `plots/{figure.name}`\n")
+    return lines, plots
+
+
 def run_report(indir: Path, out: Path, config: dict, reporter: Reporter,
                side: str | None = None) -> Path:
     """Build the report from a directory of sweep CSVs. Returns report.md.
@@ -858,7 +940,9 @@ def run_report(indir: Path, out: Path, config: dict, reporter: Reporter,
     suffix = side_suffix(configured_side) if reporter.scope == "axle" else ""
     out.mkdir(parents=True, exist_ok=True)
 
-    files = sorted(indir.glob("*.csv"))
+    # <sweep>_forces.csv is the forces-along-travel table, not a sweep.
+    files = sorted(f for f in indir.glob("*.csv")
+                   if not f.stem.endswith(FORCES_TABLE_SUFFIX))
     # A sweep switched off in run.yaml leaves its old CSV on disk. Reporting it
     # would quietly resurrect stale numbers and, worse, let a disabled sweep
     # keep setting bearing requirements - so honour the list of sweeps that
@@ -917,9 +1001,11 @@ def run_report(indir: Path, out: Path, config: dict, reporter: Reporter,
     if joints:
         bearings.joints_table(joints).to_csv(out / "joints.csv", index=False)
 
+    force_lines, force_plots = forces_section(indir, sweeps, out / "plots")
+    plots += force_plots
     report = write_report(sweeps, summary, suffix, out, plots, joints, config,
                           problems, reporter.title,
-                          reporter.notes(sweeps, geometry))
+                          reporter.notes(sweeps, geometry), force_lines)
 
     print(f"\n  {len(summary)} characteristics extracted")
     print(f"  summary : {out/'summary.csv'}")

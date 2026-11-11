@@ -6,6 +6,40 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Trailing-arm shock layouts B-E.** `actuation: {type: pushrod_rocker,
+  rocker_mount: chassis | arm}` and `spring.base: chassis | arm` select a rocker on the
+  chassis or the arm, with the shock based on the chassis or the arm. No `actuation:`
+  is layout A (direct) and is unchanged: Aurora's rear solves bit-for-bit as before.
+  Every layout is 1 DOF and statically determinate (rod and shock two-force members,
+  rocker pivot a coaxial pair). Fixtures in `tests/data/trailing_arm_linkage/`, checked
+  against an independent planar four-bar and against virtual work.
+- `shock_transmission_angle` (every coilover trailing arm), `rod_transmission_angle` and
+  `rocker_angle` (rocker layouts): 90° square, 0° toggle.
+- report.md: a forces-along-travel section per sweep with `forces:` (peak, where, and
+  peak/design per joint) and a |F|-vs-travel plot per case.
+
+- **Forces along travel.** A sweep's optional `forces:` key in `run.yaml` (a list of
+  `[bump, brake, corner]` cases) solves those cases at every step and writes
+  `<sweep>_forces.csv`: one row per step, case, part and joint of the moving axle,
+  including its chassis block. Constant case load: each wheel's force is found at design
+  and applied at the posed contact patch. Core: `solve_forces(..., poses=)`,
+  `build_force_graph(..., state=)` and `kinematics.core.loads.travel`. The rear set
+  solves `[[6, 0, 0]]` on `01_bump`. A failure is reported on the sweep as `warn`, not
+  a failed sweep. `--no-forces` skips it.
+
+- **Chassis reactions in `forces.csv`.** After the part blocks, one `Front Chassis` and
+  one `Rear Chassis` block give the force acting ON the chassis at every chassis
+  hardpoint (the negative of the part-side load), per case and side. Kept out of
+  `ForceSolution.blocks` (as `ForceSolution.chassis`), so `--check` and the optimizer's
+  `joint_force` objective are unchanged. Never mirrored by `output.frame: part`.
+  `output.chassis` (default `true`) switches them off. Only points of the chassis
+  itself are reported: the grounded steering rack (`trackrod_inboard`) is excluded,
+  since its load reaches the chassis through rack mounts that are not modelled yet.
+- `Working/check.py [MODEL ...]`: a model folder must hold `front.yaml`, `rear.yaml` and
+  `forces.yaml`, each geometry must build and the forces must solve. Replaces the
+  per-model `check.py` copies. `run_all.py --dry-run` runs it on every planned model and
+  now exits 1 on any problem.
+
 - **`road_camber` corner metric** (deg). Camber relative to the axle-local road
   plane rather than the chassis: the magnitude of ISO 8855 §7.1.16 inclination
   angle, `-asin(a_outboard · n_road)`, which is measured about the tyre X axis and
@@ -22,6 +56,22 @@ All notable changes to this project will be documented in this file.
   `ROAD_CAMBER_TARGET`, so positive inner camber in a turn costs more than
   negative. Set to 3 in `nonunderleg4.py`; defaults to 1 (symmetric) for scripts
   that do not set it.
+
+### Changed
+
+- Docs reorganised into `docs/guides/` (new model, results, optimizer) and
+  `docs/reference/` (geometry, sweeps, characteristics, forces), replacing
+  `MODELS.md`, `FORCES.md`, `RUNNING.md`, `SWEEPS.md`, `CHARACTERISTICS.md` and
+  `sweep_sets/README.md`. README cut back to intro, support, assumptions, coordinates,
+  install and quick start. `run.yaml` and `forces.yaml` comments cut to pointers.
+- `-0.0` is written as `0.0` in force output.
+
+### Removed
+
+- Deprecation stubs `Working/sweep_sets/run_all.py` and `Working/run_all_pareto.py`; the
+  old `Working/forces/` output folder; `triage.txt`, `front.png`,
+  `visualize_camber_shim.py` (and its smoke tests); `.history/` (VS Code local history,
+  already ignored) from the index. `.benchmarks/` is now ignored.
 
 ### Changed
 
