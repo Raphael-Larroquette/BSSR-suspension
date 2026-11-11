@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<!-- Template for cv2_spread_explorer.py; the script fills in the data. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CV2 spread sweep explorer</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 0; color: #222; }
+  header { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid #ddd; align-items: center; }
+  header h1 { font-size: 16px; margin: 0 16px 0 0; }
+  .tab { padding: 6px 14px; border: 1px solid #ccc; background: #f6f6f6; cursor: pointer; border-radius: 4px; }
+  .tab.on { background: #2b6cb0; color: #fff; border-color: #2b6cb0; }
+  .page { display: none; padding: 12px; }
+  .page.on { display: block; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .panel { border: 1px solid #e2e2e2; border-radius: 6px; padding: 10px; }
+  .slider { display: grid; grid-template-columns: 110px 220px 60px; align-items: center; gap: 8px; margin: 4px 0; }
+  .slider b { text-align: right; font-variant-numeric: tabular-nums; }
+  label.sel { margin-right: 12px; }
+  #status { margin-top: 6px; font-weight: 600; }
+  .bad { color: #c53030; }
+  .note { color: #666; font-size: 12px; max-width: 900px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CV2 spread sweep</h1>
+  <button class="tab on" data-page="explore">Explorer</button>
+  <button class="tab" data-page="three">3D</button>
+</header>
+
+<section class="page on" id="explore">
+  <div class="row">
+    <div class="panel">
+      <div id="sliders"></div>
+      <div id="status"></div>
+      <div id="metrics" class="note"></div>
+    </div>
+    <div class="panel"><div id="bars" style="width:640px;height:340px"></div></div>
+  </div>
+  <div class="panel" style="margin-top:12px">
+    <label class="sel">x axis <select id="hx"></select></label>
+    <label class="sel">y axis <select id="hy"></select></label>
+    <label class="sel">colour <select id="hc"></select></label>
+    <label class="sel">case <select id="hcase"></select></label>
+    <div class="note">The other three parameters stay at the slider values. Blank = no design (shock outside a pivot pair, or pivots outside their limits). Click a cell to move the sliders there.</div>
+    <div id="heat" style="width:900px;height:520px"></div>
+  </div>
+</section>
+
+<section class="page" id="three">
+  <div class="row">
+    <div class="panel">
+      <label class="sel">metric <select id="tm"></select></label>
+      <label class="sel">case <select id="tcase"></select></label>
+      <label class="sel"><input type="checkbox" id="tfix" checked> same colour scale for every spread pair</label>
+      <div class="note">Overview: best (lowest) metric for each UCA/LCA spread pair. Click a cell to show its designs in 3D.</div>
+      <div id="grid" style="width:520px;height:420px"></div>
+    </div>
+    <div class="panel">
+      <div id="title3d"></div>
+      <div id="scatter3d" style="width:760px;height:620px"></div>
+      <div class="note">Click a point to open that design in the Explorer tab.</div>
+    </div>
+  </div>
+</section>
+
+<script>
+const D = /*DATA*/null;
+const N = D.p[0].length;
+const shock = D.p[0], ucaF = D.p[1], ucaR = D.p[2], lcaF = D.p[3], lcaR = D.p[4];
+const ucaS = ucaF.map((v, i) => +(v - ucaR[i]).toFixed(1));
+const lcaS = lcaF.map((v, i) => +(v - lcaR[i]).toFixed(1));
+
+const PARAMS = {
+  shock: { label: "Shock x", v: shock },
+  ucaS:  { label: "UCA spread", v: ucaS },
+  ucaR:  { label: "UCA rear x", v: ucaR },
+  lcaS:  { label: "LCA spread", v: lcaS },
+  lcaR:  { label: "LCA rear x", v: lcaR },
+};
+const KEYS = Object.keys(PARAMS);
+const uniq = k => [...new Set(PARAMS[k].v)].sort((a, b) => a - b);
+const U = Object.fromEntries(KEYS.map(k => [k, uniq(k)]));
+const keyOf = s => KEYS.map(k => s[k]).join("|");
+const INDEX = new Map();
+for (let i = 0; i < N; i++) INDEX.set(keyOf(Object.fromEntries(KEYS.map(k => [k, PARAMS[k].v[i]]))), i);
+const short = j => j.replace("_wishbone", "").replace("_inboard", " in").replace("_outboard", " out");
+
+// ---------- value lookup ----------
+const CASE_OPTS = [...D.cases, "both"];
+const COLOUR_OPTS = [["LCA", "LCA metric"], ["UCA", "UCA metric"], ["SUM", "LCA + UCA metric"],
+                     ...D.joints.map(j => ["J:" + j, short(j) + " |F|"])];
+function value(i, colour, c) {
+  if (colour === "SUM") {
+    const a = D.metric["LCA|" + c][i], b = D.metric["UCA|" + c][i];
+    return a == null || b == null ? null : a + b;
+  }
+  if (colour.startsWith("J:")) {
+    const j = colour.slice(2);
+    const cs = c === "both" ? D.cases : [c];
+    const vals = cs.map(k => D.bars[k][j][i]).filter(v => v != null);
+    return vals.length ? Math.max(...vals) : null;
+  }
+  return D.metric[colour + "|" + c][i];
+}
+function fill(sel, opts, chosen) {
+  sel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+  sel.value = chosen;
+}
+
+// ---------- Explorer ----------
+const state = Object.fromEntries(KEYS.map(k => [k, PARAMS[k].v[0]]));
+const sliders = document.getElementById("sliders");
+for (const k of KEYS) {
+  const row = document.createElement("div");
+  row.className = "slider";
+  row.innerHTML = `<span>${PARAMS[k].label}</span><input type="range" min="0" max="${U[k].length - 1}" step="1"><b></b>`;
+  const input = row.querySelector("input");
+  input.addEventListener("input", () => { state[k] = U[k][+input.value]; drawExplorer(); });
+  row.input = input; row.out = row.querySelector("b"); row.k = k;
+  sliders.appendChild(row);
+}
+const hx = document.getElementById("hx"), hy = document.getElementById("hy");
+const hc = document.getElementById("hc"), hcase = document.getElementById("hcase");
+fill(hx, KEYS.map(k => [k, PARAMS[k].label]), "shock");
+fill(hy, KEYS.map(k => [k, PARAMS[k].label]), "lcaR");
+fill(hc, COLOUR_OPTS, "LCA");
+fill(hcase, CASE_OPTS.map(c => [c, c]), "both");
+[hx, hy, hc, hcase].forEach(s => s.addEventListener("change", drawExplorer));
+
+function drawExplorer() {
+  for (const row of sliders.children) {
+    row.input.value = U[row.k].indexOf(state[row.k]);
+    row.out.textContent = state[row.k];
+  }
+  const i = INDEX.get(keyOf(state));
+  const status = document.getElementById("status");
+  const metrics = document.getElementById("metrics");
+  if (i === undefined) {
+    status.textContent = "No design here (rejected or outside limits)";
+    status.className = "bad";
+    metrics.textContent = "";
+    Plotly.react("bars", [], { title: "no design" });
+  } else {
+    status.textContent = `UCA ${ucaF[i]} / ${ucaR[i]}   LCA ${lcaF[i]} / ${lcaR[i]}   shock ${shock[i]}`;
+    status.className = "";
+    metrics.textContent = CASE_OPTS.map(c =>
+      `${c}: LCA ${value(i, "LCA", c)?.toFixed(0)} N, UCA ${value(i, "UCA", c)?.toFixed(0)} N`).join("   |   ");
+    Plotly.react("bars", D.cases.map(c => ({
+      type: "bar", name: c, x: D.joints.map(short), y: D.joints.map(j => D.bars[c][j][i]),
+    })), { title: "Joint |F| (worse side)", barmode: "group", yaxis: { title: "N" },
+           margin: { t: 40, b: 80, l: 60, r: 10 }, width: 640, height: 340 });
+  }
+  const xk = hx.value, yk = hy.value;
+  if (xk === yk) { Plotly.react("heat", [], { title: "pick two different axes" }); return; }
+  const z = U[yk].map(yv => U[xk].map(xv => {
+    const j = INDEX.get(keyOf({ ...state, [xk]: xv, [yk]: yv }));
+    return j === undefined ? null : value(j, hc.value, hcase.value);
+  }));
+  Plotly.react("heat", [
+    { type: "heatmap", x: U[xk], y: U[yk], z, colorscale: "Viridis", colorbar: { title: "N" },
+      hoverongaps: false },
+    { type: "scatter", mode: "markers", x: [state[xk]], y: [state[yk]], showlegend: false,
+      marker: { symbol: "x", size: 14, color: "red" }, hoverinfo: "skip" },
+  ], { xaxis: { title: PARAMS[xk].label + " [mm]" }, yaxis: { title: PARAMS[yk].label + " [mm]" },
+       margin: { t: 20 }, width: 900, height: 520 });
+}
+function bindHeatClick() {
+  document.getElementById("heat").on("plotly_click", ev => {
+    const p = ev.points[0];
+    if (p.curveNumber !== 0) return;
+    state[hx.value] = p.x; state[hy.value] = p.y; drawExplorer();
+  });
+}
+
+// ---------- 3D ----------
+const tm = document.getElementById("tm"), tcase = document.getElementById("tcase"), tfix = document.getElementById("tfix");
+fill(tm, [["LCA", "LCA metric"], ["UCA", "UCA metric"], ["SUM", "LCA + UCA metric"]], "LCA");
+fill(tcase, CASE_OPTS.map(c => [c, c]), "both");
+let pick = { ucaS: U.ucaS[0], lcaS: U.lcaS[0] };
+[tm, tcase, tfix].forEach(s => s.addEventListener("change", draw3D));
+
+function draw3D() {
+  const vals = Array.from({ length: N }, (_, i) => value(i, tm.value, tcase.value));
+  const z = U.lcaS.map(ls => U.ucaS.map(us => {
+    let best = null;
+    for (let i = 0; i < N; i++)
+      if (ucaS[i] === us && lcaS[i] === ls && vals[i] != null && (best === null || vals[i] < best)) best = vals[i];
+    return best;
+  }));
+  Plotly.react("grid", [
+    { type: "heatmap", x: U.ucaS, y: U.lcaS, z, colorscale: "Viridis", colorbar: { title: "N" },
+      texttemplate: "%{z:.0f}", hoverongaps: false },
+    { type: "scatter", mode: "markers", x: [pick.ucaS], y: [pick.lcaS], showlegend: false,
+      marker: { symbol: "square-open", size: 26, color: "red", line: { width: 3 } }, hoverinfo: "skip" },
+  ], { xaxis: { title: "UCA spread [mm]", type: "category" }, yaxis: { title: "LCA spread [mm]", type: "category" },
+       margin: { t: 10 }, width: 520, height: 420 });
+
+  const ids = [];
+  for (let i = 0; i < N; i++) if (ucaS[i] === pick.ucaS && lcaS[i] === pick.lcaS && vals[i] != null) ids.push(i);
+  const all = vals.filter(v => v != null);
+  const range = tfix.checked ? { cmin: Math.min(...all), cmax: Math.max(...all) } : {};
+  document.getElementById("title3d").textContent =
+    `UCA spread ${pick.ucaS}, LCA spread ${pick.lcaS}: ${ids.length} designs`;
+  Plotly.react("scatter3d", [{
+    type: "scatter3d", mode: "markers", customdata: ids,
+    x: ids.map(i => ucaF[i]), y: ids.map(i => lcaF[i]), z: ids.map(i => shock[i]),
+    text: ids.map(i => `${vals[i].toFixed(0)} N<br>UCA ${ucaF[i]}/${ucaR[i]}<br>LCA ${lcaF[i]}/${lcaR[i]}<br>shock ${shock[i]}`),
+    hoverinfo: "text",
+    marker: { size: 4, color: ids.map(i => vals[i]), colorscale: "Viridis", colorbar: { title: "N" }, ...range },
+  }], { scene: { xaxis: { title: "UCA front x" }, yaxis: { title: "LCA front x" }, zaxis: { title: "shock x" } },
+        margin: { t: 10, l: 0, r: 0, b: 0 }, width: 760, height: 620, uirevision: "keep" });
+}
+function bind3DClicks() {
+  document.getElementById("grid").on("plotly_click", ev => {
+    const p = ev.points[0];
+    if (p.curveNumber !== 0) return;
+    pick = { ucaS: +p.x, lcaS: +p.y }; draw3D();
+  });
+  document.getElementById("scatter3d").on("plotly_click", ev => {
+    const i = ev.points[0].customdata;
+    Object.assign(state, { shock: shock[i], ucaS: ucaS[i], ucaR: ucaR[i], lcaS: lcaS[i], lcaR: lcaR[i] });
+    showPage("explore"); drawExplorer();
+  });
+}
+
+// ---------- tabs ----------
+function showPage(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("on", p.id === id));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.page === id));
+  window.dispatchEvent(new Event("resize"));
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showPage(t.dataset.page)));
+
+drawExplorer(); bindHeatClick();
+draw3D(); bind3DClicks();
+</script>
+</body>
+</html>
