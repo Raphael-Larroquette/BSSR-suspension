@@ -32,15 +32,15 @@ SWEEP_SET = "sweep_sets/front/run.yaml"     # which sweeps the objectives read
 CASES = "cases.csv"                         # load cases for the joint_force objective
 
 # Design rules derive_parameters() builds every candidate with.
-TRACK_WIDTH = 985.0          # mm, contact patch to contact patch
-CASTER_DEG = 7.0              # deg
+TRACK_WIDTH = 980.0          # mm, contact patch to contact patch
+CASTER_DEG = 9             # deg
 MIN_ARM_SEPARATION = 200.0    # mm, minimum vertical gap UCA above LCA (inboard and outboard)
 
 # Search size.
 # NSGA-III reference directions by objective count (opt/problem.py): 4 -> 165,
 # 5 -> 210. Keep the population at or above that; 1320 covers 5 objectives.
 POPULATION_SIZE = 1320   # max workers is 60 on python in windows
-GENERATIONS = 400
+GENERATIONS = 150
 
 # Worker processes. None = one per logical CPU (128 on the 64-core machine).
 # Windows caps one process pool at 60 workers, so they are split into as few
@@ -157,33 +157,33 @@ FREE_PARAMETERS = {
 # candidate whose zero-bump-steer point falls outside is rejected before solving.
 TRACKROD_INBOARD_LIMITS = {
     "y": (142.875, 340.0),
-    "z": (470.0, 600.0), # set this above the chassis roof height
+    "z": (510.0, 600.0), # set this above the chassis roof height 470 mm, raised 40 mm to account for ballast
 }
 
 KNOWN_DESIGN = {
-    "lower_wishbone_outboard.y": 476.136,
-    "lower_wishbone_outboard.z": 137.151,
-    "upper_wishbone_outboard.z": 437.0,
-    "lower_wishbone_inboard.y": 295.84,
-    "lower_wishbone_inboard.z": 136.358,
-    "upper_wishbone_inboard.y": 269.174,
-    "upper_wishbone_inboard.z": 422.12,
-    "trackrod_outboard.x": -128.565,
-    "trackrod_outboard.z": 524.387,
-    "trackrod_outboard.y": 408.764,   # was 407.4: 32% Ackermann; 394.5 gives 95%
-    "trackrod_inboard.x": -187.077,
+    "lower_wishbone_outboard.y": 468.761,
+    "lower_wishbone_outboard.z": 137.131,
+    "upper_wishbone_outboard.z": 434.732,
+    "lower_wishbone_inboard.y": 313.965,
+    "lower_wishbone_inboard.z": 146.52,
+    "upper_wishbone_inboard.y": 267.34,
+    "upper_wishbone_inboard.z": 443.763,
+    "trackrod_outboard.x": -108.471,
+    "trackrod_outboard.z": 507.651,
+    "trackrod_outboard.y": 399.033,   # 
+    "trackrod_inboard.x": -149.77,
     # Previously derived as outboard x +/- 50, kept so the seed is unchanged.
-    "lower_wishbone_inboard_front.x": 104.876,
-    "lower_wishbone_inboard_rear.x": -143.639,
-    "upper_wishbone_inboard_front.x": 71.414,
-    "upper_wishbone_inboard_rear.x": -111.03,
+    "lower_wishbone_inboard_front.x": 222.046,
+    "lower_wishbone_inboard_rear.x": -135.929,
+    "upper_wishbone_inboard_front.x": 69.76,
+    "upper_wishbone_inboard_rear.x": -109.035,
     # Absolute spring mounts; converted to strut_bottom u/v/height and
     # strut_top y/z by resolve_spring_seed(). Chosen inside the current ranges
     # (u_frac 0.153) so the seed passes every constraint: install ratio 0.635 (MR 1.57),
     # 252 mm at full bump, joint_force 4200 N. The old mounts (10.43, 365.75,
     # 341.13) / (10.43, 443.12, 166.76) gave IR 0.80 (MR 1.25) but sit at u_frac 0.033.
-    "strut_top": (19.45, 330.367, 454.21),
-    "strut_bottom": (3.155, 370.985, 186.049), # change? how was this and the one above calculated? not underchassis
+    "strut_top": (31.553, 326.472, 454.271),
+    "strut_bottom": (31.553, 326.472, 167.16), # change? how was this and the one above calculated? not underchassis
 }
 
 #: The force objective: this share of the mean joint force plus the rest of the
@@ -444,4 +444,4 @@ def resolve_spring_seed(fixed):
 
 
 if __name__ == "__main__":
-    run_optimization(__file__)
+    run_optimization(__file__)

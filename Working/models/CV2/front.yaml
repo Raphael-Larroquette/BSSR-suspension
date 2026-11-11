@@ -1,0 +1,58 @@
+type: double_wishbone
+scope: axle
+name: "CV2"
+version: "1.0.1"   # major = functional release, minor = new feature, patch = fix
+units: millimeters
+
+vehicle_config:
+  cg_position: {x: -681.5, y: 2.69, z: 367.86} #From gen13 mass budget as of 11/11/2026 on tab B13 V2
+  wheelbase: 2240.00
+
+axle_config:
+  axle_position: front
+  steering:
+    type: rack
+  actuation:
+    type: direct
+    mount: lower_wishbone
+  spring:
+    type: coilover
+  anti_roll:
+    type: none
+  heave_link:
+    type: none
+  wheel:   # Enlighten tyre, 95/80R16
+    offset: 23.737   # ET: wheel centreline to hub face, measured along the axle axis
+    tire:
+      aspect_ratio: 0.8   # sidewall height / section width = 76 / 95
+      section_width: 95
+      rim_diameter: 16    # inches
+      loaded_radius: 278.5
+
+hardpoints:
+  left:
+  # Lower wishbone.
+    lower_wishbone_inboard_front: {x: 215.504, y: 310.461, z: 135.285}
+    lower_wishbone_inboard_rear: {x: -264.698, y: 310.461, z: 135.285}
+    lower_wishbone_outboard: {x: 23.166, y: 468.309, z: 132.236}
+
+  # Upper wishbone.
+    upper_wishbone_inboard_front: {x: 30.838, y: 275.272, z: 458.999}
+    upper_wishbone_inboard_rear: {x: -130.79, y: 275.272, z: 458.999}
+    upper_wishbone_outboard: {x: -28.189, y: 415.122, z: 456.481}
+
+  # Track rod (inner / outer steering rod ends).
+    trackrod_inboard: {x: -126.121, y: 241.008, z: 535.837}
+    trackrod_outboard: {x: -124.169, y: 377.26, z: 533.524}
+
+  # Axle axis. axle_outboard is where the axis meets the hub mounting face;
+  # axle_inboard is any second point on the same axis, ~100-200 mm inboard.
+    axle_inboard: {x: 0.0, y: 413.737, z: 278.5}
+    axle_outboard: {x: 0.0, y: 513.737, z: 278.5}
+
+  # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
+    strut_bottom: {x: 5, y: 413.632, z: 162.182}
+    strut_top: {x: 5, y: 316.864, z: 406.723}
+
+  # No `right:` block, so the left corner is mirrored through Y = 0.
+
