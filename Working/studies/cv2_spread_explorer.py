@@ -6,7 +6,9 @@ Build an interactive page from out/cv2_spread_sweep/forces.csv.
 Writes out/cv2_spread_sweep/explorer.html; open it in a browser (it loads
 plotly.js from the internet). Two tabs:
 
-  Explorer  Sliders pick one design; a bar chart shows its 7 joint forces
+  Explorer  Sliders pick one design (each pivot pair is placed by its REAR x,
+            which sits on the same 15 mm grid for every spread, so changing a
+            spread keeps you on a real design); a bar chart shows its 7 joint forces
             (worse side) per case. A heatmap shows any two parameters against
             each other with the other three held at the sliders. Click a cell
             to jump there.
