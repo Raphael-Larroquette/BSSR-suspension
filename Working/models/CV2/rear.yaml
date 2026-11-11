@@ -1,7 +1,7 @@
 type: trailing_arm
 side: center
-name: "Aurora Rear Recreated"
-version: "0.1.0"   # major = functional release, minor = new feature, patch = fix
+name: "Temp CV2 rear"
+version: "1.0.0"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
 spring:
@@ -17,12 +17,12 @@ config:
       section_width: 95
       rim_diameter: 16   # inches
       loaded_radius: 278.5
-  cg_position: {x: -693.5, y: -11.7, z: 350} #CG z is arbitrtay because gen 12 mass budget calculated of 308 is unrealistic
+  cg_position: {x: -681.5, y: 2.69, z: 367.86} #From gen13 mass budget as of 11/11/2026 on tab B13 V2
   wheelbase: 2240.00
   axle_position: rear
   driven_axle: rear
   drive_torque_reaction: unsprung   # hub motor
-  front_brake_bias: 0.7             # anti-dive geometry only; the force solve ignores it
+  front_brake_bias: 0.7             # NOT CONFIRMED
 
 # Centreline arm: it carries the axle directly, so axle_inboard IS the moving arm
 # point and trailing_arm_outboard must not be authored. Pivot axis must be transverse.
