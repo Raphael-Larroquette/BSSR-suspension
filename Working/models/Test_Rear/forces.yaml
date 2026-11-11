@@ -1,0 +1,37 @@
+# Static force solve. Reference: docs/reference/forces.md
+# Load cases are shared (Working/cases.csv, passed as --cases by run_all.py).
+version: "0.1.0"
+
+vehicle:
+  mass: 294.5   # kg, as raced incl. driver; point mass at cg_position
+  g: 9.80665
+
+geometry:
+  front: front.yaml
+  rear: rear.yaml
+
+solve:
+  moment_reference: centroid
+  pivot_axial:
+    default: even
+    overrides: {}           # e.g. {Lower Wishbone: lower_wishbone_inboard_front}
+  rack: grounded
+  brake_torque_reaction: unsprung
+  on_wheel_lift: report
+  tolerances:
+    rank: 1.0e-9
+    residual: 1.0e-8
+
+structure:
+  weld:
+    - ["Upright", "Axle", "Wheel"]
+    - ["Semi-Trailing Arm", "Semi-Trailing Arm Carrier", "Axle", "Wheel"]
+  attach: []
+  ground: ["Steering Rack"]
+  ignore: []
+
+output:
+  frame: vehicle
+  moments: auto
+  per_part_files: false
+  chassis: true                # Front / Rear Chassis blocks: force on the chassis

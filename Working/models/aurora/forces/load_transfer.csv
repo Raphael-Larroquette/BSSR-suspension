@@ -3,10 +3,11 @@
 # units: N, N-mm | sign: force acting ON the named part AT that joint
 # mass: 285.0 kg | g: 9.80665 | wheelbase: 2240.0 mm
 # worst condition number: 6.801e+02
-# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora\forces.yaml sha256=2fbc9305feecd73ebab465d7bdc947aa1c482b0cb3cb4f9244092080961098c6
+# Chassis blocks: force ON the chassis at each chassis hardpoint (the negative of the part-side load). They do not sum to zero. The steering rack is excluded: its load (Track Rod, trackrod_inboard) reaches the chassis through rack mounts not modelled here.
+# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora\forces.yaml sha256=aa7fcaaa5b6d7cfdaaf1178453d646496ef115f5de71609cedda83c438884272
 # front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora\front.yaml sha256=e594c531e67f4e0b73b16e17c51d8e9a9f63fc150e77cce10d5cd3245966c4c6
 # rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora\rear.yaml sha256=7e074efb00d453494f609ff2a5dcaf7b3c881584a89e32c9390513ed9579b621
-# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=6bd32b6ff20a9a67abc5168c60ceb98a75969bd8d6750a8dd80ab2e36a075018
+# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e
 # normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g
 # transfer_from_baseline_N is measured against the same case with brake and corner set to zero, so a pure bump case reads zero
 #
