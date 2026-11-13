@@ -1,0 +1,3 @@
+sweep,status,steps,where,reason
+01_bump,ok,41/41,,
+02_damper_stroke,ok,41/41,,

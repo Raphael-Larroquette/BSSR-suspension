@@ -189,8 +189,8 @@ GEMINI.md
 # animations, the assembled report, the force solve, and a batch run's log.
 # All of it regenerates from the model's YAMLs, so none of it is tracked.
 Working/models/**/sweep_outputs/
-Working/models/**/report/
-Working/models/**/forces/
+# Working/models/**/report/
+# Working/models/**/forces/
 Working/models/**/run.log
 Working/models/**/logs/
 Working/models/**/batch_summary.*

@@ -56,3 +56,45 @@ hardpoints:
 
   # No `right:` block, so the left corner is mirrored through Y = 0.
 
+
+# Bearing misalignment outputs only. Not read by the force solve. See docs/reference/geometry.md (joints).
+joints:
+  # Inboard Controll arm joints ignored for now
+
+  # Outboard ball joints: pressed into a fully located arm, bore on the steering axis.
+  lower_wishbone_outboard:
+    label: "LBJ"
+    type: spherical
+    bore:
+      part: upright
+      axis: {from: lower_wishbone_outboard, to: upper_wishbone_outboard}
+  upper_wishbone_outboard:
+    label: "UBJ"
+    type: spherical
+    bore:
+      part: upright
+      axis: optimize
+    housing:
+      part: upper_wishbone
+      axis: centred
+
+  # Track rod and damper body are two-point members: their spin is undetermined,
+  # so the housing is `indeterminate` and the report gives a band. Size against locked.
+  trackrod_outboard:
+    label: "Outer Tie Rod End"
+    type: rod_end
+    bore: 
+      part: upright
+      axis: optimize
+    housing: 
+      part: track_rod
+      axis: indeterminate
+  trackrod_inboard:
+    label: "Inner Tie Rod End"
+    type: rod_end
+    bore: 
+      part: chassis
+      axis: {chassis_axis: x} #alternatively could be chassis z or alternative but not decided yet
+    housing: 
+      part: track_rod
+      axis: indeterminate
