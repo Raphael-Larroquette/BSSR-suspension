@@ -208,3 +208,5 @@ Working/models/opt_*/opt_log.csv
 
 # pytest-benchmark run storage
 .benchmarks/
+
+Working/studies/

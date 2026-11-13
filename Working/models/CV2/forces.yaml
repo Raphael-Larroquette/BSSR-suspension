@@ -1,10 +1,8 @@
-# Static force solve for Aurora. Key reference and assumptions: ../FORCES.md
-# Precedence: CLI > this file. Relative paths resolve against this file.
-
+# Key reference and assumptions: ../FORCES.md
 version: "0.1.0"
 
 vehicle:
-  mass: 285.0   # kg, total as-raced including driver; treated as a point mass at cg_position
+  mass: 313.465   #From gen13 mass budget as of 11/11/2026 on tab B13 V2
   g: 9.80665    # m/s^2
 
 geometry:

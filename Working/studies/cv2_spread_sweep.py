@@ -29,17 +29,17 @@ OUT = Path(__file__).resolve().parent / "out" / "cv2_spread_sweep"
 
 # ---- 1. Inputs (mm) -------------------------------------------------------
 CASES = ["2,1,1", "6,0,0"]                # bump,brake,corner
-STEP = 15                                 # fore-aft step, shock and pivot pairs
+STEP = 10                                 # fore-aft step, shock and pivot pairs
 SHOCK_X = np.arange(-100, 100 + 1, STEP)  # CV2 is at 5
-UCA_SPREADS = np.arange(90, 190 + 1, 20)
+UCA_SPREADS = np.arange(90, 190 + 1, 10)
 UCA_LIMITS = (-150, 150)                  # both UCA pivots stay inside
-LCA_SPREADS = np.arange(100, 250 + 1, 25)
-LCA_LIMITS = (-300, 230)
+LCA_SPREADS = np.arange(100, 250 + 1, 15)
+LCA_LIMITS = (-250, 230)
 
 COLUMNS = ["shock_x", "uca_front", "uca_rear", "lca_front", "lca_rear"]
 POINTS = {  # which hardpoint x each column sets
     "shock_x": ["strut_top", "strut_bottom"],
-    "uca_front": ["upper_wishbone_inboard_front"],
+    "uca_front": ["upper_wishbone_inboard_front"],  
     "uca_rear": ["upper_wishbone_inboard_rear"],
     "lca_front": ["lower_wishbone_inboard_front"],
     "lca_rear": ["lower_wishbone_inboard_rear"],
