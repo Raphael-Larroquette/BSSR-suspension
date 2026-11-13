@@ -3,10 +3,11 @@
 # units: N, N-mm | sign: force acting ON the named part AT that joint
 # mass: 294.5 kg | g: 9.80665 | wheelbase: 2240.0 mm
 # worst condition number: 7.982e+02
-# config: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\forces.yaml sha256=e2e77fd8e72df4814f74751a6375d2f671934b6972d8ce5c387d6d8a9d364d2b
-# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\front.yaml sha256=cb337c0f10b46555e7a36eb355299bd76baae328d2deb19d10fe4d2943dee045
+# Chassis blocks: force ON the chassis at each chassis hardpoint (the negative of the part-side load). They do not sum to zero. The steering rack is excluded: its load (Track Rod, trackrod_inboard) reaches the chassis through rack mounts not modelled here.
+# config: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\forces.yaml sha256=d1d37b6732726cf15d52d6139d5d058764f07aab36516049424e0895eaa772b0
+# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\front.yaml sha256=c138d1e9fd6404ba891e5d06f7490c55061d22af7835404ab9ecf91797ef7ccd
 # rear: C:\Users\General\Desktop\BSSR-suspension\Working\models\aurora_evo\rear.yaml sha256=b9bec0def418f070f87c122e84305e3dd1a89d1091caa7b602b40f24402bbef5
-# cases: C:\Users\General\Desktop\BSSR-suspension\Working\cases.csv sha256=6bd32b6ff20a9a67abc5168c60ceb98a75969bd8d6750a8dd80ab2e36a075018
+# cases: C:\Users\General\Desktop\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e
 # normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g
 # transfer_from_baseline_N is measured against the same case with brake and corner set to zero, so a pure bump case reads zero
 #
