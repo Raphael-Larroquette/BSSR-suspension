@@ -4,10 +4,10 @@
 # mass: 313.465 kg | g: 9.80665 | wheelbase: 2240.0 mm
 # worst condition number: 6.841e+02
 # Chassis blocks: force ON the chassis at each chassis hardpoint (the negative of the part-side load). They do not sum to zero. The steering rack is excluded: its load (Track Rod, trackrod_inboard) reaches the chassis through rack mounts not modelled here.
-# config: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV2\forces.yaml sha256=ab3b8437abe45f34a80d5c38eb4bdb237e3c2a159b42333d25304a1f5b8bba4d
-# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV2\front.yaml sha256=f38153da12a405610e2331038d4448885c5d3a5c59087d3d8eb3ecf28032e5a8
-# rear: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV2\rear.yaml sha256=6e792ceca7c61fd1b14329799947d0fffa969f5158d45e9ade85851fa889e5e5
-# cases: C:\Users\General\Desktop\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e
+# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV2\forces.yaml sha256=ab3b8437abe45f34a80d5c38eb4bdb237e3c2a159b42333d25304a1f5b8bba4d
+# front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV2\front.yaml sha256=f38153da12a405610e2331038d4448885c5d3a5c59087d3d8eb3ecf28032e5a8
+# rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV2\rear.yaml sha256=6e792ceca7c61fd1b14329799947d0fffa969f5158d45e9ade85851fa889e5e5
+# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e
 # normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g
 # transfer_from_baseline_N is measured against the same case with brake and corner set to zero, so a pure bump case reads zero
 #

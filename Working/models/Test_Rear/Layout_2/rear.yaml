@@ -1,11 +1,15 @@
 type: trailing_arm
 side: center
-name: "Aurora Rear Recreated"
+name: "test"
 version: "0.1.0"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
 spring:
   type: coilover
+  base: chassis
+actuation:
+  type: pushrod_rocker
+  rocker_mount: chassis
 
 config:
   steering:
@@ -17,7 +21,7 @@ config:
       section_width: 95
       rim_diameter: 16   # inches
       loaded_radius: 278.5
-  cg_position: {x: -693.5, y: -11.7, z: 350} #CG z is arbitrtay because gen 12 mass budget calculated of 308 is unrealistic
+  cg_position: {x: -681.5, y: 2.69, z: 367.86} #CG z is arbitrtay because gen 12 mass budget calculated of 308 is unrealistic
   wheelbase: 2240.00
   axle_position: rear
   driven_axle: rear
@@ -31,5 +35,9 @@ hardpoints:
   trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5}
   axle_inboard: {x: -2240, y: 70.332, z: 278.5}
   axle_outboard: {x: -2240, y: -23.737, z: 278.5}
-  strut_top: {x: -1901.921, y: 100, z: 546.579}
-  strut_bottom: {x: -2139, y: 100, z: 309.5}
+  strut_top: {x: -2149.1, y: 100, z: 459.8} #connect to chassis
+  strut_bottom: {x: -1927.0, y: 100, z: 529.9} #connect to rocker
+  rocker_axis_a: {x: -1910, y: 80, z: 450}
+  rocker_axis_b: {x: -1910, y: 120, z: 450} 
+  pushrod_inboard: {x: -1870, y: 100, z: 420} #connect to rocker
+  pushrod_outboard: {x: -1950, y: 100, z: 310} #connect to arm

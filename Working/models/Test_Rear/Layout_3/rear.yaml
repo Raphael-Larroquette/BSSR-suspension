@@ -1,0 +1,43 @@
+type: trailing_arm
+side: center
+name: "test"
+version: "0.1.0"   # major = functional release, minor = new feature, patch = fix
+units: millimeters
+
+spring:
+  type: coilover
+  base: arm
+actuation:
+  type: pushrod_rocker
+  rocker_mount: chassis
+
+config:
+  steering:
+    type: none
+  wheel:
+    offset: 23.737   # ET: wheel centreline to hub face, along the axle axis
+    tire:
+      aspect_ratio: 0.8
+      section_width: 95
+      rim_diameter: 16   # inches
+      loaded_radius: 278.5
+  cg_position: {x: -681.5, y: 2.69, z: 367.86} #CG z is arbitrtay because gen 12 mass budget calculated of 308 is unrealistic
+  wheelbase: 2240.00
+  axle_position: rear
+  driven_axle: rear
+  drive_torque_reaction: unsprung   # hub motor
+  front_brake_bias: 0.7             # anti-dive geometry only; the force solve ignores it
+
+# Centreline arm: it carries the axle directly, so axle_inboard IS the moving arm
+# point and trailing_arm_outboard must not be authored. Pivot axis must be transverse.
+hardpoints:
+  trailing_arm_pivot_a: {x: -1865, y: 130, z: 278.5}
+  trailing_arm_pivot_b: {x: -1865, y: 0, z: 278.5}
+  axle_inboard: {x: -2240, y: 70.332, z: 278.5}
+  axle_outboard: {x: -2240, y: -23.737, z: 278.5}
+  strut_top: {x: -2094.4, y: 100, z: 315.9}  #connect to chassis
+  strut_bottom: {x: -1886.6, y: 100, z: 372.7} #connect to rocker
+  rocker_axis_a: {x: -1910, y: 80, z: 450}
+  rocker_axis_b: {x: -1910, y: 120, z: 450} 
+  pushrod_inboard: {x: -1994.5, y: 100, z: 439.2} #connect to rocker
+  pushrod_outboard: {x: -1955.8, y: 100, z: 294.6} #connect to arm
