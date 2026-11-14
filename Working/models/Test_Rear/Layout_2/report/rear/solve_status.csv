@@ -1,3 +1,3 @@
 sweep,status,steps,where,reason
-01_bump,ok,41/41,,
-02_damper_stroke,ok,41/41,,
+01_bump,warn,41/41,,"DiagnosticIssue(step=1, category=<DiagnosticCategory.JUMP: 'jump'>, severity=<DiagnosticSeverity.WARNING: 'warning'>, message=""Point 'PUSHROD_INBOARD' jumped 5.49 mm from step 0 to step 1 (threshold 5 mm); possible branch snap."", value=5.490827223996208)"
+02_damper_stroke,lockout,0/41,step 1/41 (damper_center -25),the closest pose leaves a constraint violated

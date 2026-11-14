@@ -4,13 +4,13 @@
 
 | sweep | status | steps | where it stopped | reason |
 | --- | --- | --- | --- | --- |
-| `01_bump` | ok | 41/41 | - | - |
-| `02_damper_stroke` | ok | 41/41 | - | - |
+| `01_bump` | warn | 41/41 | - | DiagnosticIssue(step=1, category=<DiagnosticCategory.JUMP: 'jump'>, severity=<DiagnosticSeverity.WARNING: 'warning'>, message="Point 'PUSHROD_INBOARD' jumped 5.49 mm from step 0 to step 1 (threshold 5 mm); possible branch snap.", value=5.490827223996208) |
+| `02_damper_stroke` | lockout | 0/41 | step 1/41 (damper_center -25) | the closest pose leaves a constraint violated |
 
 ## Provenance
 
 - geometry: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\Test_Rear\Layout_2\rear.yaml`
-- geometry SHA-256: `dbbf991ae599479c...`
+- geometry SHA-256: `4688e16ca45161d1...`
 - format version: 3
 - run configuration: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\Test_Rear\Layout_2\report\rear\_resolved_run.json`
 
@@ -18,8 +18,7 @@
 
 | file | kind | steps | converged | max residual | notes |
 | --- | --- | --- | --- | --- | --- |
-| `01_bump` | heave | 41 | True | 8.44e-08 | - |
-| `02_damper_stroke` | damper_stroke | 41 | True | 8.44e-08 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
+| `01_bump` | heave | 41 | True | 3.93e-08 | - |
 
 ## Notes
 
@@ -38,36 +37,22 @@ Conventions and formulas: `docs/reference/characteristics.md`. What is specific 
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Wheel travel | mm | 0.000 | -50.800 | 50.800 | 101.600 |
-| Damper length | mm | 232.900 | 213.119 | 251.802 | 38.683 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 2.6420 | 2.4928 | 2.7094 | 0.2166 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.3785 | 0.3691 | 0.4012 | 0.0321 |
-| Rod transmission angle (90 square, 0 toggle) | deg | 89.1575 | 73.1809 | 89.9067 | 16.7258 |
-| Shock transmission angle (90 square, 0 toggle) | deg | 84.4946 | 71.8536 | 89.8593 | 18.0057 |
-| Rocker angle, relative to its mount | deg | -0.0000 | -13.9130 | 13.5766 | 27.4896 |
-| Wheel-centre recession rate | mm/mm | 0.0000 | -0.1367 | 0.1367 | 0.2735 |
+| Wheel travel | mm | 0.000 | -30.000 | 30.000 | 60.000 |
+| Damper length | mm | 140.801 | 129.323 | 173.817 | 44.493 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.8968 | 0.2440 | 3.6029 | 3.3589 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.5272 | 0.2776 | 4.0978 | 3.8203 |
+| Rod transmission angle (90 square, 0 toggle) | deg | 35.9795 | 6.7543 | 51.0384 | 44.2841 |
+| Shock transmission angle (90 square, 0 toggle) | deg | 78.7748 | 72.5757 | 81.0789 | 8.5031 |
+| Rocker angle, relative to its mount | deg | -0.0000 | -3.1690 | 9.2690 | 12.4380 |
+| Wheel-centre recession rate | mm/mm | 0.0000 | -0.0803 | 0.0803 | 0.1605 |
 | SVIC longitudinal (x) | mm | -1865.000 | -1865.000 | -1865.000 | 0.000 |
 | SVIC height (z) | mm | 278.500 | 278.500 | 278.500 | 0.000 |
-| SVSA length | mm | 375.000 | 371.543 | 375.000 | 3.457 |
-| SVSA angle | deg | 36.6000 | 31.5020 | 41.5507 | 10.0487 |
+| SVSA length | mm | 375.000 | 373.798 | 375.000 | 1.202 |
+| SVSA angle | deg | 36.6000 | 33.6159 | 39.5333 | 5.9174 |
 | Anti-squat | % | 452.23 | - | - | - |
 | Anti-lift | % | 135.67 | - | - | - |
 
 Plots: `plots/01_bump.png`
-
-## 02_damper_stroke  (damper_stroke)
-
-| characteristic | unit | at design | min | max | range |
-| --- | --- | --- | --- | --- | --- |
-| Damper length | mm | 232.900 | 202.900 | 262.900 | 60.000 |
-| Wheel travel | mm | 0.000 | -80.615 | 75.931 | 156.546 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 2.6419 | 2.4334 | 2.7091 | 0.2757 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.3785 | 0.3691 | 0.4109 | 0.0418 |
-| Rod transmission angle (90 square, 0 toggle) | deg | 89.1575 | 62.4568 | 89.6774 | 27.2206 |
-| Shock transmission angle (90 square, 0 toggle) | deg | 84.4946 | 64.4507 | 89.6681 | 25.2174 |
-| Rocker angle, relative to its mount | deg | -0.0000 | -21.2606 | 21.9701 | 43.2307 |
-
-Plots: `plots/02_damper_stroke.png`
 
 ## 01_bump: joint forces along travel
 
@@ -77,19 +62,18 @@ Constant case load, applied at the posed contact patch. |F| is the joint load (t
 
 | joint | side | at design [N] | peak [N] | peak at travel [mm] | peak / design |
 | --- | --- | --- | --- | --- | --- |
-| `pushrod_outboard` | centre | 24,113 | 24,649 | -50.8 | 1.02 |
-| `pushrod_inboard` | centre | 24,113 | 24,649 | -50.8 | 1.02 |
-| `trailing_arm_pivot_a` | centre | 18,548 | 18,961 | -50.8 | 1.02 |
-| `rocker_axis_b` | centre | 18,549 | 18,819 | -40.6 | 1.01 |
-| `rocker_axis_a` | centre | 18,549 | 18,819 | -40.6 | 1.01 |
-| `strut_top` | centre | 14,826 | 15,204 | -45.7 | 1.03 |
-| `strut_bottom` | centre | 14,826 | 15,204 | -45.7 | 1.03 |
-| `trailing_arm_pivot_b` | centre | 3,456 | 3,476 | +22.9 | 1.01 |
+| `pushrod_outboard` | centre | 16,138 | 23,327 | +30.0 | 1.45 |
+| `pushrod_inboard` | centre | 16,138 | 23,327 | +30.0 | 1.45 |
+| `strut_top` | centre | 10,644 | 20,218 | +30.0 | 1.90 |
+| `strut_bottom` | centre | 10,644 | 20,218 | +30.0 | 1.90 |
+| `trailing_arm_pivot_a` | centre | 12,414 | 17,943 | +30.0 | 1.45 |
+| `trailing_arm_pivot_b` | centre | 5,725 | 7,385 | +30.0 | 1.29 |
+| `rocker_axis_b` | centre | 4,717 | 4,783 | -16.5 | 1.01 |
+| `rocker_axis_a` | centre | 4,717 | 4,783 | -16.5 | 1.01 |
 
 Plot: `plots/01_bump_forces.png`
 
 ## Plots
 
 - `plots/01_bump.png`
-- `plots/02_damper_stroke.png`
 - `plots/01_bump_forces.png`
