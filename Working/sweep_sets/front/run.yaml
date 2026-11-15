@@ -17,7 +17,7 @@ report:
   joints: true
   notes: true
   plots: auto
-  gifs: auto
+  gifs: all
 
 solver:
   on_bad_solve: warn
@@ -35,10 +35,10 @@ sweeps:
     report: true
     plots: all
     gif: true
-    steps: 22
+    steps: 65
     travel:
-      left: [-55, 50]
-      right: [-55, 50]
+      left: [-50.8, 50.8]
+      right: [-50.8, 50.8]
     rack: [0, 0]
 
   02_roll:
@@ -58,9 +58,9 @@ sweeps:
     report: true
     plots: all
     gif: false
-    steps: 22
+    steps: 65
     travel:
-      left: [-55, 50]
+      left: [-50.8, 50.8]
       right: [0, 0]
     rack: [0, 0]
 
@@ -73,7 +73,7 @@ sweeps:
     travel:
       left: [0, 0]
       right: [0, 0]
-    rack: [-35, 35]
+    rack: [-28, 30]
 
   05_steer_bump:
     run: true
@@ -82,9 +82,9 @@ sweeps:
     gif: false
     steps: 65
     travel:
-      left: [50, 50]
-      right: [50, 50]
-    rack: [-35, 35]
+      left: [50.8, 50.8]
+      right: [50.8, 50.8]
+    rack: [-28, 32]
 
   06_steer_droop:
     run: true
@@ -93,9 +93,9 @@ sweeps:
     gif: false
     steps: 65
     travel:
-      left: [-55, -55]
-      right: [-55, -55]
-    rack: [-35, 35]
+      left: [-50.8, -50.8]
+      right: [-50.8, -50.8]
+    rack: [-27, 29]
 
   # Off: only adds the bump-steer curve shape while steered.
   07_bump_at_steer:
@@ -105,8 +105,8 @@ sweeps:
     gif: false
     steps: 65
     travel:
-      left: [-55.88, 50.063]
-      right: [-55.88, 50.063]
+      left: [-50.8, 50.8]
+      right: [-50.8, 50.8]
     rack: [20, 20]
 
   # Usable wheel travel for this damper stroke; set the travel ranges from it.
@@ -131,7 +131,7 @@ sweeps:
     travel:
       left: [25, 25]
       right: [-25, -25]
-    rack: [0, 35]
+    rack: [0, 32]
 
   # Right turn, roll and steer ramp together = constant-speed corner. Read by the
   # road_camber objective. Endpoints are placeholders until set from the roll
@@ -145,4 +145,4 @@ sweeps:
     travel:
       left: [0, 25]
       right: [0, -25]
-    rack: [0, 35]
+    rack: [0, 32]
