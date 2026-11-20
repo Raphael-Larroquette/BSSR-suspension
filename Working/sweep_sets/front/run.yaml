@@ -131,7 +131,7 @@ sweeps:
     travel:
       left: [25, 25]
       right: [-25, -25]
-    rack: [0, 32]
+    rack: [0, 30]
 
   # Right turn, roll and steer ramp together = constant-speed corner. Read by the
   # road_camber objective. Endpoints are placeholders until set from the roll
@@ -145,4 +145,4 @@ sweeps:
     travel:
       left: [0, 25]
       right: [0, -25]
-    rack: [0, 32]
+    rack: [0, 30]
