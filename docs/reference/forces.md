@@ -34,6 +34,7 @@ All keys required except `cases` (supplied by `--cases`). Paths relative to the 
 | key | values |
 | --- | --- |
 | `vehicle.mass`, `vehicle.g` | kg, m/s² (point mass at `cg_position`) |
+| `vehicle.sprung_mass`, `unsprung_mass_front`, `unsprung_mass_rear`, `wheel_rate_front` | optional; kg (front unsprung per wheel) and N/mm (vertical at one front wheel centre). Not used by the force solve; read by the quasi-static corner sweep ([`sweeps.md`](sweeps.md)) |
 | `geometry.front` / `.rear` | paths |
 | `cases` | optional path |
 | `solve.moment_reference` | `centroid` \| `origin` \| `{x,y,z}` (equivalent; centroid best conditioned) |

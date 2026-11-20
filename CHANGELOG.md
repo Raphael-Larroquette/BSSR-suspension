@@ -6,6 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Quasi-static steady corner.** A `corner:` block on a run.yaml sweep (front set: new
+  `10_steady_corner`, replacing `10_corner_ramp`) takes speed and a radius ramp and works
+  out, per step, the rack and wheel travels of a steady turn (`Working/sweep_sets/corner.py`),
+  with the suspension as a constant front wheel rate. `fast` mode is the roll-centre
+  method in closed form (optimiser); `full` mode iterates the solved geometry with
+  virtual work per wheel (reports). Writes `<sweep>_corner.csv`. New optional
+  `forces.yaml` inputs: `vehicle.sprung_mass`, `unsprung_mass_front`,
+  `unsprung_mass_rear`, `wheel_rate_front`; Aurora carries placeholders.
+  `nonunderleg5.py`'s `road_camber` objective reads the new sweep. See
+  docs/reference/sweeps.md.
+
 - **Trailing-arm shock layouts B-E.** `actuation: {type: pushrod_rocker,
   rocker_mount: chassis | arm}` and `spring.base: chassis | arm` select a rocker on the
   chassis or the arm, with the shock based on the chassis or the arm. No `actuation:`

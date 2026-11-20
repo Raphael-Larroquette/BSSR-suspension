@@ -5,6 +5,13 @@ version: "0.1.0"
 vehicle:
   mass: 285.0   # kg, as raced incl. driver; point mass at cg_position
   g: 9.80665
+  # Sprung/unsprung split and front wheel rate, read only by the quasi-static
+  # corner sweep (front run.yaml).
+  # PLACEHOLDERS - not measured. Replace with the mass budget before trusting the sweep.
+  sprung_mass: 253.0          # kg, excludes every wheel and suspension part
+  unsprung_mass_front: 10.0   # kg, per front wheel
+  unsprung_mass_rear: 12.0    # kg, the rear wheel
+  wheel_rate_front: 17.0      # N/mm, vertical at one front wheel centre, constant
 
 geometry:
   front: front.yaml

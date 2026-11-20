@@ -133,16 +133,29 @@ sweeps:
       right: [-25, -25]
     rack: [0, 32]
 
-  # Right turn, roll and steer ramp together = constant-speed corner. Read by the
-  # road_camber objective. Endpoints are placeholders until set from the roll
-  # gradient: phi = RG*v^2*delta_max/(g*L), travel = (track/2)*tan(phi).
-  10_corner_ramp:
+  # Quasi-static steady-state corner (Working/sweep_sets/corner.py; keys and
+  # assumptions in docs/reference/sweeps.md). For each step of a curvature ramp
+  # at constant speed it computes the rack and both wheel travels that hold the
+  # car in a steady turn, then solves them like any other sweep. Also writes
+  # sweep_outputs/front/10_steady_corner_corner.csv (accelerations, tyre and
+  # spring loads per step). Needs the mass split and wheel_rate_front in the
+  # model's forces.yaml. Read by the road_camber objective (the optimiser always
+  # solves it in fast mode).
+  10_steady_corner:
     run: true
     report: true
     plots: all
     gif: true
-    steps: 65
-    travel:
-      left: [0, 25]
-      right: [0, -25]
-    rack: [0, 32]
+    corner:
+      mode: full                  # full: iterate the solved geometry | fast: roll-centre closed form
+      turn: right                 # right: left wheel is outer
+      speed: 8.0                  # m/s at the CG, constant. PLACEHOLDER design case
+      radius: [.inf, 15.0]        # m, CG path, start -> end; stepped evenly in 1/R
+      steps: 33
+      rack_limit: 35              # mm, |rack| the steer table covers
+      roll_gravity: true          # CG lateral shift with roll adds to load transfer
+      pitch: true                 # forward inertia from the turn centre being behind the CG
+      fy_split: load              # front tyre lateral force split: load | equal
+      mu: 1.0                     # grip check only (warns above mu*g)
+      tolerance: {travel: 0.01, rack: 0.01}   # mm, full-mode convergence
+      max_iterations: 15

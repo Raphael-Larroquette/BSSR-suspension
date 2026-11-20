@@ -381,8 +381,9 @@ def road_camber_score(analysis, bump_weight, target=0.0, sweep_name="",
     where x is that wheel's own vertical travel - or the rack, in a sweep that
     holds the wheels still (09). Squared so a positive and a negative region
     cannot cancel; normalised by the span so the score does not change scale
-    when the sweep's endpoints or step count change. In 10_corner_ramp travel
-    and rack ramp together linearly, so the two abscissae give the same number.
+    when the sweep's endpoints or step count change. In 10_steady_corner the
+    steps are even in curvature, not travel, so the integral over travel weights
+    the higher-g end, where travel per step grows, slightly more.
 
     The wheels are then combined with the outer (loaded, in-bump) wheel
     weighted ``bump_weight`` and the inner wheel 1, and divided by the total

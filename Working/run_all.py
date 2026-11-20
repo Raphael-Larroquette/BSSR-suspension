@@ -323,6 +323,8 @@ def solve_tasks(runs: list[ModelRun], report_only: bool) -> list:
                             "force_cases": [list(c) for c in sweep.force_cases],
                             "forces_csv": str(sweep.forces_csv or ""),
                             "forces_config": str(sweep.forces_config or ""),
+                            "corner": sweep.corner,
+                            "corner_csv": str(sweep.corner_csv or ""),
                             "log": str(logs / plan.name / f"{sweep.name}.log"),
                         }))
         if run.forces is not None:
