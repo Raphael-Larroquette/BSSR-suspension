@@ -5,6 +5,10 @@ version: "0.1.0"
 vehicle:
   mass: 294.5   # kg, as raced incl. driver; point mass at cg_position
   g: 9.80665
+  sprung_mass: 254.8812
+  unsprung_mass_front: 8.6094
+  unsprung_mass_rear: 22.4
+  wheel_rate_front: 12 #from spreadsheet using a front ride frequency of 1.8 given that the springs have a spring rate of 44-54N/mm
 
 geometry:
   front: front.yaml

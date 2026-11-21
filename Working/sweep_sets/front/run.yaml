@@ -149,13 +149,13 @@ sweeps:
     corner:
       mode: full                  # full: iterate the solved geometry | fast: roll-centre closed form
       turn: right                 # right: left wheel is outer
-      speed: 8.0                  # m/s at the CG, constant. PLACEHOLDER design case
-      radius: [.inf, 15.0]        # m, CG path, start -> end; stepped evenly in 1/R
+      speed: 6.676 #5.871                  # m/s at the CG, constant. PLACEHOLDER design case
+      radius: [131, 8.5]        # m, CG path, start -> end; stepped evenly in 1/R
       steps: 33
       rack_limit: 35              # mm, |rack| the steer table covers
       roll_gravity: true          # CG lateral shift with roll adds to load transfer
       pitch: true                 # forward inertia from the turn centre being behind the CG
       fy_split: load              # front tyre lateral force split: load | equal
-      mu: 1.0                     # grip check only (warns above mu*g)
+      mu: 0.65                     # grip check only (warns above mu*g)
       tolerance: {travel: 0.01, rack: 0.01}   # mm, full-mode convergence
-      max_iterations: 15
+      max_iterations: 25
