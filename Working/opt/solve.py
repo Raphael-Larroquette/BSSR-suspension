@@ -22,6 +22,7 @@ when a run evaluates several thousand of them across a worker pool.
 """
 
 import copy
+import dataclasses
 import importlib.util
 import sys
 import tempfile
@@ -289,6 +290,28 @@ def build_sweep_spec(name, car=None, axle=None):
         )
 
     limits = (getattr(settings, "SWEEP_LIMITS", {}) or {}).get(name)
+    if entry.get("corner") is not None:
+        # A quasi-static corner depends on the candidate's own geometry, so it
+        # is computed per candidate in solve_stage, in the script's CORNER_MODE
+        # (fast when the script does not set it). Here only its settings are
+        # validated and cached.
+        if limits is not None:
+            raise ValueError(
+                f"SWEEP_LIMITS['{name}'] is set, but '{name}' is a `corner:` sweep. "
+                "Its rack and travel come from speed and radius; change those in "
+                "run.yaml's corner block instead.")
+        corner_settings = runner.corner_mod.parse_settings(name, entry["corner"])
+        steps = getattr(settings, "SWEEP_STEPS", {})
+        if name in steps:
+            corner_settings = dataclasses.replace(
+                corner_settings, steps=int(steps[name]))
+        mode = getattr(settings, "CORNER_MODE", "fast")
+        if mode not in runner.corner_mod.MODES:
+            raise ValueError(
+                f"CORNER_MODE is {mode!r}; it must be one of "
+                f"{', '.join(runner.corner_mod.MODES)}.")
+        return {"corner": corner_settings, "corner_mode": mode}
+
     form = None
     if limits is not None:
         form = _limits_form(name, limits, runner.RANGE_GROUPS)
@@ -391,8 +414,23 @@ def solve_stage(hardpoints_dict, required_sweeps):
             out[name] = solve_candidate_forces(suspension)
             continue
         spec = copy.deepcopy(sweep_spec(name))
+        if "corner" in spec:
+            spec = solve_corner_spec(
+                spec["corner"], suspension, data, spec["corner_mode"])
         out[name] = analyze_sweep(suspension, build_sweep(spec, suspension))
     return out
+
+
+def solve_corner_spec(corner_settings, suspension, data, mode):
+    """A candidate's quasi-static corner sweep (sweep_sets/corner.py).
+
+    `mode` is the script's CORNER_MODE ("fast" or "full"); run.yaml's own
+    `mode` applies to the reports only. Masses and wheel rate come from the
+    template's forces.yaml; CG and wheelbase from the candidate geometry `data`.
+    """
+    corner = load_runner().corner_mod
+    vehicle = corner.load_vehicle(data, Path(template_dir()) / "forces.yaml")
+    return corner.resolve(suspension, data, vehicle, corner_settings, mode=mode).spec
 
 
 # ==========================================================================

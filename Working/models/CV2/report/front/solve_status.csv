@@ -1,2 +1,2 @@
 sweep,status,steps,where,reason
-01_bump_parallel,ok,65/65,,
+10_steady_corner,warn,33/33,,sprung + unsprung = 332.4 kg but vehicle.mass = 313.5 kg; the corner sweep uses the sum of the parts.

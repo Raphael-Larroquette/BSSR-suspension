@@ -10,7 +10,7 @@ disagree.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from kinematics.core.enums import (
     MomentReporting,
@@ -30,16 +30,47 @@ class ForcesModel(BaseModel):
 
 
 class VehicleMassConfig(ForcesModel):
-    """The vehicle's mass and the gravity it is solved under."""
+    """The vehicle's mass and the gravity it is solved under.
+
+    The sprung/unsprung split and the front wheel rate are optional and are
+    not used by the static force solve, which treats the whole car as one point
+    mass at ``cg_position``. They are read only by the quasi-static corner
+    sweep (``Working/sweep_sets/corner.py``). ``unsprung_mass_front`` is per
+    wheel; ``unsprung_mass_rear`` is the single rear wheel; ``sprung_mass``
+    excludes every wheel and suspension part. ``wheel_rate_front`` is the
+    vertical stiffness at one front wheel centre, in N/mm, taken as constant.
+    """
 
     mass: float
     g: float
+    sprung_mass: float | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    unsprung_mass_front: float | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    unsprung_mass_rear: float | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    wheel_rate_front: float | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @field_validator("mass", "g")
     @classmethod
     def check_positive(cls, value: float) -> float:
         """Require a positive quantity."""
         if not value > 0.0:
+            raise ValueError(f"must be greater than zero, got {value}")
+        return value
+
+    @field_validator(
+        "sprung_mass", "unsprung_mass_front", "unsprung_mass_rear", "wheel_rate_front"
+    )
+    @classmethod
+    def check_optional_positive(cls, value: float | None) -> float | None:
+        """Require a positive quantity when one is given."""
+        if value is not None and not value > 0.0:
             raise ValueError(f"must be greater than zero, got {value}")
         return value
 

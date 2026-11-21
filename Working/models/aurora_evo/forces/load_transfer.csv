@@ -4,7 +4,7 @@
 # mass: 294.5 kg | g: 9.80665 | wheelbase: 2240.0 mm
 # worst condition number: 7.982e+02
 # Chassis blocks: force ON the chassis at each chassis hardpoint (the negative of the part-side load). They do not sum to zero. The steering rack is excluded: its load (Track Rod, trackrod_inboard) reaches the chassis through rack mounts not modelled here.
-# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\forces.yaml sha256=d1d37b6732726cf15d52d6139d5d058764f07aab36516049424e0895eaa772b0
+# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\forces.yaml sha256=a706561e471d0a2b45c9df840a81bd778fdd36ece9f328a45521a51c162961d7
 # front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\front.yaml sha256=c138d1e9fd6404ba891e5d06f7490c55061d22af7835404ab9ecf91797ef7ccd
 # rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\rear.yaml sha256=b9bec0def418f070f87c122e84305e3dd1a89d1091caa7b602b40f24402bbef5
 # cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e

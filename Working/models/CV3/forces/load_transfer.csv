@@ -1,0 +1,35 @@
+# kinematics forces, format 1
+# frame: vehicle (ISO 8855: X forward, Y left, Z up)
+# units: N, N-mm | sign: force acting ON the named part AT that joint
+# mass: 290.8348 kg | g: 9.80665 | wheelbase: 2285.0 mm
+# worst condition number: 6.841e+02
+# Chassis blocks: force ON the chassis at each chassis hardpoint (the negative of the part-side load). They do not sum to zero. The steering rack is excluded: its load (Track Rod, trackrod_inboard) reaches the chassis through rack mounts not modelled here.
+# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\forces.yaml sha256=5542bcbdc591e9cdc4c12a441c4f13cd4c1e19e20a7bfbeb9980d4ee1357e374
+# front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\front.yaml sha256=fc59b2fc25471eb4d13c3da52e9af058baa26c9fbd952f74e98281373a20b8f5
+# rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\rear.yaml sha256=2b47c20c5dfe9efcd67b4c5547a40a573be8b6233000e40957e80dd99d4f3ed5
+# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e
+# normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g
+# transfer_from_baseline_N is measured against the same case with brake and corner set to zero, so a pure bump case reads zero
+#
+bump,brake,corner,wheel,normal_load_N,effective_mass_kg,percent_of_case,percent_of_static_weight,transfer_from_baseline_N,flags
+2,1,1,front_left,3319.709,338.5161,58.1973,116.3946,1244.714,
+2,1,1,front_right,1227.861,125.2069,21.5254,43.0509,-812.553,
+2,1,1,rear,1156.661,117.9466,20.2772,40.5545,-432.161,
+2,1,-1,front_left,1262.443,128.7333,22.1317,44.2634,-812.553,
+2,1,-1,front_right,3285.127,334.9897,57.5911,115.1821,1244.714,
+2,1,-1,rear,1156.661,117.9466,20.2772,40.5545,-432.161,
+2,0,1,front_left,3103.628,316.482,54.4092,108.8185,1028.633,
+2,0,1,front_right,1011.78,103.1729,17.7374,35.4747,-1028.633,
+2,0,1,rear,1588.822,162.0147,27.8534,55.7068,0.0,
+2,0,-1,front_left,1046.362,106.6992,18.3436,36.6872,-1028.633,
+2,0,-1,front_right,3069.046,312.9556,53.803,107.606,1028.633,
+2,0,-1,rear,1588.822,162.0147,27.8534,55.7068,0.0,
+2,1,0,front_left,2291.076,233.6247,40.1645,80.329,216.08,
+2,1,0,front_right,2256.494,230.0983,39.5583,79.1165,216.08,
+2,1,0,rear,1156.661,117.9466,20.2772,40.5545,-432.161,
+6,0,0,front_left,6224.986,634.7719,36.3764,218.2586,0.0,
+6,0,0,front_right,6121.24,624.1928,35.7702,214.6211,0.0,
+6,0,0,rear,4766.465,486.0441,27.8534,167.1204,0.0,
+4,1,0,front_left,4366.071,445.2153,38.2705,153.0819,216.08,
+4,1,0,front_right,4296.907,438.1626,37.6642,150.6569,216.08,
+4,1,0,rear,2745.482,279.9613,24.0653,96.2613,-432.161,

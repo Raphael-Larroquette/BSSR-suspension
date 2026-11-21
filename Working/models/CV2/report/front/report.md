@@ -4,7 +4,7 @@
 
 | sweep | status | steps | where it stopped | reason |
 | --- | --- | --- | --- | --- |
-| `01_bump_parallel` | ok | 65/65 | - | - |
+| `10_steady_corner` | warn | 33/33 | - | sprung + unsprung = 332.4 kg but vehicle.mass = 313.5 kg; the corner sweep uses the sum of the parts. |
 
 ## Provenance
 
@@ -18,7 +18,7 @@
 
 | file | kind | steps | converged | max residual | notes |
 | --- | --- | --- | --- | --- | --- |
-| `01_bump_parallel` | heave | 65 | True | 3.24e-06 | - |
+| `10_steady_corner` | roll_ramp_at_steer | 33 | True | 2.56e-06 | Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
 
 ## Notes
 
@@ -34,29 +34,31 @@ Conventions, formulas and the meaningful source sweep for every channel are docu
 - **No side-view instant centre on this geometry.** Both wishbone inboard axes are parallel in side view, so the SVIC is at infinity and SVSA, anti-dive, anti-lift and anti-squat are all undefined. That is the correct answer for level arms, not a failure; tilt an inboard axis and these channels populate. Anti-dive additionally needs `front_brake_bias` in `vehicle_config`.
 - **FVIC and FVSA are tabulated but not plotted.** They pass through a singularity when the wishbones go parallel and swing to 10^5 mm. Camber gain is their bounded equivalent (`camber_gain ~ -57.296 / FVSA` in deg/mm) and is plotted instead.
 
-## 01_bump_parallel  (heave)
+## 10_steady_corner  (roll_ramp_at_steer)
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.0000 | -0.2096 | 0.0001 | 0.2097 |
-| Caster | deg | 8.9999 | 8.9999 | 9.0053 | 0.0054 |
-| Toe (positive = toe-in) | deg | 0.0000 | -0.0088 | 0.0120 | 0.0208 |
-| Scrub radius (signed lateral) | mm | -0.000 | -0.000 | 0.000 | 0.000 |
-| Mechanical trail | mm | 44.110 | 44.100 | 44.117 | 0.017 |
-| Half track | mm | 490.000 | 481.017 | 490.032 | 9.014 |
-| Wheel travel | mm | -0.000 | -50.800 | 50.800 | 101.600 |
-| Damper length | mm | 262.991 | 228.412 | 296.681 | 68.269 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4916 | 1.4480 | 1.5175 | 0.0694 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.6704 | 0.6590 | 0.6906 | 0.0316 |
-| Roll-centre height | mm | 9.727 | -92.736 | 113.811 | 206.546 |
-| FVIC lateral (y) | mm | -246117.346 | -18684517.830 | 251797.787 | 18936315.617 |
-| FVIC height (z) | mm | 4895.300 | -9787.127 | 549106.366 | 558893.493 |
-| FVSA length | mm | 246655.929 | -251498.262 | 18693074.539 | 18944572.801 |
-| Track change | mm | 0.000 | -17.965 | 0.063 | 18.028 |
-| Steering ratio (rack) | deg/mm | 0.6883 | 0.6574 | 0.7246 | 0.0672 |
-| Camber gain | deg/mm | -0.0002 | -0.0082 | 0.0096 | 0.0178 |
+| Road camber (outer) | deg | -0.0000 | -0.0000 | 1.5336 | 1.5336 |
+| Road camber (inner) | deg | -0.0000 | -1.2672 | -0.0000 | 1.2672 |
+| Camber (left) | deg | -0.0000 | -1.2577 | -0.0000 | 1.2577 |
+| Camber (right) | deg | -0.0000 | -0.0000 | 1.5241 | 1.5241 |
+| Caster (left) | deg | 8.9999 | 8.9999 | 9.0013 | 0.0014 |
+| Caster (right) | deg | 8.9999 | 8.9999 | 9.0005 | 0.0006 |
+| Toe (left) | deg | -0.0000 | -0.0000 | 8.1630 | 8.1630 |
+| Toe (right) | deg | 0.0000 | -8.9508 | 0.0000 | 8.9508 |
+| Scrub radius (signed lateral) | mm | -0.000 | -0.000 | 0.122 | 0.122 |
+| Half track | mm | 490.000 | 490.000 | 493.993 | 3.993 |
+| Track change | mm | 0.000 | -4.623 | 0.000 | 4.623 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4916 | 1.4671 | 1.4916 | 0.0245 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.6704 | 0.6704 | 0.6816 | 0.0112 |
+| Roll-centre height | mm | 9.727 | -147384.238 | 9.727 | 147393.965 |
+| Roll-centre lateral position | mm | -0.000 | -1066881.002 | -0.000 | 1066881.002 |
+| Body roll | deg | -0.0000 | -0.0000 | 2.8048 | 2.8048 |
+| Rack displacement | mm | 0.000 | 0.000 | 12.395 | 12.395 |
+| Ackermann | % | - | 138.98 | 146.29 | 7.31 |
+| Steering ratio (rack) | deg/mm | 0.6883 | 0.6497 | 0.6883 | 0.0386 |
 
-Plots: `plots/01_bump_parallel.png`
+Plots: `plots/10_steady_corner.png`
 
 ## Bearing misalignment
 
@@ -66,11 +68,11 @@ Required angle is the worst value anywhere in this sweep set, not per sweep, and
 
 | joint | part | required (deg) | at | required (locked) (deg) | locked clocking (deg) | install offset (deg) | best available (deg) | clocking (deg) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| LBJ | spherical | 18.85 | `01_bump_parallel` step 0 | - | - | 0.00 | 0.01 | - |
-| UBJ | spherical | - | - | - | - | - | 0.01 | - |
-| Outer Tie Rod End | rod_end | - | - | - | - | - | 0.03 | - |
-| Inner Tie Rod End | rod_end | 0.82 | `01_bump_parallel` step 50 | 0.88 | 270.0 | 0.82 | 0.03 | - |
+| LBJ | spherical | 9.33 | `10_steady_corner` step 32 | - | - | 0.00 | 0.35 | - |
+| UBJ | spherical | - | - | - | - | - | 0.37 | - |
+| Outer Tie Rod End | rod_end | - | - | - | - | - | 0.29 | - |
+| Inner Tie Rod End | rod_end | 0.82 | `10_steady_corner` step 0 | 0.82 | 270.0 | 0.82 | 0.09 | - |
 
 ## Plots
 
-- `plots/01_bump_parallel.png`
+- `plots/10_steady_corner.png`

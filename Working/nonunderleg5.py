@@ -11,7 +11,7 @@ import math
 # CHECK SEED: uv run python Working/check_design.py Working/nonunderleg4.py
 #
 # CHANGES FROM nonunderleg3.py: a fifth objective, `road_camber`, read from
-# 10_corner_ramp - see ROAD_CAMBER_* below and OBJECTIVES. Everything else is
+# 10_steady_corner - see ROAD_CAMBER_* below and OBJECTIVES. Everything else is
 # identical, so a front from 3 and a front from 4 differ only by that objective.
 #
 # This file IS the run's configuration. Copy it to make a variant: whichever
@@ -56,7 +56,7 @@ WORKERS_PER_POOL = None
 BUMP_WEIGHTING = 1.5          # bump_scrub
 CAMBER_BUMP_WEIGHTING = 2.0   # camber_gain
 
-# road_camber objective (10_corner_ramp). The outer wheel - in bump, carrying
+# road_camber objective (10_steady_corner). The outer wheel - in bump, carrying
 # the load - counts ROAD_CAMBER_BUMP_WEIGHTING x, the inner (droop) wheel 1x.
 # ROAD_CAMBER_TARGET is the road camber the objective pulls both wheels to, deg,
 # signed like camber (negative = top in). 0 = upright on the road. Some tyres
@@ -90,13 +90,9 @@ VERBOSE_FAILURES = False
 SWEEP_LIMITS = {
     "01_bump_parallel": {"start": -50.8, "stop": 50.8},
     "04_steer_design": {"start": -35.0, "stop": 35.0},
-    # Right turn: rack +y steers right, so the LEFT wheel is outer, in bump.
-    # Currently the same as run.yaml (placeholder until set from the roll
-    # gradient); stated here so the corner this run judged is in the script.
-    "10_corner_ramp": {
-        "travel": {"left": (0.0, 25.0), "right": (0.0, -25.0)},
-        "rack": (0.0, 35.0),
-    },
+    # 10_steady_corner is a `corner:` sweep: no SWEEP_LIMITS. Its rack and wheel
+    # travel come from the speed and radius in run.yaml's corner block, worked
+    # out for each candidate in fast mode (sweep_sets/corner.py).
 }
 
 # Steps the OPTIMISER solves each sweep at. run.yaml's own counts (22 and 65)
@@ -112,13 +108,27 @@ SWEEP_LIMITS = {
 #                     measured identical to 4 decimals against 65.
 #                     WARNING: add an objective that reads the SHAPE of the
 #                     steer curve and this must go back up.
-#   10_corner_ramp    `road_camber` integrates the whole road-camber curve of
-#                     both wheels, so like 01 it needs real resolution.
+#   10_steady_corner  `road_camber` integrates the whole road-camber curve of
+#                     both wheels, so like 01 it needs real resolution. Each
+#                     candidate also solves the design state and a 21-step
+#                     steer table (corner.py), and full mode re-solves the
+#                     13 steps once per iteration (about 7 on Aurora).
 SWEEP_STEPS = {
     "01_bump_parallel": 13,
     "04_steer_design": 3,
-    "10_corner_ramp": 13,
+    "10_steady_corner": 13,
 }
+
+# How each candidate's 10_steady_corner (quasi-static corner) is worked out.
+# run.yaml's `mode` sets the reports only; this sets the optimiser.
+#   "fast"  roll-centre method, closed form: about 1.3 s per candidate on
+#           Aurora at 13 steps. Uses the design roll centre (no migration in
+#           roll) and sends front unsprung transfer straight to the tyres.
+#   "full"  iterates the solved geometry with virtual work per wheel: about
+#           4.5 s per candidate. Captures roll-centre migration, jacking and
+#           left/right asymmetry. A candidate whose travel runs away fails
+#           the solve and is marked infeasible.
+CORNER_MODE = "fast"
 
 FREE_PARAMETERS = {
     "lower_wishbone_outboard.y": (450, 468.763), # inside of half track - wheel offset
@@ -331,7 +341,7 @@ OBJECTIVES = {
     # steer camber (caster/KPI) and roll both count, as the tyre sees them.
     # Pulls against camber_gain: holding road camber in roll needs MORE camber
     # change in bump, camber_gain rewards less. That trade-off is the point.
-    "road_camber": ("10_corner_ramp", "road_camber", "minimize"),
+    "road_camber": ("10_steady_corner", "road_camber", "minimize"),
     # "forces" is not a sweep: it is the static force solve at design height.
     "joint_force": ("forces", "joint_force", "minimize"),
 }

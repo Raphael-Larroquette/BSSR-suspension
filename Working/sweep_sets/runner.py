@@ -58,6 +58,10 @@ from pathlib import Path
 import yaml
 
 HERE = Path(__file__).resolve().parent  # Working/sweep_sets
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+
+import corner as corner_mod  # noqa: E402  (sibling module; see corner.py)
 
 # Where generated sweep files are written. The solver takes a file, and writing
 # it out rather than passing it in memory puts its hash in the CSV provenance
@@ -69,6 +73,8 @@ RESOLVED_DIRNAME = "_resolved_sweeps"
 FRAMES_DIRNAME = "_frames"
 FORCES_CONFIG_NAME = "forces.yaml"  # the model's vehicle, for `forces:` sweeps
 FORCES_SUFFIX = "_forces"  # <sweep>_forces.csv: forces at every step
+# <sweep>_corner.csv: the per-step quasi-static table of a `corner:` sweep
+CORNER_SUFFIX = "_corner"
 
 # Animation formats the renderer writes (`gif: {format: ...}` in run.yaml).
 ANIMATION_FORMATS = ("gif", "mp4")
@@ -564,6 +570,10 @@ class SweepPlan:
     force_cases: list[tuple[float, float, float]] = field(default_factory=list)
     forces_csv: Path | None = None
     forces_config: Path | None = None
+    # `corner:` - a quasi-static corner (corner.py). The worker computes the
+    # targets and writes `resolved` itself, so planning never solves anything.
+    corner: dict | None = None
+    corner_csv: Path | None = None
 
 
 @dataclass
@@ -681,6 +691,26 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
                     "let the sweep be generated."
                 )
 
+        # A `corner:` sweep is computed by the worker (corner.py), not generated
+        # from ranges, so it takes none of the drive keys or a `file:`.
+        corner_block = sweep_cfg.get("corner")
+        if corner_block is not None:
+            clashing = [g for g in (*RANGE_GROUPS, "file", "steps")
+                        if sweep_cfg.get(g) is not None]
+            if clashing:
+                raise SweepSetError(
+                    f"sweep '{name}' has a `corner:` block and also sets "
+                    f"{', '.join(clashing)}. A corner sweep computes its own rack and "
+                    "wheel travel; put `steps` inside `corner:` and drop the rest.")
+            try:
+                corner_mod.parse_settings(name, corner_block)
+            except corner_mod.CornerError as error:
+                raise SweepSetError(str(error)) from None
+            if not (geometry.parent / FORCES_CONFIG_NAME).is_file():
+                raise SweepSetError(
+                    f"sweep '{name}' is a corner sweep but {geometry.parent} has no "
+                    f"{FORCES_CONFIG_NAME} to take the vehicle masses from.")
+
         # `gif` is optional per sweep: absent means no animation.
         wants_gif = truthy(sweep_cfg.get("gif"), False)
         if isinstance(sweep_cfg.get("gif"), dict):
@@ -706,7 +736,7 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
 
         chosen.append({"name": name, "source": source, "cfg": sweep_cfg,
                        "gif": wants_gif, "gif_settings": gif_settings,
-                       "force_cases": force_cases})
+                       "force_cases": force_cases, "corner": corner_block})
 
     if not chosen:
         raise SweepSetError(
@@ -764,7 +794,7 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
         # Validate every sweep before generating any, so the first complaint
         # names the sweep rather than arriving with half the set written.
         for item in chosen:
-            if item["source"] is None:
+            if item["source"] is None and item["corner"] is None:
                 validate_sweep(item["name"], item["cfg"], drives)
 
     plans: list[SweepPlan] = []
@@ -772,12 +802,20 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
         name = item["name"]
         resolved = None
         if not opts.report_only:
-            if item["source"] is None:
+            if item["corner"] is not None:
+                # Written by the solve task once the corner is computed.
+                resolved = resolved_dir / f"{name}.yaml"
+                if not opts.dry_run:
+                    resolved.unlink(missing_ok=True)
+            elif item["source"] is None:
                 resolved = generate_sweep_file(name, item["cfg"], drives, resolved_dir)
             else:
                 resolved = copy_sweep_file(name, item["source"], resolved_dir)
-        steps = int((yaml.safe_load(resolved.read_text()) or {}).get("steps", 0)) \
-            if resolved else 0
+        if item["corner"] is not None:
+            steps = int(item["corner"]["steps"])
+        else:
+            steps = int((yaml.safe_load(resolved.read_text()) or {}).get("steps", 0)) \
+                if resolved else 0
         settings = item["gif_settings"]
         fmt = _animation_format(settings, name)
         plan = SweepPlan(
@@ -793,11 +831,16 @@ def plan_sweep_set(config_path: Path, opts: SweepOptions | None = None) -> SetPl
             force_cases=item["force_cases"],
             forces_csv=outputs / f"{name}{FORCES_SUFFIX}.csv",
             forces_config=(geometry.parent / FORCES_CONFIG_NAME
-                           if item["force_cases"] else None),
+                           if item["force_cases"] or item["corner"] is not None
+                           else None),
+            corner=item["corner"],
+            corner_csv=(outputs / f"{name}{CORNER_SUFFIX}.csv"
+                        if item["corner"] is not None else None),
         )
         if not opts.report_only and not opts.dry_run:
             # Stale results of a sweep about to be re-solved must not survive.
             stale = [plan.csv, plan.frames, plan.forces_csv,
+                     *([plan.corner_csv] if plan.corner_csv else []),
                      *(outputs / f"{name}.{ext}" for ext in ANIMATION_FORMATS)]
             for path in stale:
                 path.unlink(missing_ok=True)
