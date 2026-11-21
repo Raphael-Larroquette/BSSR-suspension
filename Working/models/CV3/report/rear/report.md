@@ -9,17 +9,17 @@
 
 ## Provenance
 
-- geometry: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV2\rear.yaml`
-- geometry SHA-256: `6e792ceca7c61fd1...`
+- geometry: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\rear.yaml`
+- geometry SHA-256: `2b47c20c5dfe9efc...`
 - format version: 3
-- run configuration: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV2\report\rear\_resolved_run.json`
+- run configuration: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\report\rear\_resolved_run.json`
 
 ## Sweeps
 
 | file | kind | steps | converged | max residual | notes |
 | --- | --- | --- | --- | --- | --- |
 | `01_bump` | heave | 41 | True | 2.84e-13 | - |
-| `02_damper_stroke` | damper_stroke | 41 | True | 3.98e-13 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
+| `02_damper_stroke` | damper_stroke | 41 | True | 5.68e-13 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
 
 ## Notes
 
@@ -38,17 +38,17 @@ Conventions and formulas: `docs/reference/characteristics.md`. What is specific 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
 | Wheel travel | mm | 0.000 | -50.800 | 50.800 | 101.600 |
-| Damper length | mm | 335.280 | 305.224 | 363.791 | 58.567 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.7388 | 1.6401 | 1.8231 | 0.1831 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.5751 | 0.5485 | 0.6097 | 0.0612 |
-| Shock transmission angle (90 square, 0 toggle) | deg | 51.4549 | 47.6517 | 55.2410 | 7.5894 |
-| Wheel-centre recession rate | mm/mm | 0.0000 | -0.1367 | 0.1367 | 0.2735 |
-| SVIC longitudinal (x) | mm | -1865.000 | -1865.000 | -1865.000 | 0.000 |
+| Damper length | mm | 335.280 | 305.159 | 363.899 | 58.740 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.7336 | 1.6380 | 1.8149 | 0.1769 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.5769 | 0.5510 | 0.6105 | 0.0595 |
+| Shock transmission angle (90 square, 0 toggle) | deg | 51.3402 | 47.6618 | 54.9872 | 7.3254 |
+| Wheel-centre recession rate | mm/mm | 0.0000 | -0.1349 | 0.1349 | 0.2698 |
+| SVIC longitudinal (x) | mm | -1905.000 | -1905.000 | -1905.000 | 0.000 |
 | SVIC height (z) | mm | 278.500 | 278.500 | 278.500 | 0.000 |
-| SVSA length | mm | 375.000 | 371.543 | 375.000 | 3.457 |
-| SVSA angle | deg | 36.6000 | 31.5020 | 41.5507 | 10.0487 |
-| Anti-squat | % | 452.23 | - | - | - |
-| Anti-lift | % | 135.67 | - | - | - |
+| SVSA length | mm | 380.000 | 376.589 | 380.000 | 3.411 |
+| SVSA angle | deg | 36.2375 | 31.1587 | 41.1674 | 10.0086 |
+| Anti-squat | % | 483.69 | - | - | - |
+| Anti-lift | % | 145.11 | - | - | - |
 
 Plots: `plots/01_bump.png`
 
@@ -57,10 +57,10 @@ Plots: `plots/01_bump.png`
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
 | Damper length | mm | 335.280 | 305.280 | 365.280 | 60.000 |
-| Wheel travel | mm | 0.000 | -53.519 | 50.708 | 104.227 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.7388 | 1.6428 | 1.8252 | 0.1823 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.5751 | 0.5479 | 0.6087 | 0.0608 |
-| Shock transmission angle (90 square, 0 toggle) | deg | 51.4549 | 47.4463 | 55.2341 | 7.7878 |
+| Wheel travel | mm | 0.000 | -53.310 | 50.601 | 103.911 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.7335 | 1.6408 | 1.8165 | 0.1757 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.5769 | 0.5505 | 0.6094 | 0.0589 |
+| Shock transmission angle (90 square, 0 toggle) | deg | 51.3402 | 47.4782 | 54.9729 | 7.4947 |
 
 Plots: `plots/02_damper_stroke.png`
 
@@ -72,10 +72,10 @@ Constant case load, applied at the posed contact patch. |F| is the joint load (t
 
 | joint | side | at design [N] | peak [N] | peak at travel [mm] | peak / design |
 | --- | --- | --- | --- | --- | --- |
-| `strut_top` | centre | 9,757 | 10,230 | -50.8 | 1.05 |
-| `strut_bottom` | centre | 9,757 | 10,230 | -50.8 | 1.05 |
-| `trailing_arm_pivot_a` | centre | 7,506 | 7,870 | -50.8 | 1.05 |
-| `trailing_arm_pivot_b` | centre | 4,323 | 4,512 | +50.8 | 1.04 |
+| `strut_top` | centre | 8,263 | 8,651 | -50.8 | 1.05 |
+| `strut_bottom` | centre | 8,263 | 8,651 | -50.8 | 1.05 |
+| `trailing_arm_pivot_a` | centre | 6,356 | 6,654 | -50.8 | 1.05 |
+| `trailing_arm_pivot_b` | centre | 3,674 | 3,835 | +50.8 | 1.04 |
 
 Plot: `plots/01_bump_forces.png`
 

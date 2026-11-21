@@ -5,19 +5,21 @@
 | sweep | status | steps | where it stopped | reason |
 | --- | --- | --- | --- | --- |
 | `01_bump` | ok | 41/41 | - | - |
+| `02_damper_stroke` | ok | 41/41 | - | - |
 
 ## Provenance
 
-- geometry: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV2\rear.yaml`
+- geometry: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV2\rear.yaml`
 - geometry SHA-256: `6e792ceca7c61fd1...`
 - format version: 3
-- run configuration: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV2\report\rear\_resolved_run.json`
+- run configuration: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV2\report\rear\_resolved_run.json`
 
 ## Sweeps
 
 | file | kind | steps | converged | max residual | notes |
 | --- | --- | --- | --- | --- | --- |
 | `01_bump` | heave | 41 | True | 2.84e-13 | - |
+| `02_damper_stroke` | damper_stroke | 41 | True | 3.98e-13 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
 
 ## Notes
 
@@ -50,6 +52,18 @@ Conventions and formulas: `docs/reference/characteristics.md`. What is specific 
 
 Plots: `plots/01_bump.png`
 
+## 02_damper_stroke  (damper_stroke)
+
+| characteristic | unit | at design | min | max | range |
+| --- | --- | --- | --- | --- | --- |
+| Damper length | mm | 335.280 | 305.280 | 365.280 | 60.000 |
+| Wheel travel | mm | 0.000 | -53.519 | 50.708 | 104.227 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.7388 | 1.6428 | 1.8252 | 0.1823 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.5751 | 0.5479 | 0.6087 | 0.0608 |
+| Shock transmission angle (90 square, 0 toggle) | deg | 51.4549 | 47.4463 | 55.2341 | 7.7878 |
+
+Plots: `plots/02_damper_stroke.png`
+
 ## 01_bump: joint forces along travel
 
 Constant case load, applied at the posed contact patch. |F| is the joint load (the same on both bodies it connects). Every component, including the chassis hardpoints, is in `01_bump_forces.csv`.
@@ -68,4 +82,5 @@ Plot: `plots/01_bump_forces.png`
 ## Plots
 
 - `plots/01_bump.png`
+- `plots/02_damper_stroke.png`
 - `plots/01_bump_forces.png`

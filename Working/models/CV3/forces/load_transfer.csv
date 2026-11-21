@@ -4,10 +4,10 @@
 # mass: 290.8348 kg | g: 9.80665 | wheelbase: 2285.0 mm
 # worst condition number: 6.841e+02
 # Chassis blocks: force ON the chassis at each chassis hardpoint (the negative of the part-side load). They do not sum to zero. The steering rack is excluded: its load (Track Rod, trackrod_inboard) reaches the chassis through rack mounts not modelled here.
-# config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\forces.yaml sha256=5542bcbdc591e9cdc4c12a441c4f13cd4c1e19e20a7bfbeb9980d4ee1357e374
-# front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\front.yaml sha256=fc59b2fc25471eb4d13c3da52e9af058baa26c9fbd952f74e98281373a20b8f5
-# rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\rear.yaml sha256=2b47c20c5dfe9efcd67b4c5547a40a573be8b6233000e40957e80dd99d4f3ed5
-# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e
+# config: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\forces.yaml sha256=5542bcbdc591e9cdc4c12a441c4f13cd4c1e19e20a7bfbeb9980d4ee1357e374
+# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\front.yaml sha256=fc59b2fc25471eb4d13c3da52e9af058baa26c9fbd952f74e98281373a20b8f5
+# rear: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\rear.yaml sha256=2b47c20c5dfe9efcd67b4c5547a40a573be8b6233000e40957e80dd99d4f3ed5
+# cases: C:\Users\General\Desktop\BSSR-suspension\Working\cases.csv sha256=c4f6df1df5faa9df6b614056029fa1be98086524e8947b25ba273ae9a6db2b4c
 # normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g
 # transfer_from_baseline_N is measured against the same case with brake and corner set to zero, so a pure bump case reads zero
 #
@@ -33,3 +33,6 @@ bump,brake,corner,wheel,normal_load_N,effective_mass_kg,percent_of_case,percent_
 4,1,0,front_left,4366.071,445.2153,38.2705,153.0819,216.08,
 4,1,0,front_right,4296.907,438.1626,37.6642,150.6569,216.08,
 4,1,0,rear,2745.482,279.9613,24.0653,96.2613,-432.161,
+1,0,0,front_left,1037.498,105.7953,36.3764,36.3764,0.0,
+1,0,0,front_right,1020.207,104.0321,35.7702,35.7702,0.0,
+1,0,0,rear,794.411,81.0074,27.8534,27.8534,0.0,

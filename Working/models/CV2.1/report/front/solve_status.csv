@@ -1,0 +1,9 @@
+sweep,status,steps,where,reason
+01_bump_parallel,ok,22/22,,
+02_roll,ok,65/65,,
+04_steer_design,ok,65/65,,
+05_steer_bump,ok,65/65,,
+06_steer_droop,ok,65/65,,
+08_damper_stroke,ok,65/65,,
+09_steer_in_roll,ok,65/65,,
+10_corner_ramp,ok,65/65,,
