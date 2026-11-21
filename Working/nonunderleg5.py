@@ -110,12 +110,25 @@ SWEEP_LIMITS = {
 #                     steer curve and this must go back up.
 #   10_steady_corner  `road_camber` integrates the whole road-camber curve of
 #                     both wheels, so like 01 it needs real resolution. Each
-#                     candidate also solves two 21-step tables (corner.py).
+#                     candidate also solves the design state and a 21-step
+#                     steer table (corner.py), and full mode re-solves the
+#                     13 steps once per iteration (about 7 on Aurora).
 SWEEP_STEPS = {
     "01_bump_parallel": 13,
     "04_steer_design": 3,
     "10_steady_corner": 13,
 }
+
+# How each candidate's 10_steady_corner (quasi-static corner) is worked out.
+# run.yaml's `mode` sets the reports only; this sets the optimiser.
+#   "fast"  roll-centre method, closed form: about 1.3 s per candidate on
+#           Aurora at 13 steps. Uses the design roll centre (no migration in
+#           roll) and sends front unsprung transfer straight to the tyres.
+#   "full"  iterates the solved geometry with virtual work per wheel: about
+#           4.5 s per candidate. Captures roll-centre migration, jacking and
+#           left/right asymmetry. A candidate whose travel runs away fails
+#           the solve and is marked infeasible.
+CORNER_MODE = "fast"
 
 FREE_PARAMETERS = {
     "lower_wishbone_outboard.y": (450, 468.763), # inside of half track - wheel offset
