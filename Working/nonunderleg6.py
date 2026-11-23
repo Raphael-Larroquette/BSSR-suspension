@@ -42,7 +42,7 @@ MIN_ARM_SEPARATION = 200.0    # mm, minimum vertical gap UCA above LCA (inboard 
 # NSGA-III reference directions by objective count (opt/problem.py): 4 -> 165,
 # 5 -> 210. Keep the population at or above that; 1320 covers 5 objectives.
 POPULATION_SIZE = 1320   # max workers is 60 on python in windows
-GENERATIONS = 50
+GENERATIONS = 100
 
 # Worker processes. None = one per logical CPU (128 on the 64-core machine).
 # Windows caps one process pool at 60 workers, so they are split into as few

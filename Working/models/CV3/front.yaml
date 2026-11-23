@@ -34,12 +34,12 @@ hardpoints:
   # Lower wishbone.
     lower_wishbone_inboard_front: {x: 65, y: 300.461, z: 135.285}
     lower_wishbone_inboard_rear: {x: -110, y: 300.461, z: 135.285}
-    lower_wishbone_outboard: {x: 23.166, y: 458.309, z: 132.236}
+    lower_wishbone_outboard: {x: 23.166, y: 456.263, z: 132.276}
 
   # Upper wishbone.
     upper_wishbone_inboard_front: {x: 0, y: 265.272, z: 458.999}
     upper_wishbone_inboard_rear: {x: -130, y: 265.272, z: 458.999}
-    upper_wishbone_outboard: {x: -28.189, y: 405.122, z: 456.481}
+    upper_wishbone_outboard: {x: -28.210, y: 398.061, z: 456.608}
 
   # Track rod (inner / outer steering rod ends).
     trackrod_inboard: {x: -126.121, y: 231.008, z: 535.837}
@@ -53,7 +53,6 @@ hardpoints:
   # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
     strut_bottom: {x: -5, y: 403.632, z: 162.182}
     strut_top: {x: -5, y: 306.864, z: 406.723}
-
   # No `right:` block, so the left corner is mirrored through Y = 0.
 
 
