@@ -16,7 +16,7 @@
 ## Provenance
 
 - geometry: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\front.yaml`
-- geometry SHA-256: `6e8a91b79793eb80...`
+- geometry SHA-256: `eb712519625aaa5a...`
 - format version: 3
 - reported side: **left**
 - run configuration: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\report\front\_resolved_run.json`
@@ -25,14 +25,14 @@
 
 | file | kind | steps | converged | max residual | notes |
 | --- | --- | --- | --- | --- | --- |
-| `01_bump_parallel` | heave | 65 | True | 4.04e-06 | - |
-| `02_roll` | roll | 65 | True | 3.27e-06 | - |
-| `04_steer_design` | steer | 65 | True | 4.51e-06 | - |
-| `05_steer_bump` | steer | 65 | True | 3.53e-06 | Held at +50.8 mm wheel travel, not design height. Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
-| `06_steer_droop` | steer | 65 | True | 4.80e-06 | Held at -50.8 mm wheel travel, not design height. **Rolled the wrong way for its steer.** This is a right turn, so the LEFT wheel is outer and should be in bump, but it is at -50.8 mm. The frames are a transient, not a corner; flip the travel signs in run.yaml. Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
-| `08_damper_stroke` | damper_stroke | 65 | True | 2.65e-06 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
-| `09_steer_in_roll` | steer_in_roll | 65 | True | 3.62e-06 | Held at +25.0/-25.0 mm wheel travel (+3.00 deg roll) - this is a ROLLED sweep. Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
-| `10_steady_corner` | roll_ramp_at_steer | 33 | True | 3.31e-06 | Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
+| `01_bump_parallel` | heave | 65 | True | 4.06e-06 | - |
+| `02_roll` | roll | 65 | True | 2.84e-06 | - |
+| `04_steer_design` | steer | 65 | True | 4.50e-06 | - |
+| `05_steer_bump` | steer | 65 | True | 3.59e-06 | Held at +50.8 mm wheel travel, not design height. Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
+| `06_steer_droop` | steer | 65 | True | 3.75e-06 | Held at -50.8 mm wheel travel, not design height. **Rolled the wrong way for its steer.** This is a right turn, so the LEFT wheel is outer and should be in bump, but it is at -50.8 mm. The frames are a transient, not a corner; flip the travel signs in run.yaml. Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
+| `08_damper_stroke` | damper_stroke | 65 | True | 3.78e-06 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
+| `09_steer_in_roll` | steer_in_roll | 65 | True | 5.71e-06 | Held at +25.0/-25.0 mm wheel travel (+2.99 deg roll) - this is a ROLLED sweep. Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
+| `10_steady_corner` | roll_ramp_at_steer | 33 | True | 2.12e-06 | Outer/inner road camber: right turn, so OUTER = LEFT wheel and INNER = RIGHT wheel throughout. |
 
 ## Notes
 
@@ -52,23 +52,23 @@ Conventions, formulas and the meaningful source sweep for every channel are docu
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.0000 | -0.3766 | -0.0000 | 0.3766 |
-| Caster | deg | 9.0012 | 9.0012 | 9.0096 | 0.0084 |
-| Toe (positive = toe-in) | deg | -0.0000 | -0.0004 | 0.4966 | 0.4970 |
-| Scrub radius (signed lateral) | mm | -0.000 | -0.000 | 0.012 | 0.013 |
-| Mechanical trail | mm | 44.119 | 43.661 | 44.120 | 0.459 |
-| Half track | mm | 480.000 | 471.440 | 480.033 | 8.592 |
+| Camber | deg | -0.0000 | -0.2382 | 0.0046 | 0.2429 |
+| Caster | deg | 9.0001 | 9.0000 | 9.0069 | 0.0069 |
+| Toe (positive = toe-in) | deg | -0.0000 | -0.0038 | 0.0059 | 0.0096 |
+| Scrub radius (signed lateral) | mm | 0.000 | 0.000 | 0.000 | 0.000 |
+| Mechanical trail | mm | 44.110 | 44.105 | 44.114 | 0.009 |
+| Half track | mm | 480.000 | 469.957 | 480.467 | 10.510 |
 | Wheel travel | mm | -0.000 | -50.800 | 50.800 | 101.600 |
-| Damper length | mm | 262.991 | 228.014 | 297.194 | 69.180 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4722 | 1.4341 | 1.4911 | 0.0570 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.6792 | 0.6706 | 0.6973 | 0.0267 |
-| Roll-centre height | mm | 9.526 | -88.572 | 109.144 | 197.716 |
-| FVIC lateral (y) | mm | -246896.763 | -246896.763 | 702750.007 | 949646.771 |
-| FVIC height (z) | mm | 4909.400 | -20594.189 | 4909.400 | 25503.589 |
-| FVSA length | mm | 247425.474 | -702571.898 | 247425.474 | 949997.372 |
-| Track change | mm | 0.000 | -17.119 | 0.066 | 17.185 |
-| Steering ratio (rack) | deg/mm | 0.6877 | 0.6466 | 0.7363 | 0.0898 |
-| Camber gain | deg/mm | -0.0002 | -0.0137 | 0.0175 | 0.0312 |
+| Damper length | mm | 313.585 | 277.199 | 348.566 | 71.367 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4281 | 1.3625 | 1.4711 | 0.1086 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.7002 | 0.6798 | 0.7339 | 0.0542 |
+| Roll-centre height | mm | 32.653 | -37.216 | 106.013 | 143.228 |
+| FVIC lateral (y) | mm | -47852.517 | -1266087.039 | 301926.221 | 1568013.259 |
+| FVIC height (z) | mm | 3287.881 | -34794.988 | 136093.507 | 170888.496 |
+| FVSA length | mm | 48444.219 | -303447.488 | 1273857.883 | 1577305.371 |
+| Track change | mm | 0.000 | -20.087 | 0.934 | 21.020 |
+| Steering ratio (rack) | deg/mm | 0.8184 | 0.7779 | 0.8704 | 0.0925 |
+| Camber gain | deg/mm | -0.0011 | -0.0084 | 0.0081 | 0.0165 |
 
 Plots: `plots/01_bump_parallel.png`
 
@@ -76,22 +76,22 @@ Plots: `plots/01_bump_parallel.png`
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber (left) | deg | -0.0000 | -0.0797 | 0.0000 | 0.0798 |
-| Camber (right) | deg | 0.0000 | -0.0797 | 0.0000 | 0.0798 |
-| Caster (left) | deg | 9.0012 | 9.0012 | 9.0030 | 0.0018 |
-| Caster (right) | deg | 9.0012 | 9.0012 | 9.0030 | 0.0018 |
-| Toe (left) | deg | 0.0000 | -0.0004 | 0.1150 | 0.1154 |
-| Toe (right) | deg | -0.0000 | -0.0004 | 0.1150 | 0.1154 |
-| Scrub radius (signed lateral) | mm | -0.000 | -0.000 | 0.004 | 0.004 |
-| Half track | mm | 480.000 | 477.710 | 480.033 | 2.323 |
-| Track change | mm | 0.000 | -2.290 | 0.000 | 2.290 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4722 | 1.4525 | 1.4871 | 0.0347 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.6792 | 0.6724 | 0.6885 | 0.0160 |
-| Camber recovery | deg/deg | -0.0013 | -0.0510 | 0.0544 | 0.1054 |
-| Roll-centre height | mm | 9.526 | -337.024 | 9.526 | 346.550 |
-| Roll-centre lateral migration vs roll | mm/deg | -786.9398 | -786.9398 | -732.5496 | 54.3902 |
-| Body roll | deg | -0.0000 | -2.9950 | 2.9950 | 5.9901 |
-| Steering ratio (rack) | deg/mm | 0.6877 | 0.6684 | 0.7084 | 0.0399 |
+| Camber (left) | deg | -0.0000 | -0.0719 | 0.0046 | 0.0765 |
+| Camber (right) | deg | 0.0000 | -0.0719 | 0.0046 | 0.0765 |
+| Caster (left) | deg | 9.0001 | 9.0000 | 9.0021 | 0.0022 |
+| Caster (right) | deg | 9.0001 | 9.0000 | 9.0021 | 0.0022 |
+| Toe (left) | deg | 0.0000 | -0.0037 | 0.0054 | 0.0091 |
+| Toe (right) | deg | -0.0000 | -0.0037 | 0.0054 | 0.0091 |
+| Scrub radius (signed lateral) | mm | 0.000 | 0.000 | 0.000 | 0.000 |
+| Half track | mm | 480.000 | 476.740 | 480.467 | 3.727 |
+| Track change | mm | 0.000 | -1.795 | 0.000 | 1.795 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4281 | 1.3975 | 1.4533 | 0.0559 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.7002 | 0.6881 | 0.7156 | 0.0275 |
+| Camber recovery | deg/deg | -0.0096 | -0.0377 | 0.0218 | 0.0595 |
+| Roll-centre height | mm | 32.653 | -28.655 | 32.653 | 61.308 |
+| Roll-centre lateral migration vs roll | mm/deg | -168.5872 | -168.5872 | -159.9730 | 8.6142 |
+| Body roll | deg | -0.0000 | -2.9925 | 2.9925 | 5.9849 |
+| Steering ratio (rack) | deg/mm | 0.8184 | 0.7984 | 0.8408 | 0.0424 |
 
 Plots: `plots/02_roll.png`
 
@@ -99,22 +99,22 @@ Plots: `plots/02_roll.png`
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.0102 | -2.6840 | 4.1463 | 6.8302 |
-| Caster | deg | 9.0012 | 9.0012 | 9.0012 | 0.0001 |
-| Toe (positive = toe-in) | deg | 0.0645 | -20.6647 | 20.4845 | 41.1492 |
-| Scrub radius (signed lateral) | mm | 0.001 | -0.492 | 0.443 | 0.935 |
-| Mechanical trail | mm | 44.062 | 23.578 | 59.459 | 35.881 |
-| Half track | mm | 480.049 | 459.080 | 488.166 | 29.086 |
-| Track change | mm | -0.000 | -14.734 | -0.000 | 14.734 |
-| Damper length | mm | 262.997 | 260.691 | 264.480 | 3.789 |
-| Roll-centre height | mm | 9.526 | -1.408 | 9.526 | 10.934 |
-| Roll-centre lateral position | mm | 1.334 | -484.637 | 539.047 | 1023.684 |
-| FVIC lateral (y) | mm | -248778.980 | -21456416.409 | 5381886.867 | 26838303.276 |
-| FVIC height (z) | mm | 4959.988 | -146283.396 | 574629.768 | 720913.164 |
-| FVSA length | mm | 249308.374 | -5383388.771 | 21464595.194 | 26847983.965 |
+| Camber | deg | -0.0121 | -3.0376 | 5.5322 | 8.5698 |
+| Caster | deg | 9.0001 | 9.0000 | 9.0003 | 0.0003 |
+| Toe (positive = toe-in) | deg | 0.0767 | -25.7187 | 23.9794 | 49.6981 |
+| Scrub radius (signed lateral) | mm | 0.002 | -0.602 | 0.504 | 1.107 |
+| Mechanical trail | mm | 44.041 | 19.495 | 62.279 | 42.784 |
+| Half track | mm | 480.058 | 453.281 | 488.002 | 34.721 |
+| Track change | mm | -0.000 | -21.710 | -0.000 | 21.710 |
+| Damper length | mm | 313.592 | 310.505 | 315.295 | 4.790 |
+| Roll-centre height | mm | 32.653 | 27.694 | 32.653 | 4.958 |
+| Roll-centre lateral position | mm | 0.429 | -134.759 | 145.952 | 280.711 |
+| FVIC lateral (y) | mm | -47913.801 | -67737.046 | -31417.166 | 36319.880 |
+| FVIC height (z) | mm | 3294.597 | 1483.065 | 5463.842 | 3980.777 |
+| FVSA length | mm | 48505.876 | 31904.885 | 68443.158 | 36538.273 |
 | Rack displacement | mm | 0.094 | -28.000 | 30.000 | 58.000 |
-| Ackermann | % | - | 43.98 | 54.81 | 10.82 |
-| Steering ratio (rack) | deg/mm | 0.6875 | 0.6789 | 0.8331 | 0.1542 |
+| Ackermann | % | - | 63.85 | 86.13 | 22.28 |
+| Steering ratio (rack) | deg/mm | 0.8181 | 0.7936 | 1.1228 | 0.3292 |
 
 Plots: `plots/04_steer_design.png`
 
@@ -122,22 +122,22 @@ Plots: `plots/04_steer_design.png`
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.3446 | -2.9595 | 3.4423 | 6.4018 |
-| Caster | deg | 9.0087 | 9.0081 | 9.0097 | 0.0017 |
-| Toe (positive = toe-in) | deg | 0.4870 | -19.0479 | 20.7702 | 39.8181 |
-| Scrub radius (signed lateral) | mm | 0.012 | -0.478 | 0.454 | 0.931 |
-| Mechanical trail | mm | 43.671 | 22.862 | 59.037 | 36.175 |
-| Half track | mm | 473.565 | 453.000 | 481.875 | 28.875 |
-| Track change | mm | -12.998 | -29.129 | -12.998 | 16.131 |
-| Damper length | mm | 228.022 | 225.805 | 229.511 | 3.707 |
-| Roll-centre height | mm | -88.572 | -88.572 | -87.909 | 0.662 |
-| Roll-centre lateral position | mm | -0.058 | -14.516 | 12.783 | 27.300 |
-| FVIC lateral (y) | mm | -4786.152 | -5069.978 | -4398.962 | 671.016 |
-| FVIC height (z) | mm | -1497.010 | -1503.894 | -1484.132 | 19.763 |
-| FVSA length | mm | 5482.733 | 5089.099 | 5765.514 | 676.415 |
+| Camber | deg | -0.2535 | -3.2675 | 4.9193 | 8.1868 |
+| Caster | deg | 9.0068 | 9.0063 | 9.0079 | 0.0016 |
+| Toe (positive = toe-in) | deg | 0.0973 | -24.5147 | 24.0739 | 48.5887 |
+| Scrub radius (signed lateral) | mm | 0.003 | -0.603 | 0.512 | 1.115 |
+| Mechanical trail | mm | 44.021 | 18.960 | 62.286 | 43.326 |
+| Half track | mm | 477.162 | 450.492 | 485.500 | 35.009 |
+| Track change | mm | -5.831 | -29.897 | -5.831 | 24.066 |
+| Damper length | mm | 277.209 | 274.125 | 278.983 | 4.858 |
+| Roll-centre height | mm | -37.216 | -37.216 | -36.662 | 0.554 |
+| Roll-centre lateral position | mm | -0.105 | -24.878 | 22.145 | 47.024 |
+| FVIC lateral (y) | mm | -6387.624 | -6715.489 | -5870.542 | 844.947 |
+| FVIC height (z) | mm | -1215.211 | -1253.307 | -1188.838 | 64.469 |
+| FVSA length | mm | 6980.550 | 6454.331 | 7306.678 | 852.348 |
 | Rack displacement | mm | 0.125 | -28.000 | 32.000 | 60.000 |
-| Ackermann | % | - | -276.69 | 42.51 | 319.21 |
-| Steering ratio (rack) | deg/mm | 0.6463 | 0.6330 | 0.7808 | 0.1477 |
+| Ackermann | % | - | 75.43 | 104.67 | 29.23 |
+| Steering ratio (rack) | deg/mm | 0.7775 | 0.7444 | 1.0668 | 0.3224 |
 
 Plots: `plots/05_steer_bump.png`
 
@@ -145,22 +145,22 @@ Plots: `plots/05_steer_bump.png`
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Camber | deg | -0.3912 | -3.1786 | 3.8719 | 7.0505 |
-| Caster | deg | 9.0096 | 9.0083 | 9.0105 | 0.0022 |
-| Toe (positive = toe-in) | deg | 0.5886 | -20.5656 | 22.0318 | 42.5974 |
-| Scrub radius (signed lateral) | mm | 0.015 | -0.508 | 0.476 | 0.984 |
-| Mechanical trail | mm | 43.576 | 21.307 | 59.873 | 38.566 |
-| Half track | mm | 471.505 | 451.203 | 478.381 | 27.178 |
-| Track change | mm | -17.119 | -32.546 | -17.119 | 15.426 |
-| Damper length | mm | 297.202 | 294.886 | 298.675 | 3.788 |
-| Roll-centre height | mm | 109.144 | 103.739 | 109.144 | 5.404 |
-| Roll-centre lateral position | mm | 0.199 | -42.109 | 45.107 | 87.215 |
-| FVIC lateral (y) | mm | 4545.762 | 4260.255 | 5043.648 | 783.393 |
-| FVIC height (z) | mm | -1433.388 | -1490.641 | -1396.621 | 94.020 |
-| FVSA length | mm | -4302.456 | -4813.035 | -4014.458 | 798.577 |
+| Camber | deg | -0.1695 | -3.3019 | 5.5749 | 8.8768 |
+| Caster | deg | 9.0044 | 9.0034 | 9.0050 | 0.0016 |
+| Toe (positive = toe-in) | deg | 0.1087 | -26.2351 | 24.8706 | 51.1057 |
+| Scrub radius (signed lateral) | mm | 0.003 | -0.622 | 0.521 | 1.143 |
+| Mechanical trail | mm | 44.011 | 18.142 | 62.785 | 44.642 |
+| Half track | mm | 470.035 | 443.715 | 477.287 | 33.573 |
+| Track change | mm | -20.087 | -42.330 | -20.087 | 22.243 |
+| Damper length | mm | 348.576 | 345.502 | 350.253 | 4.752 |
+| Roll-centre height | mm | 106.013 | 99.129 | 106.013 | 6.883 |
+| Roll-centre lateral position | mm | 0.210 | -44.613 | 47.884 | 92.497 |
+| FVIC lateral (y) | mm | 7433.465 | 6895.312 | 8587.584 | 1692.272 |
+| FVIC height (z) | mm | -2374.948 | -2548.392 | -2288.976 | 259.416 |
+| FVSA length | mm | -7341.050 | -8518.561 | -6797.788 | 1720.773 |
 | Rack displacement | mm | 0.125 | -27.000 | 29.000 | 56.000 |
-| Ackermann | % | - | -376.83 | 7.59 | 384.42 |
-| Steering ratio (rack) | deg/mm | 0.7362 | 0.7336 | 0.8705 | 0.1369 |
+| Ackermann | % | - | 53.62 | 75.32 | 21.69 |
+| Steering ratio (rack) | deg/mm | 0.8700 | 0.8519 | 1.1866 | 0.3347 |
 
 Plots: `plots/06_steer_droop.png`
 
@@ -168,11 +168,11 @@ Plots: `plots/06_steer_droop.png`
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Damper length | mm | 262.991 | 232.991 | 292.991 | 60.000 |
-| Wheel travel (left) | mm | 0.000 | -44.535 | 43.652 | 88.186 |
-| Wheel travel (right) | mm | 0.000 | -44.535 | 43.652 | 88.186 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4722 | 1.4389 | 1.4911 | 0.0522 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.6792 | 0.6706 | 0.6950 | 0.0243 |
+| Damper length | mm | 313.585 | 283.585 | 343.585 | 60.000 |
+| Wheel travel (left) | mm | 0.000 | -43.482 | 42.060 | 85.543 |
+| Wheel travel (right) | mm | 0.000 | -43.482 | 42.060 | 85.543 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4281 | 1.3755 | 1.4667 | 0.0912 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.7002 | 0.6818 | 0.7270 | 0.0452 |
 
 Plots: `plots/08_damper_stroke.png`
 
@@ -180,25 +180,25 @@ Plots: `plots/08_damper_stroke.png`
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Road camber (outer) | deg | 2.9129 | 0.1754 | 2.9129 | 2.7375 |
-| Road camber (inner) | deg | -3.0707 | -3.0707 | 1.9736 | 5.0443 |
-| Camber (left) | deg | -0.0797 | -2.8192 | -0.0797 | 2.7395 |
-| Camber (right) | deg | -0.0781 | -0.0781 | 5.1772 | 5.2553 |
-| Caster (left) | deg | 9.0030 | 9.0027 | 9.0030 | 0.0003 |
-| Caster (right) | deg | 9.0028 | 9.0023 | 9.0028 | 0.0005 |
-| Toe (left) | deg | 0.0864 | 0.0864 | 21.2318 | 21.1454 |
-| Toe (right) | deg | 0.1150 | -24.6387 | 0.1150 | 24.7537 |
-| Scrub radius (signed lateral) | mm | 0.001 | 0.001 | 0.365 | 0.364 |
-| Mechanical trail | mm | 44.064 | 28.058 | 44.064 | 16.006 |
-| Half track | mm | 478.694 | 478.694 | 489.012 | 10.318 |
-| Track change | mm | -2.290 | -19.627 | -2.290 | 17.337 |
-| Damper length | mm | 245.897 | 245.897 | 247.434 | 1.537 |
-| Roll-centre height | mm | -337.024 | -337.024 | -308.616 | 28.407 |
-| Roll-centre lateral position | mm | -2299.866 | -2582.497 | -2234.960 | 347.537 |
-| Body roll | deg | 2.9950 | 2.9949 | 3.0148 | 0.0199 |
-| Rack displacement | mm | -0.000 | -0.000 | 32.000 | 32.000 |
-| Ackermann | % | - | 90.65 | 102.90 | 12.25 |
-| Steering ratio (rack) | deg/mm | 0.6684 | 0.6571 | 0.6684 | 0.0113 |
+| Road camber (outer) | deg | 2.9192 | -0.1766 | 2.9192 | 3.0958 |
+| Road camber (inner) | deg | -3.0088 | -3.0088 | 3.7196 | 6.7284 |
+| Camber (left) | deg | -0.0719 | -3.1867 | -0.0719 | 3.1148 |
+| Camber (right) | deg | -0.0177 | -0.0177 | 7.3404 | 7.3581 |
+| Caster (left) | deg | 9.0021 | 9.0018 | 9.0021 | 0.0003 |
+| Caster (right) | deg | 9.0006 | 9.0002 | 9.0006 | 0.0003 |
+| Toe (left) | deg | -0.0037 | -0.0037 | 24.8357 | 24.8394 |
+| Toe (right) | deg | 0.0054 | -31.3779 | 0.0054 | 31.3833 |
+| Scrub radius (signed lateral) | mm | 0.000 | 0.000 | 0.426 | 0.426 |
+| Mechanical trail | mm | 44.113 | 24.674 | 44.113 | 19.439 |
+| Half track | mm | 480.159 | 480.159 | 490.578 | 10.418 |
+| Track change | mm | -1.795 | -28.014 | -1.795 | 26.219 |
+| Damper length | mm | 295.893 | 295.893 | 297.674 | 1.781 |
+| Roll-centre height | mm | -28.655 | -28.655 | -11.446 | 17.209 |
+| Roll-centre lateral position | mm | -495.572 | -495.572 | -368.907 | 126.665 |
+| Body roll | deg | 2.9925 | 2.9924 | 3.0239 | 0.0315 |
+| Rack displacement | mm | 0.000 | 0.000 | 32.000 | 32.000 |
+| Ackermann | % | - | 118.83 | 187.16 | 68.33 |
+| Steering ratio (rack) | deg/mm | 0.7984 | 0.7698 | 0.7984 | 0.0286 |
 
 Plots: `plots/09_steer_in_roll.png`
 
@@ -206,25 +206,25 @@ Plots: `plots/09_steer_in_roll.png`
 
 | characteristic | unit | at design | min | max | range |
 | --- | --- | --- | --- | --- | --- |
-| Road camber (outer) | deg | -0.0018 | -0.0018 | 0.4657 | 0.4675 |
-| Road camber (inner) | deg | 0.0056 | 0.0056 | 0.5841 | 0.5784 |
-| Camber (left) | deg | -0.1567 | -2.1766 | -0.1567 | 2.0199 |
-| Camber (right) | deg | 0.1605 | 0.1605 | 3.2710 | 3.1105 |
-| Caster (left) | deg | 9.0012 | 9.0012 | 9.0028 | 0.0016 |
-| Caster (right) | deg | 9.0012 | 9.0012 | 9.0018 | 0.0006 |
-| Toe (left) | deg | 0.9966 | 0.9966 | 15.4703 | 14.4737 |
-| Toe (right) | deg | -1.0022 | -17.1587 | -1.0022 | 16.1565 |
-| Scrub radius (signed lateral) | mm | 0.024 | 0.024 | 0.282 | 0.258 |
-| Half track | mm | 480.771 | 480.771 | 487.422 | 6.651 |
-| Track change | mm | -0.040 | -10.704 | -0.040 | 10.664 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4712 | 1.4503 | 1.4712 | 0.0208 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.6797 | 0.6797 | 0.6895 | 0.0098 |
-| Roll-centre height | mm | 8.792 | -13697.101 | 3705.932 | 17403.033 |
-| Roll-centre lateral position | mm | -101.606 | -122745.917 | 32093.394 | 154839.311 |
-| Body roll | deg | 0.1549 | 0.1549 | 2.6590 | 2.5041 |
-| Rack displacement | mm | 1.454 | 1.454 | 23.324 | 21.869 |
-| Ackermann | % | - | 77.90 | 87.97 | 10.07 |
-| Steering ratio (rack) | deg/mm | 0.6846 | 0.6596 | 0.6846 | 0.0250 |
+| Road camber (outer) | deg | -0.0293 | -0.1268 | -0.0065 | 0.1204 |
+| Road camber (inner) | deg | 0.0335 | 0.0335 | 1.3141 | 1.2807 |
+| Camber (left) | deg | -0.1573 | -2.2540 | -0.1573 | 2.0967 |
+| Camber (right) | deg | 0.1615 | 0.1615 | 3.6332 | 3.4717 |
+| Caster (left) | deg | 9.0001 | 9.0001 | 9.0014 | 0.0013 |
+| Caster (right) | deg | 9.0001 | 9.0000 | 9.0001 | 0.0001 |
+| Toe (left) | deg | 0.9960 | 0.9960 | 16.2745 | 15.2786 |
+| Toe (right) | deg | -1.0028 | -18.5579 | -1.0028 | 17.5550 |
+| Scrub radius (signed lateral) | mm | 0.025 | 0.025 | 0.313 | 0.288 |
+| Half track | mm | 480.813 | 480.813 | 489.079 | 8.266 |
+| Track change | mm | -0.038 | -11.278 | -0.038 | 11.240 |
+| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.4268 | 1.4031 | 1.4268 | 0.0237 |
+| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.7009 | 0.7009 | 0.7127 | 0.0118 |
+| Roll-centre height | mm | 32.563 | 0.770 | 32.563 | 31.793 |
+| Roll-centre lateral position | mm | -16.000 | -333.936 | -16.000 | 317.936 |
+| Body roll | deg | 0.1280 | 0.1280 | 2.2506 | 2.1225 |
+| Rack displacement | mm | 1.221 | 1.221 | 20.808 | 19.587 |
+| Ackermann | % | - | 94.84 | 107.18 | 12.34 |
+| Steering ratio (rack) | deg/mm | 0.8138 | 0.7739 | 0.8138 | 0.0399 |
 
 Plots: `plots/10_steady_corner.png`
 
@@ -236,10 +236,10 @@ Required angle is the worst value anywhere in this sweep set, not per sweep, and
 
 | joint | part | required (deg) | at | required (locked) (deg) | locked clocking (deg) | install offset (deg) | best available (deg) | clocking (deg) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| LBJ | spherical | 20.13 | `06_steer_droop` step 64 | - | - | 0.00 | 19.01 | - |
-| UBJ | spherical | - | - | - | - | - | 21.51 | - |
-| Outer Tie Rod End | rod_end | - | - | - | - | - | 22.03 | - |
-| Inner Tie Rod End | rod_end | 5.70 | `04_steer_design` step 0 | 5.73 | 269.5 | 0.82 | 2.79 | - |
+| LBJ | spherical | 16.39 | `06_steer_droop` step 64 | - | - | 0.00 | 15.46 | - |
+| UBJ | spherical | - | - | - | - | - | 18.08 | - |
+| Outer Tie Rod End | rod_end | - | - | - | - | - | 18.73 | - |
+| Inner Tie Rod End | rod_end | 13.32 | `06_steer_droop` step 0 | 13.60 | 269.1 | 8.71 | 2.63 | - |
 
 ## Plots
 

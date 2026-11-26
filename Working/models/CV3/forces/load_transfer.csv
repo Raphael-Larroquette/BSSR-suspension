@@ -2,10 +2,10 @@
 # frame: vehicle (ISO 8855: X forward, Y left, Z up)
 # units: N, N-mm | sign: force acting ON the named part AT that joint
 # mass: 290.8348 kg | g: 9.80665 | wheelbase: 2285.0 mm
-# worst condition number: 6.768e+02
+# worst condition number: 6.757e+02
 # Chassis blocks: force ON the chassis at each chassis hardpoint (the negative of the part-side load). They do not sum to zero. The steering rack is excluded: its load (Track Rod, trackrod_inboard) reaches the chassis through rack mounts not modelled here.
 # config: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\forces.yaml sha256=5542bcbdc591e9cdc4c12a441c4f13cd4c1e19e20a7bfbeb9980d4ee1357e374
-# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\front.yaml sha256=6e8a91b79793eb806058d6397586569a479170d6f3230d4c0bb805c67b82d7e5
+# front: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\front.yaml sha256=eb712519625aaa5ac7b24605a8fabe6b0bdc09b7f51ee4a0067f1a1f14c970be
 # rear: C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\rear.yaml sha256=2b47c20c5dfe9efcd67b4c5547a40a573be8b6233000e40957e80dd99d4f3ed5
 # cases: C:\Users\General\Desktop\BSSR-suspension\Working\cases.csv sha256=c4f6df1df5faa9df6b614056029fa1be98086524e8947b25ba273ae9a6db2b4c
 # normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g

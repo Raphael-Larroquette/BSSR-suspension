@@ -51,8 +51,8 @@ CHASSIS_OFFSET_SPAN = CHASSIS_OFFSET_MAX - CHASSIS_OFFSET_MIN
 # Search size.
 # NSGA-III reference directions by objective count (opt/problem.py): 4 -> 165,
 # 5 -> 210. Keep the population at or above that; 1320 covers 5 objectives.
-POPULATION_SIZE = 1320   # max workers is 60 on python in windows
-GENERATIONS = 150
+POPULATION_SIZE = 2640   # max workers is 60 on python in windows
+GENERATIONS = 120
 
 # Worker processes. None = one per logical CPU (128 on the 64-core machine).
 # Windows caps one process pool at 60 workers, so they are split into as few

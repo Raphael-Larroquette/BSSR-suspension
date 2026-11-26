@@ -149,8 +149,8 @@ sweeps:
     corner:
       mode: full                  # full: iterate the solved geometry | fast: roll-centre closed form
       turn: right                 # right: left wheel is outer
-      speed: 6.2832 #5.871 #                  # m/s at the CG, constant. PLACEHOLDER design case
-      radius: [131, 8]  #7.5      # m, CG path, start -> end; stepped evenly in 1/R
+      speed: 5.871 #6.2832 #                  # m/s at the CG, constant. PLACEHOLDER design case
+      radius: [131, 7.5]  #8    # m, CG path, start -> end; stepped evenly in 1/R
       steps: 33
       rack_limit: 35              # mm, |rack| the steer table covers
       roll_gravity: true          # CG lateral shift with roll adds to load transfer

@@ -1,6 +1,6 @@
 type: double_wishbone
 scope: axle
-name: "CV2"
+name: "opt_2026-11-23_2035 pareto3"
 version: "1.0.1"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
@@ -32,18 +32,18 @@ axle_config:
 hardpoints:
   left:
   # Lower wishbone.
-    lower_wishbone_inboard_front: {x: 65, y: 300.461, z: 135.285}
-    lower_wishbone_inboard_rear: {x: -110, y: 300.461, z: 135.285}
-    lower_wishbone_outboard: {x: 23.166, y: 456.263, z: 132.276}
+    lower_wishbone_inboard_front: {x: 90, y: 265.487, z: 144.815}
+    lower_wishbone_inboard_rear: {x: -100, y: 265.487, z: 144.815}
+    lower_wishbone_outboard: {x: 23.145, y: 456.026, z: 132.369}
 
   # Upper wishbone.
-    upper_wishbone_inboard_front: {x: 0, y: 265.272, z: 458.999}
-    upper_wishbone_inboard_rear: {x: -130, y: 265.272, z: 458.999}
-    upper_wishbone_outboard: {x: -28.210, y: 398.061, z: 456.608}
+    upper_wishbone_inboard_front: {x: 30, y: 229.603, z: 487.845}
+    upper_wishbone_inboard_rear: {x: -120, y: 229.603, z: 487.845}
+    upper_wishbone_outboard: {x: -31.647, y: 393.372, z: 478.308}
 
   # Track rod (inner / outer steering rod ends).
-    trackrod_inboard: {x: -126.121, y: 231.008, z: 535.837}
-    trackrod_outboard: {x: -124.169, y: 367.26, z: 533.524}
+    trackrod_inboard: {x: -138.615, y: 210.782, z: 550.99}
+    trackrod_outboard: {x: -114.127, y: 370.451, z: 541.943}
 
   # Axle axis. axle_outboard is where the axis meets the hub mounting face;
   # axle_inboard is any second point on the same axis, ~100-200 mm inboard.
@@ -51,8 +51,8 @@ hardpoints:
     axle_outboard: {x: 0.0, y: 503.737, z: 278.5}
 
   # Outboard coilover: bottom mount on the LCA, top mount on the chassis.
-    strut_bottom: {x: -5, y: 403.632, z: 162.182}
-    strut_top: {x: -5, y: 306.864, z: 406.723}
+    strut_bottom: {x: 0, y: 401.809, z: 164.763}
+    strut_top: {x: 0, y: 281.003, z: 454.144}
   # No `right:` block, so the left corner is mirrored through Y = 0.
 
 
