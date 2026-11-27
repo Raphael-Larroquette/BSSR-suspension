@@ -1,5 +1,5 @@
 # Key reference and assumptions: ../FORCES.md
-version: "0.1.0"
+version: "3.0.0"
 
 vehicle: #From gen13 mass budget as of 11/20/2026 at 20:14 on tab B13 V3
   mass: 290.8348   

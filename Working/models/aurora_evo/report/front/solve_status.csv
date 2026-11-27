@@ -1,2 +1,9 @@
 sweep,status,steps,where,reason
-10_steady_corner,ok,33/33,,
+01_bump_parallel,ok,65/65,,
+02_roll,ok,65/65,,
+04_steer_design,ok,65/65,,
+05_steer_bump,ok,65/65,,
+06_steer_droop,ok,65/65,,
+08_damper_stroke,ok,65/65,,
+09_steer_in_roll,ok,65/65,,
+10_steady_corner,warn,33/33,,"full mode did not converge in 25 iterations (last change: travel 0.1068 mm, rack 0.0756 mm). (+6 more)"

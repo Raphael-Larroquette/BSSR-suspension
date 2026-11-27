@@ -42,7 +42,7 @@ sweeps:
 
   # Usable wheel travel for this damper stroke.
   02_damper_stroke:
-    run: true
+    run: false
     report: true
     plots: [motion_ratio, install_ratio]
     gif: true

@@ -7,7 +7,7 @@
 # config: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\forces.yaml sha256=a706561e471d0a2b45c9df840a81bd778fdd36ece9f328a45521a51c162961d7
 # front: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\front.yaml sha256=c138d1e9fd6404ba891e5d06f7490c55061d22af7835404ab9ecf91797ef7ccd
 # rear: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\aurora_evo\rear.yaml sha256=b9bec0def418f070f87c122e84305e3dd1a89d1091caa7b602b40f24402bbef5
-# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=f6058e4244a42c70362c0c9143bf8c5b021ccb4fb3281a7d2113baae78c6a75e
+# cases: C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\cases.csv sha256=c4f6df1df5faa9df6b614056029fa1be98086524e8947b25ba273ae9a6db2b4c
 # normal_load_N is the vertical force the road applies to that tyre; effective_mass_kg is that force divided by g
 # transfer_from_baseline_N is measured against the same case with brake and corner set to zero, so a pure bump case reads zero
 #
@@ -33,3 +33,6 @@ bump,brake,corner,wheel,normal_load_N,effective_mass_kg,percent_of_case,percent_
 4,1,0,front_left,4116.879,419.8048,35.6371,142.5483,249.237,
 4,1,0,front_right,4344.591,443.025,37.6082,150.4329,249.237,
 4,1,0,rear,3090.764,315.1702,26.7547,107.0188,-498.474,
+1,0,0,front_left,966.91,98.5974,33.4796,33.4796,0.0,
+1,0,0,front_right,1023.838,104.4025,35.4508,35.4508,0.0,
+1,0,0,rear,897.309,91.5001,31.0696,31.0696,0.0,

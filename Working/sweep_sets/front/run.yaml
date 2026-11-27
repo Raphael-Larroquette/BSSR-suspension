@@ -42,7 +42,7 @@ sweeps:
     rack: [0, 0]
 
   02_roll:
-    run: true
+    run: false
     report: true
     plots: all
     gif: true
@@ -68,12 +68,12 @@ sweeps:
     run: true
     report: true
     plots: all
-    gif: false
+    gif: true
     steps: 65
     travel:
       left: [0, 0]
       right: [0, 0]
-    rack: [-28, 30]
+    rack: [-28, 28]
 
   05_steer_bump:
     run: true
@@ -84,7 +84,7 @@ sweeps:
     travel:
       left: [50.8, 50.8]
       right: [50.8, 50.8]
-    rack: [-28, 32]
+    rack: [-28, 28]
 
   06_steer_droop:
     run: true
@@ -95,7 +95,7 @@ sweeps:
     travel:
       left: [-50.8, -50.8]
       right: [-50.8, -50.8]
-    rack: [-27, 29]
+    rack: [-28, 28]
 
   # Off: only adds the bump-steer curve shape while steered.
   07_bump_at_steer:
@@ -107,11 +107,11 @@ sweeps:
     travel:
       left: [-50.8, 50.8]
       right: [-50.8, 50.8]
-    rack: [20, 20]
+    rack: [28, 28]
 
   # Usable wheel travel for this damper stroke; set the travel ranges from it.
   08_damper_stroke:
-    run: true
+    run: false
     report: [damper_length, wheel_travel_lr, motion_ratio, install_ratio]
     plots: [motion_ratio, install_ratio]
     gif: false
@@ -123,7 +123,7 @@ sweeps:
 
   # Right turn (rack +y): the left wheel is outer, in bump.
   09_steer_in_roll:
-    run: true
+    run: false
     report: true
     plots: all
     gif: true
@@ -131,7 +131,7 @@ sweeps:
     travel:
       left: [25, 25]
       right: [-25, -25]
-    rack: [0, 32]
+    rack: [0, 28]
 
   # Quasi-static steady-state corner (Working/sweep_sets/corner.py; keys and
   # assumptions in docs/reference/sweeps.md). For each step of a curvature ramp
@@ -149,7 +149,7 @@ sweeps:
     corner:
       mode: full                  # full: iterate the solved geometry | fast: roll-centre closed form
       turn: right                 # right: left wheel is outer
-      speed: 6.2832 #5.871 #                  # m/s at the CG, constant. PLACEHOLDER design case
+      speed: 6.2832 #5.871                  # m/s at the CG, constant. PLACEHOLDER design case
       radius: [131, 8]  #7.5      # m, CG path, start -> end; stepped evenly in 1/R
       steps: 33
       rack_limit: 35              # mm, |rack| the steer table covers

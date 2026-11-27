@@ -5,21 +5,19 @@
 | sweep | status | steps | where it stopped | reason |
 | --- | --- | --- | --- | --- |
 | `01_bump` | ok | 41/41 | - | - |
-| `02_damper_stroke` | ok | 41/41 | - | - |
 
 ## Provenance
 
-- geometry: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\rear.yaml`
-- geometry SHA-256: `2b47c20c5dfe9efc...`
+- geometry: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\rear.yaml`
+- geometry SHA-256: `6fca5ef19e4c8a06...`
 - format version: 3
-- run configuration: `C:\Users\General\Desktop\BSSR-suspension\Working\models\CV3\report\rear\_resolved_run.json`
+- run configuration: `C:\Users\rapha\Documents\BSSR\Suspension_App\BSSR-suspension\Working\models\CV3\report\rear\_resolved_run.json`
 
 ## Sweeps
 
 | file | kind | steps | converged | max residual | notes |
 | --- | --- | --- | --- | --- | --- |
 | `01_bump` | heave | 41 | True | 2.84e-13 | - |
-| `02_damper_stroke` | damper_stroke | 41 | True | 5.68e-13 | Driven by damper length, so the wrt_hub_z analytic derivatives are absent. Gradients here are finite-differenced by this parser. |
 
 ## Notes
 
@@ -48,21 +46,9 @@ Conventions and formulas: `docs/reference/characteristics.md`. What is specific 
 | SVSA length | mm | 380.000 | 376.589 | 380.000 | 3.411 |
 | SVSA angle | deg | 36.2375 | 31.1587 | 41.1674 | 10.0086 |
 | Anti-squat | % | 483.69 | - | - | - |
-| Anti-lift | % | 145.11 | - | - | - |
+| Anti-lift | % | 96.74 | - | - | - |
 
 Plots: `plots/01_bump.png`
-
-## 02_damper_stroke  (damper_stroke)
-
-| characteristic | unit | at design | min | max | range |
-| --- | --- | --- | --- | --- | --- |
-| Damper length | mm | 335.280 | 305.280 | 365.280 | 60.000 |
-| Wheel travel | mm | 0.000 | -53.310 | 50.601 | 103.911 |
-| Motion ratio, instantaneous (wheel/damper) | mm/mm | 1.7335 | 1.6408 | 1.8165 | 0.1757 |
-| Installation ratio, instantaneous (damper/wheel) | mm/mm | 0.5769 | 0.5505 | 0.6094 | 0.0589 |
-| Shock transmission angle (90 square, 0 toggle) | deg | 51.3402 | 47.4782 | 54.9729 | 7.4947 |
-
-Plots: `plots/02_damper_stroke.png`
 
 ## 01_bump: joint forces along travel
 
@@ -82,5 +68,4 @@ Plot: `plots/01_bump_forces.png`
 ## Plots
 
 - `plots/01_bump.png`
-- `plots/02_damper_stroke.png`
 - `plots/01_bump_forces.png`

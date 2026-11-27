@@ -1,7 +1,7 @@
 type: trailing_arm
 side: center
-name: "Temp CV2 rear"
-version: "1.0.0"   # major = functional release, minor = new feature, patch = fix
+name: "Temp CV3 rear"
+version: "3.0.0"   # major = functional release, minor = new feature, patch = fix
 units: millimeters
 
 spring:
@@ -22,7 +22,7 @@ config:
   axle_position: rear
   driven_axle: rear
   drive_torque_reaction: unsprung   # hub motor
-  front_brake_bias: 0.7             # NOT CONFIRMED
+  front_brake_bias: 0.8             # NOT CONFIRMED, but only affects rear anti values
 
 # Centreline arm: it carries the axle directly, so axle_inboard IS the moving arm
 # point and trailing_arm_outboard must not be authored. Pivot axis must be transverse.
